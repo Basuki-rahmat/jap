@@ -1,0 +1,44 @@
+<%
+  const _brandTab = typeof brandName !== 'undefined' && brandName ? brandName : 'BSS';
+  const _rawTitle = typeof title !== 'undefined' && title ? title : _brandTab;
+  // Ekor judul tab browser mengikuti Pengaturan:
+  // sufiks lama (- Sewa Lahan BSS / - BSS / - JAP) diganti nama usaha singkat.
+  const ogTitle = (typeof pageTitle !== 'undefined' && pageTitle ? pageTitle : _rawTitle).replace(/ - (Sewa Lahan BSS|BSS|JAP)$/, ' - ' + _brandTab);
+  const _envUrl = (process.env.APP_URL || '').trim().replace(/\/+$/, '');
+  const _envBase = (!_envUrl || /localhost/.test(_envUrl)) ? '' : _envUrl;
+  const baseUrl = ((typeof APP_URL !== 'undefined' && APP_URL) || _envBase || 'http://localhost:3000').trim().replace(/\/+$/, '');
+  const ogUrl = baseUrl.trim().replace(/\/+$/, '');
+%>
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= ogTitle %></title>
+  <meta name="description" content="Land Leasing & Referral Marketing Platform" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="<%= ogTitle %>" />
+  <meta property="og:description" content="Sewa lahan kecil Anda untuk Battery Swap Station — penghasilan tahunan untuk pemilik lahan." />
+  <meta property="og:image" content="<%= ogUrl %>/img/og-cover.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:type" content="image/jpeg" />
+  <meta property="og:url" content="<%= ogUrl %><%= currentPath || '/' %>" />
+  <meta property="og:site_name" content="Sewa Lahan BSS" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="<%= ogUrl %>/img/og-cover.jpg" />
+  <link rel="icon" type="image/png" href="/favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="/css/style.css" />
+  <% if (typeof withMap !== 'undefined' && withMap) { %>
+    <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
+    <link rel="stylesheet" href="/vendor/leaflet/Control.FullScreen.css" />
+  <% } %>
+  <script src="/js/theme.js"></script>
+</head>
+<body>

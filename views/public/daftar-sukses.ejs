@@ -1,0 +1,32 @@
+<%- include('../partials/head', { title: 'Pendaftaran Terkirim - BSS' }) %>
+<%- include('../partials/navbar') %>
+
+<main>
+  <section class="section">
+    <div class="container">
+      <div class="card text-center" style="max-width:560px;margin:0 auto;padding:36px 28px;">
+        <div style="font-size:3rem;line-height:1;">📩</div>
+        <h2 style="margin:14px 0 8px;">Pendaftaran Terkirim!</h2>
+        <p style="color:var(--text-muted);font-size:.92rem;line-height:1.7;">
+          Kami mengirim <strong>link verifikasi</strong> ke<br />
+          <strong><%= email %></strong>
+        </p>
+        <ol style="text-align:left;font-size:.88rem;line-height:1.9;margin:18px auto;max-width:420px;padding-left:22px;">
+          <li>Buka inbox (cek juga folder <strong>spam/promosi</strong>).</li>
+          <li>Klik <strong>"Verifikasi Email Saya"</strong> (berlaku 24 jam).</li>
+          <li>Tunggu <strong>persetujuan admin</strong> — dikabari via email.</li>
+        </ol>
+        <p class="form-hint">Referral Anda: <code><%= refCode %></code></p>
+        <hr style="border:none;border-top:1px solid var(--card-border);margin:18px 0;" />
+        <p style="font-size:.85rem;font-weight:700;">Tidak menerima email?</p>
+        <form action="/daftar-marketing/kirim-ulang" method="POST" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+          <input type="hidden" name="email" value="<%= email %>" />
+          <button type="submit" class="btn btn-outline">🔄 Kirim Ulang Link</button>
+          <a href="/panduan" class="btn btn-accent" style="text-decoration:none;">📘 Baca Panduan</a>
+        </form>
+      </div>
+    </div>
+  </section>
+</main>
+
+<%- include('../partials/foot') %>

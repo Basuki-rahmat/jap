@@ -1,0 +1,12 @@
+node_modules
+.env
+.env.production
+*.log
+public/uploads/
+.idea/
+unduhan/
+logs/
+jap.zip
+dump-*.sql
+insert-tim-awal.sql
+

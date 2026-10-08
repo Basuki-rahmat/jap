@@ -1,0 +1,81 @@
+<nav class="navbar">
+  <div class="container navbar-inner">
+    <a href="/" class="brand">
+      <img src="<%= typeof brandLogo !== 'undefined' ? brandLogo : '/img/logo.png' %>" alt="<%= typeof brandName !== 'undefined' ? brandName : 'BSS' %> logo" class="logo-img" />
+      <span class="brand-text"><%= typeof brandName !== 'undefined' ? brandName : 'BSS' %></span>
+    </a>
+
+    <ul class="nav-menu">
+      <% if (typeof user !== 'undefined' && user && user.role === 'superadmin') { %>
+        <li><a href="/admin" class="nav-link <%= currentPath === '/admin' ? 'active' : '' %>">Dashboard</a></li>
+        <li><a href="/admin/marketing" class="nav-link <%= currentPath === '/admin/marketing' ? 'active' : '' %>">Marketing</a></li>
+        <li><a href="/admin/lands" class="nav-link <%= currentPath === '/admin/lands' ? 'active' : '' %>">Pengajuan Lahan</a></li>
+        <li><a href="/admin/notifikasi" class="nav-link <%= currentPath === '/admin/notifikasi' ? 'active' : '' %>">Notifikasi</a></li>
+        <li><a href="/admin/mail-log" class="nav-link <%= currentPath === '/admin/mail-log' ? 'active' : '' %>">Email</a></li>
+        <li><a href="/admin/settings" class="nav-link <%= currentPath === '/admin/settings' ? 'active' : '' %>">Pengaturan</a></li>
+      <% } else { %>
+        <li><a href="/marketing" class="nav-link <%= currentPath === '/marketing' ? 'active' : '' %>">Dashboard</a></li>
+        <li><a href="/marketing/jaringan" class="nav-link <%= currentPath === '/marketing/jaringan' ? 'active' : '' %>">Jaringan</a></li>
+        <li><a href="/marketing/id-card" class="nav-link <%= currentPath === '/marketing/id-card' ? 'active' : '' %>">ID Card</a></li>
+        <li><a href="/marketing/surat-tugas" class="nav-link <%= currentPath === '/marketing/surat-tugas' ? 'active' : '' %>">Surat Tugas</a></li>
+        <% if (typeof user !== 'undefined' && user && Number(user.is_head) === 1) { %>
+          <li><a href="/marketing/tambah" class="nav-link <%= currentPath === '/marketing/tambah' ? 'active' : '' %>">＋ Tambah</a></li>
+        <% } %>
+        <li><a href="/marketing/profil" class="nav-link <%= currentPath === '/marketing/profil' ? 'active' : '' %>">Profil</a></li>
+        <li><a href="/marketing/password" class="nav-link <%= currentPath === '/marketing/password' ? 'active' : '' %>">Password</a></li>
+      <% } %>
+    </ul>
+
+    <div class="nav-actions">
+      <span class="role-badge"><%= (typeof user !== 'undefined' && user && user.role === 'superadmin') ? 'Admin' : ((typeof user !== 'undefined' && user && user.is_head) ? 'Head Marketing' : 'Marketing') %></span>
+      <%- include('notifBell') %>
+      <button type="button" class="theme-toggle" id="themeToggle" aria-label="Ganti tema">🌙</button>
+      <button type="button" class="nav-toggle" id="navToggle" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<div class="drawer-backdrop" id="drawerBackdrop"></div>
+<aside class="drawer" id="drawer" aria-label="Menu samping">
+  <div class="drawer-head">
+    <a href="/" class="brand">
+      <img src="<%= typeof brandLogo !== 'undefined' ? brandLogo : '/img/logo.png' %>" alt="<%= typeof brandName !== 'undefined' ? brandName : 'BSS' %> logo" class="logo-img" />
+      <span class="brand-text"><%= typeof brandName !== 'undefined' ? brandName : 'BSS' %></span>
+    </a>
+    <button type="button" class="drawer-close" id="drawerClose" aria-label="Tutup menu">✕</button>
+  </div>
+
+  <nav class="drawer-nav">
+    <a href="/" class="drawer-link">Beranda</a>
+    <a href="/panduan" class="drawer-link">Panduan</a>
+    <div class="drawer-divider"></div>
+    <% if (typeof user !== 'undefined' && user && user.role === 'superadmin') { %>
+      <a href="/admin" class="drawer-link <%= currentPath === '/admin' ? 'active' : '' %>">Dashboard</a>
+      <a href="/admin/marketing" class="drawer-link <%= currentPath === '/admin/marketing' ? 'active' : '' %>">Marketing</a>
+      <a href="/admin/lands" class="drawer-link <%= currentPath === '/admin/lands' ? 'active' : '' %>">Pengajuan Lahan</a>
+      <a href="/admin/notifikasi" class="drawer-link <%= currentPath === '/admin/notifikasi' ? 'active' : '' %>">Kirim Notifikasi</a>
+      <a href="/admin/mail-log" class="drawer-link <%= currentPath === '/admin/mail-log' ? 'active' : '' %>">Diagnostik Email</a>
+      <a href="/notifikasi" class="drawer-link <%= currentPath === '/notifikasi' ? 'active' : '' %>">Notifikasi Saya</a>
+      <a href="/admin/settings" class="drawer-link <%= currentPath === '/admin/settings' ? 'active' : '' %>">Pengaturan</a>
+    <% } else { %>
+      <a href="/marketing" class="drawer-link <%= currentPath === '/marketing' ? 'active' : '' %>">Dashboard</a>
+      <a href="/marketing/jaringan" class="drawer-link <%= currentPath === '/marketing/jaringan' ? 'active' : '' %>">Jaringan Saya</a>
+      <a href="/marketing/id-card" class="drawer-link <%= currentPath === '/marketing/id-card' ? 'active' : '' %>">ID Card Saya</a>
+      <a href="/marketing/surat-tugas" class="drawer-link <%= currentPath === '/marketing/surat-tugas' ? 'active' : '' %>">Surat Tugas Saya</a>
+      <a href="/notifikasi" class="drawer-link <%= currentPath === '/notifikasi' ? 'active' : '' %>">Notifikasi Saya</a>
+      <% if (typeof user !== 'undefined' && user && Number(user.is_head) === 1) { %>
+        <a href="/marketing/tambah" class="drawer-link <%= currentPath === '/marketing/tambah' ? 'active' : '' %>">＋ Tambah Downline</a>
+      <% } %>
+      <a href="/marketing/profil" class="drawer-link <%= currentPath === '/marketing/profil' ? 'active' : '' %>">Profil Saya</a>
+      <a href="/marketing/password" class="drawer-link <%= currentPath === '/marketing/password' ? 'active' : '' %>">Ganti Password</a>
+    <% } %>
+  </nav>
+
+  <div class="drawer-footer">
+    <form action="/logout" method="POST">
+      <button type="submit" class="btn btn-outline btn-block">Logout</button>
+    </form>
+  </div>
+</aside>

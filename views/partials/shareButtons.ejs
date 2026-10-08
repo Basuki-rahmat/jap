@@ -1,0 +1,54 @@
+<%
+  var _su = typeof shareUrl !== 'undefined' ? shareUrl : '';
+  var _st = typeof shareText !== 'undefined' ? shareText : 'Ajukan lahan BSS lewat link ini:';
+  var _eu = encodeURIComponent(_su);
+  var _et = encodeURIComponent(_st);
+%>
+<div class="share-medsos">
+  <span class="share-lbl">Bagikan:</span>
+  <a class="share-btn wa" href="https://wa.me/?text=<%= _et %>%20<%= _eu %>" target="_blank" rel="noopener" title="Bagikan via WhatsApp" aria-label="Bagikan via WhatsApp">💬</a>
+  <a class="share-btn fb" href="https://www.facebook.com/sharer/sharer.php?u=<%= _eu %>" target="_blank" rel="noopener" title="Bagikan via Facebook" aria-label="Bagikan via Facebook">f</a>
+  <a class="share-btn tg" href="https://t.me/share/url?url=<%= _eu %>&text=<%= _et %>" target="_blank" rel="noopener" title="Bagikan via Telegram" aria-label="Bagikan via Telegram">✈</a>
+  <a class="share-btn x" href="https://twitter.com/intent/tweet?url=<%= _eu %>&text=<%= _et %>" target="_blank" rel="noopener" title="Bagikan via X" aria-label="Bagikan via X">X</a>
+  <button type="button" class="share-btn native" data-share-url="<%= _su %>" data-share-text="<%= _st %>" title="Bagikan via aplikasi lain" aria-label="Bagikan via aplikasi lain" hidden>📤</button>
+</div>
+<script>
+  (function () {
+    // Tombol salin global (sekali bind per tombol) — menghidupkan .btn-copy di semua halaman
+    document.querySelectorAll('.btn-copy:not([data-bound])').forEach(function (btn) {
+      btn.setAttribute('data-bound', '1');
+      btn.addEventListener('click', function () {
+        var text = btn.getAttribute('data-copy') || '';
+        function done() {
+          var old = btn.textContent;
+          btn.textContent = 'Tersalin ✓';
+          setTimeout(function () { btn.textContent = old; }, 1500);
+        }
+        function fallback() {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand('copy'); } catch (e) {}
+          document.body.removeChild(ta);
+          done();
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
+        else fallback();
+      });
+    });
+    // Aktifkan tombol share bawaan HP (Web Share API) bila tersedia; cegah binding ganda
+    if (!navigator.share) return;
+    document.querySelectorAll('.share-btn.native:not([data-bound])').forEach(function (b) {
+      b.setAttribute('data-bound', '1');
+      b.hidden = false;
+      b.addEventListener('click', function () {
+        var d = { title: document.title, text: b.getAttribute('data-share-text') || '', url: b.getAttribute('data-share-url') || window.location.href };
+        try {
+          var p = navigator.share(d);
+          if (p && p.catch) p.catch(function () {});
+        } catch (e) {}
+      });
+    });
+  })();
+</script>

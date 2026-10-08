@@ -1,0 +1,1280 @@
+<%- include('../partials/head', { title: 'Ajukan Lahan - BSS', withMap: true }) %>
+<%- include('../partials/navbar') %>
+<link rel="stylesheet" href="/css/photo-picker.css" />
+
+<style>
+  .wizard { max-width: 560px; margin: 0 auto 18px; }
+  .wizard-steps { display: flex; list-style: none; gap: 4px; padding: 0; margin: 0 0 10px; }
+  .wizard-steps li { flex: 1; display: flex; align-items: center; gap: 7px; padding: 8px 6px; border-radius: 10px; font-size: .78rem; font-weight: 600; color: var(--muted, #888); background: transparent; border: 1px solid transparent; }
+  .wizard-steps li .ws-num { width: 24px; height: 24px; flex: 0 0 24px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--bg-soft); border: 1px solid var(--card-border); font-size: .78rem; }
+  .wizard-steps li.done { color: var(--primary); }
+  .wizard-steps li.done .ws-num { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .wizard-steps li.current { color: var(--text); background: var(--card); border-color: var(--card-border); }
+  .wizard-steps li.current .ws-num { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .wizard-progress { height: 6px; border-radius: 99px; background: var(--bg-soft); border: 1px solid var(--card-border); overflow: hidden; }
+  .wizard-progress-bar { height: 100%; width: 25%; background: var(--primary); border-radius: 99px; transition: width .25s ease; }
+  .wizard-step { display: none; }
+  .wizard-step.active { display: block; animation: wizIn .22s ease; }
+  @keyframes wizIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .wizard-nav { display: flex; gap: 10px; margin-top: 20px; }
+  .wizard-nav .spacer { flex: 1; }
+  .draft-note { font-size: .78rem; color: var(--muted, #888); margin-top: 12px; text-align: center; }
+  .draft-note button { background: none; border: none; color: var(--primary); cursor: pointer; font-size: .78rem; text-decoration: underline; padding: 0; }
+  /* Status jaringan + antrean offline */
+  .netbar, .outbox { max-width: 560px; margin: 0 auto 12px; box-sizing: border-box; border-radius: 12px; font-size: .8rem; }
+  .netbar { padding: 9px 14px; border: 1px solid var(--card-border); background: var(--card); }
+  .netbar.online { border-color: rgba(34,181,115,.4); }
+  .netbar.offline { border-color: rgba(224,82,82,.5); background: rgba(224,82,82,.07); }
+  .netbar[hidden], .outbox[hidden] { display: none; }
+  .outbox { border: 1px solid var(--card-border); background: var(--card); padding: 10px 12px; display: grid; gap: 8px; }
+  .outbox-head { display: flex; align-items: center; gap: 8px; font-size: .8rem; }
+  .outbox-list { display: grid; gap: 6px; }
+  .outbox-item { display: flex; align-items: center; gap: 8px; font-size: .78rem; background: var(--bg-soft); border: 1px solid var(--card-border); border-radius: 10px; padding: 7px 10px; }
+  .outbox-item .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .outbox-del { border: none; background: rgba(0,0,0,.08); border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: .7rem; flex-shrink: 0; }
+  /* Pencarian alamat pada peta */
+  .map-search-wrap { position: relative; margin-bottom: 8px; }
+  .map-suggest { position: absolute; top: 100%; left: 0; right: 0; z-index: 500; background: var(--card); border: 1px solid var(--card-border); border-radius: 10px; margin-top: 4px; box-shadow: var(--shadow); max-height: 220px; overflow-y: auto; }
+  .map-suggest[hidden] { display: none; }
+  .map-suggest-item { display: block; width: 100%; text-align: left; background: none; border: none; border-bottom: 1px solid var(--card-border); padding: 9px 12px; font-size: .8rem; color: var(--text); cursor: pointer; font-family: inherit; }
+  .map-suggest-item:last-child { border-bottom: none; }
+  .map-suggest-item:hover { background: var(--bg-soft); }
+  /* Banner info di atas form */
+  .ajukan-banner { max-width: 560px; margin: 0 auto 18px; }
+  .ajukan-banner img { width: 100%; height: auto; display: block; border-radius: 12px; box-shadow: var(--shadow); border: 1px solid var(--card-border); }
+  .section .referral-note, .section .alert { max-width: 560px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
+  .section .referral-note { flex-wrap: wrap; overflow-wrap: anywhere; }
+  .linklike { background: none; border: none; color: var(--primary); cursor: pointer; font-size: inherit; text-decoration: underline; padding: 0; font-family: inherit; }
+  /* Pola referensi Japripay System.html */
+  .alert-danger { display: none; align-items: flex-start; gap: 8px; margin-top: 8px; padding: 10px 12px; border-radius: 10px; font-size: .78rem; font-weight: 600; color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; }
+  .alert-danger.show { display: flex; }
+  .coord-ok { border-color: #10b981 !important; }
+  .coord-bad { border-color: #f59e0b !important; }
+  .coord-err { border-color: #ef4444 !important; }
+  .maps-links-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+  .maps-links-row a { font-size: .72rem; font-weight: 800; text-transform: uppercase; }
+  .link-alt { color: #ef4444; }
+  .link-tutor { display: inline-flex; align-items: center; gap: 6px; background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 5px 10px; border-radius: 8px; text-decoration: none; }
+  /* Pilihan kartu radio: jenis unit BSS | EVCS + slot 1-4 */
+  .unit-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .unit-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px 8px; border: 2px solid var(--card-border); border-radius: 14px; cursor: pointer; text-align: center; transition: border-color .15s ease, background .15s ease, transform .1s ease; }
+  .unit-card:active { transform: scale(.98); }
+  .unit-card input { position: absolute; opacity: 0; pointer-events: none; }
+  .unit-card .unit-badge { font-size: 1.3rem; font-weight: 800; letter-spacing: 1px; color: var(--text); }
+  .unit-card .unit-desc { font-size: .72rem; color: var(--text-muted); }
+  .unit-card:has(input:checked) { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); box-shadow: var(--shadow); }
+  .unit-card:has(input:checked) .unit-badge { color: var(--primary); }
+  .unit-card:has(input:focus-visible) { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .slot-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .slot-col { border: 1px solid var(--card-border); border-radius: 12px; padding: 8px; opacity: .55; transition: opacity .15s ease, border-color .15s ease; }
+  .slot-col.active { opacity: 1; border-color: var(--primary); }
+  .slot-col-head { font-size: .72rem; font-weight: 800; letter-spacing: 1px; text-align: center; color: var(--text-muted); }
+  .slot-col.active .slot-col-head { color: var(--primary); }
+  .slot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+  .slot-card { position: relative; display: block; text-align: center; padding: 9px 4px; border: 1.5px solid var(--card-border); border-radius: 10px; font-size: .76rem; font-weight: 700; cursor: pointer; transition: background .12s ease, color .12s ease; }
+  .slot-card input { position: absolute; opacity: 0; pointer-events: none; }
+  .slot-card:has(input:checked) { background: var(--primary); border-color: var(--primary); color: #fff; }
+  @media (max-width: 560px) {
+    .wizard-steps li .ws-label { display: none; }
+    .wizard-steps li { justify-content: center; }
+  }
+</style>
+
+<main>
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Langkah Pertama Anda</span>
+        <h2>Formulir Pengajuan Lahan</h2>
+        <p>Isi data di bawah ini dengan lengkap dan benar.</p>
+      </div>
+
+      <% if (typeof referralCode !== 'undefined' && referralCode) { %>
+        <div class="referral-note">
+          🔗 Pengajuan terhubung dengan kode referral: <strong><%= referralCode %></strong>
+        </div>
+      <% } %>
+
+      <% if (typeof error !== 'undefined' && error) { %>
+        <div class="alert alert-error"><%= error %></div>
+      <% } %>
+
+      <div class="netbar" id="netBar" hidden></div>
+      <div class="outbox" id="outboxBar" hidden></div>
+
+      <div class="ajukan-banner">
+        <img src="/img/jabodetabek-map.jpg" alt="Sewa Lahan BSS x V-Green Jabodetabek" loading="lazy" decoding="async" />
+      </div>
+
+      <form class="form-card" id="ajukanForm" action="/submit-lahan" method="POST" enctype="multipart/form-data" novalidate>
+        <input type="hidden" name="referral_code" id="referral_code" value="<%= typeof referralCode !== 'undefined' ? referralCode : '' %>" />
+
+        <!-- Stepper -->
+        <div class="wizard">
+          <ol class="wizard-steps" id="wizardSteps">
+            <li data-step="1"><span class="ws-num">1</span><span class="ws-label">Data Pemilik</span></li>
+            <li data-step="2"><span class="ws-num">2</span><span class="ws-label">Detail Lahan</span></li>
+            <li data-step="3"><span class="ws-num">3</span><span class="ws-label">Titik Lokasi</span></li>
+            <li data-step="4"><span class="ws-num">4</span><span class="ws-label">Berkas</span></li>
+          </ol>
+          <div class="wizard-progress"><div class="wizard-progress-bar" id="wizardBar"></div></div>
+        </div>
+
+        <!-- TAHAP 1: Data pemilik -->
+        <section class="wizard-step" data-step="1">
+          <div class="form-divider" style="margin-top:0;">Tahap 1 — Data Pemilik</div>
+          <div class="form-group">
+            <label for="owner_name">Nama Pemilik Lahan</label>
+            <input class="form-control" type="text" id="owner_name" name="owner_name" required placeholder="Nama lengkap pemilik" />
+          </div>
+          <div class="grid-2-form">
+            <div class="form-group">
+              <label for="nik">No. NIK (16 digit sesuai KTP)</label>
+              <input class="form-control numeric-only" type="text" id="nik" name="nik" required inputmode="numeric" maxlength="16" pattern="[0-9]{16}" placeholder="Contoh: 3174xxxxxxxxxxxx" />
+            </div>
+            <div class="form-group">
+              <label for="ttl">Tempat, Tanggal Lahir</label>
+              <input class="form-control" type="text" id="ttl" name="ttl" required maxlength="100" placeholder="Contoh: Bali, 12 Jan 1990" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="phone_number">No. WhatsApp / Telepon</label>
+            <div class="input-group">
+              <span class="input-group-addon">+62</span>
+              <input class="form-control" type="tel" id="phone_number" name="phone_number" required placeholder="8xx xxxx xxxx" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="surat">Surat (boleh kosong)</label>
+            <input class="form-control" type="text" id="surat" name="surat" maxlength="255" placeholder="Contoh: SHM. No. 16866 / PBB-NOP : 089.088.099.168 (boleh kosong)" />
+          </div>
+          <div class="form-group">
+            <label for="address">Alamat Pemilik Lahan</label>
+            <input class="form-control" type="text" id="address" name="address" required placeholder="Alamat lengkap pemilik lahan (boleh beda dengan alamat lokasi)" />
+            <div class="map-action-row">
+              <button type="button" class="btn btn-outline" style="padding:8px 14px;font-size:.85rem;" id="btnGpsAddress">📍 Timpa dari GPS</button>
+            </div>
+            <div id="addrStatus" class="loc-status muted-text" style="margin-top:8px;">Ketik manual, atau tekan “Timpa dari GPS” untuk mengisi/menimpa otomatis dari lokasi HP.</div>
+          </div>
+          <div class="form-group">
+            <label for="bank_name">Nama Bank</label>
+            <select class="form-control" id="bank_name" name="bank_name" required>
+              <option value="">Pilih bank…</option>
+              <option value="BCA">BCA</option>
+              <option value="BRI">BRI</option>
+              <option value="Mandiri">Mandiri</option>
+              <option value="BNI">BNI</option>
+              <option value="BTN">BTN</option>
+              <option value="BSI">BSI</option>
+              <option value="CIMB Niaga">CIMB Niaga</option>
+              <option value="Danamon">Danamon</option>
+              <option value="Permata">Permata</option>
+              <option value="Panin">Panin</option>
+              <option value="OCBC">OCBC</option>
+              <option value="Maybank">Maybank</option>
+              <option value="Lainnya">Lainnya (tulis manual)</option>
+            </select>
+          </div>
+          <div class="form-group" id="bankOtherWrap" hidden>
+            <label for="bank_name_other">Nama Bank Lainnya</label>
+            <input class="form-control" type="text" id="bank_name_other" name="bank_name_other" maxlength="100" placeholder="Tulis nama bank" />
+          </div>
+          <div class="form-group">
+            <label for="account_number">No. Rekening</label>
+            <input class="form-control" type="text" id="account_number" name="account_number" required inputmode="numeric" maxlength="20" placeholder="6–20 digit angka" />
+            <p class="form-hint">Untuk pembayaran sewa/fee. Pastikan atas nama pemilik lahan.</p>
+          </div>
+          <div class="form-group">
+            <label for="area_size">Luas Lahan (m²)</label>
+            <input class="form-control" type="number" id="area_size" name="area_size" required min="0" step="any" inputmode="decimal" placeholder="Contoh: 500 atau 250.5" />
+            <p class="form-hint">Angka saja, gunakan titik untuk desimal (contoh: 250.5).</p>
+          </div>
+          <div class="wizard-nav">
+            <span class="spacer"></span>
+            <button type="button" class="btn btn-primary" data-next>Lanjut →</button>
+          </div>
+        </section>
+
+        <!-- TAHAP 2: Detail lahan -->
+        <section class="wizard-step" data-step="2">
+          <div class="form-divider" style="margin-top:0;">Tahap 2 — Detail Lahan</div>
+          <div class="form-group">
+            <label>Jenis Unit</label>
+            <div class="unit-pick" id="unitPick" role="group" aria-label="Jenis Unit">
+              <label class="unit-card">
+                <input type="checkbox" name="unit_type" value="bss_motor" checked />
+                <span class="unit-badge">BSS</span>
+                <span class="unit-desc">Motor • min. 1m × 1,5m</span>
+              </label>
+              <label class="unit-card">
+                <input type="checkbox" name="unit_type" value="evcs_mobil" />
+                <span class="unit-badge">EVCS</span>
+                <span class="unit-desc">Mobil • est. 3m × 6m</span>
+              </label>
+            </div>
+            <p class="form-hint">Boleh pilih <strong>salah satu atau keduanya</strong> sekaligus — tiap jenis unit dibuatkan pengajuan + slot sendiri. Punya 2+ titik? Kirim satu per satu — pilih slot di bawah, lalu klik <strong>＋ Ajukan Unit Lain</strong> di halaman sukses — data pemilik terisi otomatis.</p>
+          </div>
+          <div class="form-group">
+            <label>Slot Unit</label>
+            <div class="slot-cols">
+              <div class="slot-col" id="slotColBss">
+                <div class="slot-col-head">BSS 1–4</div>
+                <div class="slot-grid" id="slotGridBss"></div>
+              </div>
+              <div class="slot-col" id="slotColEvcs">
+                <div class="slot-col-head">EVCS 1–4</div>
+                <div class="slot-grid" id="slotGridEvcs"></div>
+              </div>
+            </div>
+            <p class="form-hint" id="slotHint">Pilih slot — jenis unit ikut menyesuaikan kolom yang dipilih.</p>
+          </div>
+          <div class="grid-2-form">
+            <div class="form-group">
+              <label for="harga_sewa_bss">Harga Sewa BSS (Rp / tahun)</label>
+              <input class="form-control numeric-only harga-dual" type="text" id="harga_sewa_bss" name="harga_sewa_bss" maxlength="15" inputmode="numeric" placeholder="Boleh kosong" />
+            </div>
+            <div class="form-group">
+              <label for="harga_sewa_evcs">Harga Sewa EVCS (Rp / tahun)</label>
+              <input class="form-control numeric-only harga-dual" type="text" id="harga_sewa_evcs" name="harga_sewa_evcs" maxlength="15" inputmode="numeric" placeholder="Boleh kosong" />
+            </div>
+          </div>
+          <p class="form-hint" id="hargaHint">Keduanya boleh kosong, nantinya diisi oleh admin. Ideal BSS 3-6 jt/thn.</p>
+          <div class="form-group">
+            <label for="shop_name">Nama Toko</label>
+            <input class="form-control" type="text" id="shop_name" name="shop_name" required maxlength="150" placeholder="Nama toko di lokasi" />
+            <div id="shopNameAlert" class="alert-danger">
+              <span>⚠️ Nama toko tidak boleh mengandung kata "RUMAH" (kecuali "Rumah Makan"), "RMH", atau "RM" (kecuali diikuti nama makanan seperti RM Padang). Juga tidak boleh mengandung kata "PRIBADI".</span>
+            </div>
+          </div>
+          <div class="grid-2-form">
+            <div class="form-group">
+              <label for="floor_ready">Lantai sudah rata / cor / keramik?</label>
+              <select class="form-control" id="floor_ready" name="floor_ready" required>
+                <option value="">Pilih…</option>
+                <option value="ya">Ya</option>
+                <option value="tidak">Tidak</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="has_canopy">Ada kanopi / seng?</label>
+              <select class="form-control" id="has_canopy" name="has_canopy" required>
+                <option value="">Pilih…</option>
+                <option value="ya">Ya</option>
+                <option value="tidak">Tidak</option>
+              </select>
+            </div>
+          </div>
+          <div class="wizard-nav">
+            <button type="button" class="btn btn-outline" data-prev>← Kembali</button>
+            <span class="spacer"></span>
+            <button type="button" class="btn btn-primary" data-next>Lanjut →</button>
+          </div>
+        </section>
+
+        <!-- TAHAP 3: Titik lokasi -->
+        <section class="wizard-step" data-step="3">
+          <div class="form-divider" style="margin-top:0;">Tahap 3 — Titik Lokasi</div>
+          <div class="form-group">
+            <label for="maps_link">Titik Koordinat Google Maps 📍</label>
+            <p class="form-hint">Ketik alamat pada kolom pencarian, atau klik <strong>"Gunakan Posisi Saya"</strong> (GPS), atau klik manual pada peta untuk menggeser pin — pin, koordinat, kota &amp; alamat terisi otomatis.</p>
+            <label for="input_lat_long" style="margin-top:6px;">Koordinat Lokasi (Latitude, Longitude)</label>
+            <input type="text" class="form-control" name="lat_long" id="input_lat_long" required placeholder="Contoh: -6.200000, 106.816666" autocomplete="off" />
+            <div class="maps-links-row">
+              <p id="error_msg" class="loc-status muted-text" style="margin:0;">* Masukkan angka dipisahkan koma</p>
+              
+            </div>
+            <div class="form-group" style="margin-top:12px;" hidden>
+              <input type="url" name="maps_url" id="manual_maps_url" placeholder="Link Google Maps aset (otomatis dari pin)" autocomplete="off" />
+            </div>
+            <div class="map-toggle-row">
+              <button type="button" class="map-toggle-btn active" id="mapLayerOSM">🗺️ Peta</button>
+              <button type="button" class="map-toggle-btn" id="mapLayerSat">🛰️ Satelit</button>
+            </div>
+            <div class="map-search-wrap">
+              <input type="text" id="mapSearch" class="form-control" placeholder="🔍 Ketik alamat / patokan… mis. Jl. Sudirman Jakarta" autocomplete="off" />
+              <div id="mapSuggest" class="map-suggest" hidden></div>
+            </div>
+            <div id="locationMap" class="loc-map"></div>
+            <div id="locStatus" class="loc-status muted-text">Belum ada titik. Gunakan tombol 📍 di peta atau posisi GPS Anda.</div>
+            <div class="map-action-row">
+              <button type="button" class="btn btn-outline" style="padding:8px 14px;font-size:.85rem;" id="btnGps">📍 Gunakan Posisi Saya</button>
+              <button type="button" class="btn btn-outline" style="padding:8px 14px;font-size:.85rem;" id="btnRecalibrate">🎯 Kalibrasi Alamat</button>
+              <button type="button" class="btn btn-outline" style="padding:8px 14px;font-size:.85rem;" id="btnClearMap">🗑️ Hapus Pin</button>
+            </div>
+            <label for="location_address" style="margin-top:10px;">Alamat Lokasi Lahan 📍</label>
+            <p class="form-hint">Bisa sama atau berbeda dengan alamat pemilik di Tahap 1. Terisi otomatis dari pin peta — tetap bisa diubah manual, dan dipakai sebagai alamat pada watermark foto.</p>
+            <textarea class="form-control" id="location_address" name="location_address" rows="2" required placeholder="Alamat lengkap titik lahan"></textarea>
+            <div id="locAddrStatus" class="loc-status muted-text" style="margin-top:8px;">Pasang pin untuk mengisi alamat lokasi otomatis.</div>
+            <input type="hidden" name="maps_link" id="maps_link" />
+          </div>
+
+          <div class="form-divider">Detail Lokasi</div>
+          <div class="form-group">
+            <label for="city">Kabupaten / Kota</label>
+            <input class="form-control" list="cities" id="city" name="city" required maxlength="100" placeholder="Pilih/ketik Kab/Kota" autocomplete="off" />
+            <datalist id="cities"><option value="Bekasi"></option><option value="Bogor"></option><option value="Depok"></option><option value="Jakarta Barat"></option><option value="Jakarta Pusat"></option><option value="Jakarta Selatan"></option><option value="Jakarta Timur"></option><option value="Jakarta Utara"></option><option value="Kab. Bekasi"></option><option value="Kab. Bogor"></option><option value="Kab. Tangerang"></option><option value="Tangerang"></option><option value="Tangerang Selatan"></option></datalist>
+          </div>
+          <div class="grid-2-form">
+            <div class="form-group">
+              <label for="kecamatan">Kecamatan (opsional)</label>
+              <input class="form-control" type="text" id="kecamatan" name="kecamatan" maxlength="100" placeholder="Kecamatan (boleh kosong)" autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label for="district">Kelurahan (opsional)</label>
+              <input class="form-control" type="text" id="district" name="district" maxlength="100" placeholder="Kelurahan (boleh kosong)" autocomplete="off" />
+            </div>
+          </div>
+          <p class="form-hint">Kab/kota, kecamatan &amp; kelurahan terisi otomatis dari pin peta — tetap bisa diubah manual.</p>
+          <div class="form-group">
+            <label for="location_type">Jenis Lokasi</label>
+            <select class="form-control" id="location_type" name="location_type" required>
+              <option value="">Pilih jenis lokasi…</option>
+              <option value="Depan toko / ruko">Depan toko / ruko</option>
+              <option value="Minimarket / warung">Minimarket / warung</option>
+              <option value="Kafe / laundry / bengkel">Kafe / laundry / bengkel</option>
+              <option value="Kantor">Kantor</option>
+              <option value="Area parkir">Area parkir</option>
+              <option value="Kost-kostan / rumah kost">Kost-kostan / rumah kost</option>
+              <option value="Lokasi usaha pinggir jalan">Lokasi usaha pinggir jalan</option>
+              <option value="Lainnya">Lainnya</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="legal_doc_type">Dokumen Legalitas Kepemilikan</label>
+            <select class="form-control" id="legal_doc_type" name="legal_doc_type" required>
+              <option value="">Pilih…</option>
+              <option value="shm">SHM (wajib untuk EVCS)</option>
+              <option value="pbb">PBB 3 tahun terakhir (khusus BSS)</option>
+            </select>
+            <p class="form-hint" id="legalAutoNote">Otomatis: BSS memakai PBB (3 tahun terakhir + bukti bayar).</p>
+          </div>
+          <div class="wizard-nav">
+            <button type="button" class="btn btn-outline" data-prev>← Kembali</button>
+            <span class="spacer"></span>
+            <button type="button" class="btn btn-primary" data-next>Lanjut →</button>
+          </div>
+        </section>
+
+        <!-- TAHAP 4: Berkas -->
+        <section class="wizard-step" data-step="4">
+          <div class="form-divider" style="margin-top:0;">Tahap 4 — Berkas Wajib</div>
+          <p class="form-hint">Lihat rincian di halaman <a href="/panduan">Panduan</a>. Catatan: berkas tidak bisa disimpan otomatis di browser — jika halaman di-refresh, berkas perlu dipilih ulang.</p>
+          <div class="form-group" data-shot-group="ktp_file">
+            <label>Fotokopi KTP Pemilik Lahan *</label>
+            <div class="pick-row">
+              <button type="button" class="btn btn-outline pick-cam" data-target="ktp_file">📷 Kamera</button>
+              <button type="button" class="btn btn-outline pick-gal" data-target="ktp_file">🖼️ Galeri / File</button>
+            </div>
+            <input class="pick-real" type="file" id="ktp_file" name="ktp_file" accept=".jpg,.jpeg,.png,.webp,.pdf" required style="display:none" />
+            <input class="pick-gal-input" type="file" id="ktp_file_gal" accept="image/*,.pdf,application/pdf" multiple style="display:none" />
+            <div class="shot-grid" id="ktp_file_grid"></div>
+            <div class="file-picked" id="ktp_file_picked"></div>
+          </div>
+          <div class="form-group" data-shot-group="photo_spot_file">
+            <label>Foto Penempatan Station — Jarak ±3/4 Meter *</label>
+            <div class="pick-row">
+              <button type="button" class="btn btn-outline pick-cam" data-target="photo_spot_file">📷 Kamera</button>
+              <button type="button" class="btn btn-outline pick-gal" data-target="photo_spot_file">🖼️ Galeri</button>
+            </div>
+            <input class="pick-real" type="file" id="photo_spot_file" name="photo_spot_file" accept="image/*" required style="display:none" />
+            <input class="pick-gal-input" type="file" id="photo_spot_file_gal" accept="image/*" multiple style="display:none" />
+            <div class="shot-grid" id="photo_spot_file_grid"></div>
+            <div class="file-picked" id="photo_spot_file_picked"></div>
+          </div>
+          <div class="form-group" data-shot-group="photo_1_file">
+            <label>Foto Sebrang Jalan Stations * (watermark GPS)</label>
+            <div class="pick-row">
+              <button type="button" class="btn btn-outline pick-cam" data-target="photo_1_file">📷 Kamera</button>
+              <button type="button" class="btn btn-outline pick-gal" data-target="photo_1_file">🖼️ Galeri</button>
+            </div>
+            <input class="pick-real" type="file" id="photo_1_file" name="photo_1_file" accept="image/*" required style="display:none" />
+            <input class="pick-gal-input" type="file" id="photo_1_file_gal" accept="image/*" multiple style="display:none" />
+            <div class="shot-grid" id="photo_1_file_grid"></div>
+            <div class="file-picked" id="photo_1_file_picked"></div>
+          </div>
+          <div class="form-group" data-shot-group="photo_3_file">
+            <label>Foto Tersedia Jaringan Listrik * (watermark GPS)</label>
+            <div class="pick-row">
+              <button type="button" class="btn btn-outline pick-cam" data-target="photo_3_file">📷 Kamera</button>
+              <button type="button" class="btn btn-outline pick-gal" data-target="photo_3_file">🖼️ Galeri</button>
+            </div>
+            <input class="pick-real" type="file" id="photo_3_file" name="photo_3_file" accept="image/*" required style="display:none" />
+            <input class="pick-gal-input" type="file" id="photo_3_file_gal" accept="image/*" multiple style="display:none" />
+            <div class="shot-grid" id="photo_3_file_grid"></div>
+            <div class="file-picked" id="photo_3_file_picked"></div>
+          </div>
+          <div class="form-group" data-shot-group="photo_right_file">
+            <label>Foto Sudut Kanan Station * (watermark GPS)</label>
+            <div class="pick-row">
+              <button type="button" class="btn btn-outline pick-cam" data-target="photo_right_file">📷 Kamera</button>
+              <button type="button" class="btn btn-outline pick-gal" data-target="photo_right_file">🖼️ Galeri</button>
+            </div>
+            <input class="pick-real" type="file" id="photo_right_file" name="photo_right_file" accept="image/*" required style="display:none" />
+            <input class="pick-gal-input" type="file" id="photo_right_file_gal" accept="image/*" multiple style="display:none" />
+            <div class="shot-grid" id="photo_right_file_grid"></div>
+            <div class="file-picked" id="photo_right_file_picked"></div>
+          </div>
+          <div class="form-group" data-shot-group="photo_left_file">
+            <label>Foto Sudut Kiri Station * (watermark GPS)</label>
+            <div class="pick-row">
+              <button type="button" class="btn btn-outline pick-cam" data-target="photo_left_file">📷 Kamera</button>
+              <button type="button" class="btn btn-outline pick-gal" data-target="photo_left_file">🖼️ Galeri</button>
+            </div>
+            <input class="pick-real" type="file" id="photo_left_file" name="photo_left_file" accept="image/*" required style="display:none" />
+            <input class="pick-gal-input" type="file" id="photo_left_file_gal" accept="image/*" multiple style="display:none" />
+            <div class="shot-grid" id="photo_left_file_grid"></div>
+            <div class="file-picked" id="photo_left_file_picked"></div>
+          </div>
+          <div class="form-group" data-shot-group="photo_selfie_file">
+            <label>Foto Selfie Bersama Pemilik * (watermark GPS)</label>
+            <div class="pick-row">
+              <button type="button" class="btn btn-outline pick-cam" data-target="photo_selfie_file">📷 Kamera</button>
+              <button type="button" class="btn btn-outline pick-gal" data-target="photo_selfie_file">🖼️ Galeri</button>
+            </div>
+            <input class="pick-real" type="file" id="photo_selfie_file" name="photo_selfie_file" accept="image/*" required style="display:none" />
+            <input class="pick-gal-input" type="file" id="photo_selfie_file_gal" accept="image/*" multiple style="display:none" />
+            <div class="shot-grid" id="photo_selfie_file_grid"></div>
+            <div class="file-picked" id="photo_selfie_file_picked"></div>
+          </div>
+          <div class="form-group" data-shot-group="photo_maps_file">
+            <label>Screenshot Lokasi &amp; Koordinat *</label>
+            <div class="pick-row">
+              <button type="button" class="btn btn-outline pick-cam" data-target="photo_maps_file">📷 Kamera</button>
+              <button type="button" class="btn btn-outline pick-gal" data-target="photo_maps_file">🖼️ Galeri</button>
+            </div>
+            <input class="pick-real" type="file" id="photo_maps_file" name="photo_maps_file" accept="image/*" required style="display:none" />
+            <input class="pick-gal-input" type="file" id="photo_maps_file_gal" accept="image/*" multiple style="display:none" />
+            <div class="shot-grid" id="photo_maps_file_grid"></div>
+            <div class="file-picked" id="photo_maps_file_picked"></div>
+          </div>
+          <div class="form-group" data-shot-group="legal_doc_file">
+            <label>Dokumen Legalitas (SHM / PBB + Bukti Bayar PBB 3 Tahun) *</label>
+            <div class="pick-row">
+              <button type="button" class="btn btn-outline pick-cam" data-target="legal_doc_file">📷 Kamera</button>
+              <button type="button" class="btn btn-outline pick-gal" data-target="legal_doc_file">🖼️ Galeri / File</button>
+            </div>
+            <input class="pick-real" type="file" id="legal_doc_file" name="legal_doc_file" accept=".jpg,.jpeg,.png,.webp,.pdf" required style="display:none" />
+            <input class="pick-gal-input" type="file" id="legal_doc_file_gal" accept="image/*,.pdf,application/pdf" multiple style="display:none" />
+            <div class="shot-grid" id="legal_doc_file_grid"></div>
+            <div class="file-picked" id="legal_doc_file_picked"></div>
+          </div>
+          <div class="form-group" data-shot-group="sewa_doc_file">
+            <label>Foto Dokumen Surat Sewa *</label>
+            <div class="pick-row">
+              <button type="button" class="btn btn-outline pick-cam" data-target="sewa_doc_file">📷 Kamera</button>
+              <button type="button" class="btn btn-outline pick-gal" data-target="sewa_doc_file">🖼️ Galeri / File</button>
+            </div>
+            <input class="pick-real" type="file" id="sewa_doc_file" name="sewa_doc_file" accept=".jpg,.jpeg,.png,.webp,.pdf" required style="display:none" />
+            <input class="pick-gal-input" type="file" id="sewa_doc_file_gal" accept="image/*,.pdf,application/pdf" multiple style="display:none" />
+            <div class="shot-grid" id="sewa_doc_file_grid"></div>
+            <div class="file-picked" id="sewa_doc_file_picked"></div>
+          </div>
+          <div class="form-group" data-shot-group="support_doc_file">
+            <label>Foto Dokumen Pendukung (opsional)</label>
+            <div class="pick-row">
+              <button type="button" class="btn btn-outline pick-cam" data-target="support_doc_file">📷 Kamera</button>
+              <button type="button" class="btn btn-outline pick-gal" data-target="support_doc_file">🖼️ Galeri / File</button>
+            </div>
+            <input class="pick-real" type="file" id="support_doc_file" name="support_doc_file" accept=".jpg,.jpeg,.png,.webp,.pdf" style="display:none" />
+            <input class="pick-gal-input" type="file" id="support_doc_file_gal" accept="image/*,.pdf,application/pdf" multiple style="display:none" />
+            <div class="shot-grid" id="support_doc_file_grid"></div>
+            <div class="file-picked" id="support_doc_file_picked"></div>
+          </div>
+          <div class="form-group" data-shot-group="family_doc_file">
+            <label>Foto KK atau Buku Nikah * (tanpa watermark)</label>
+            <div class="pick-row">
+              <button type="button" class="btn btn-outline pick-cam" data-target="family_doc_file">📷 Kamera</button>
+              <button type="button" class="btn btn-outline pick-gal" data-target="family_doc_file">🖼️ Galeri / File</button>
+            </div>
+            <input class="pick-real" type="file" id="family_doc_file" name="family_doc_file" accept=".jpg,.jpeg,.png,.webp,.pdf" required style="display:none" />
+            <input class="pick-gal-input" type="file" id="family_doc_file_gal" accept="image/*,.pdf,application/pdf" multiple style="display:none" />
+            <div class="shot-grid" id="family_doc_file_grid"></div>
+            <div class="file-picked" id="family_doc_file_picked"></div>
+            <p class="form-hint" style="margin:4px 0 0;">Boleh foto via Kamera, atau PDF dari Galeri.</p>
+          </div>
+          <p class="form-hint">📄 <strong>SPPL tidak perlu diunggah</strong> — diterbitkan otomatis oleh sistem setelah berkas Anda lolos verifikasi.</p>
+          <div class="wizard-nav">
+            <button type="button" class="btn btn-outline" data-prev>← Kembali</button>
+            <span class="spacer"></span>
+            <button type="submit" class="btn btn-primary">Kirim Pengajuan</button>
+          </div>
+        </section>
+
+        <p class="draft-note">Draft tersimpan otomatis di browser ini. <button type="button" id="clearDraft">Hapus draft</button></p>
+      </form>
+
+      <%- include('../partials/photoModals') %>
+    </div>
+  </section>
+</main>
+
+<script>
+  // 1) Referral: URL > sessionStorage (tetap seperti sebelumnya)
+  (function () {
+    var urlRef = new URLSearchParams(window.location.search).get('ref');
+    var ref = '';
+    if (urlRef && urlRef.trim()) {
+      ref = urlRef.trim();
+      try { sessionStorage.setItem('jap_ref', ref); } catch (e) {}
+    } else {
+      try { ref = sessionStorage.getItem('jap_ref') || ''; } catch (e) { ref = ''; }
+    }
+    if (ref) {
+      var input = document.getElementById('referral_code');
+      if (input) input.value = ref;
+      var note = document.querySelector('.referral-note');
+      if (!note) {
+        note = document.createElement('div');
+        note.className = 'referral-note';
+        var head = document.querySelector('.section-head');
+        if (head) head.insertAdjacentElement('afterend', note);
+      }
+      if (note) {
+        note.style.display = 'block';
+        note.innerHTML = '🔗 Pengajuan terhubung dengan : <strong>' + ref.replace(/</g, '&lt;') + '</strong>';
+      }
+      if (!urlRef && ref) {
+        history.replaceState(null, '', '/ajukan?ref=' + encodeURIComponent(ref));
+      }
+    }
+  })();
+
+  // 2) GPS → alamat otomatis (tetap bisa diketik manual)
+  // Dipanggil dari location-map.js setiap pin/GPS berubah, dan dari tombol tahap 1.
+  // Alamat pemilik (Tahap 1) vs alamat lokasi (Tahap 3) dipisah.
+  // location-map.js memanggil dengan target 'map' -> isi alamat LOKASI + kota & kelurahan;
+  // tombol GPS Tahap 1 / posisi manual -> isi alamat PEMILIK.
+  // Helper ala referensi Japripay System.html:
+  function cleanCityName(cityName) {
+    if (!cityName) return '';
+    var clean = String(cityName).trim();
+    if (/\s+Regency$/i.test(clean)) clean = 'Kab. ' + clean.replace(/\s+Regency$/i, '');
+    else {
+      clean = clean.replace(/^Kota\s+/i, '').replace(/^Kabupaten\s+/i, 'Kab. ').replace(/\s+City$/i, '');
+    }
+    return clean.trim();
+  }
+  function cleanWardName(s, prefixRe) {
+    return String(s || '').replace(prefixRe, '').trim();
+  }
+  window._japAutofillAddress = function (lat, lng, target, force) {
+    var isLoc = target === 'map';
+    var addrInput = document.getElementById(isLoc ? 'location_address' : 'address');
+    var addrStatus = document.getElementById(isLoc ? 'locAddrStatus' : 'addrStatus');
+    if (!addrInput) return;
+    if (addrStatus) addrStatus.textContent = '⏳ Mencari alamat dari koordinat…';
+    // Via proxy server sendiri (/api/reverse) agar tidak kena blokir CORS / 429 Nominatim dari browser.
+    fetch('/api/reverse?lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lng))
+      .then(function (r) { if (!r.ok) throw new Error('geo ' + r.status); return r.json(); })
+      .then(function (j) {
+        var label = (typeof window._japFormatAddressNominatim === 'function' ? window._japFormatAddressNominatim(j) : '') || (j && j.display_name) || '';
+        var addr = (j && j.address) || {};
+        // Kab/kota, kecamatan & kelurahan langsung dari pin (hanya tahap lokasi)
+        if (isLoc && addr) {
+          try {
+            var fillText = function (id, val) {
+              var el = document.getElementById(id);
+              if (!el || !val) return;
+              el.value = val;
+              try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+            };
+            var kotaRaw = addr.regency || addr.county || addr.city || addr.town || addr.municipality || '';
+            if (kotaRaw) fillText('city', cleanCityName(kotaRaw));
+            var kecRaw = addr.city_district || addr.district || addr.subdistrict || addr.borough || addr.town || '';
+            fillText('kecamatan', cleanWardName(kecRaw, /^(Kecamatan|Kec\.?)\s+/i));
+            var kelRaw = addr.village || addr.quarter || addr.neighbourhood || addr.hamlet || addr.suburb || '';
+            fillText('district', cleanWardName(kelRaw, /^(Kelurahan|Desa|Kel\.?)\s+/i));
+          } catch (e) {}
+        }
+        if (!label) {
+          if (addrStatus) addrStatus.textContent = 'Koordinat didapat, tetapi alamat tidak ditemukan — silakan ketik manual.';
+          return;
+        }
+        if (!addrInput.value.trim() || force === true || isLoc) {
+          var overwritten = !!addrInput.value.trim() && (force === true || isLoc);
+          addrInput.value = label;
+          try { addrInput.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+          if (addrStatus) addrStatus.textContent = overwritten
+            ? '✓ Alamat ' + (isLoc ? 'lokasi diperbarui mengikuti pin peta' : 'pemilik') + ' ditimpa otomatis — tetap bisa diubah manual.'
+            : '✓ Alamat ' + (isLoc ? 'lokasi' : 'pemilik') + ' terisi otomatis dari GPS — boleh diubah manual.';
+        } else if (addrStatus) {
+          addrStatus.textContent = '✓ GPS aktif. Alamat baru terdeteksi — kolom tidak ditimpa karena sudah diisi manual.';
+        }
+      })
+      .catch(function () {
+        if (addrStatus) addrStatus.textContent = 'Gagal mengambil alamat otomatis (jaringan) — silakan ketik manual.';
+      });
+  };
+
+  // 2b) Pola referensi: format No HP 08→628, NIK numeric-only, harga dinamis, validasi nama toko, koordinat
+  (function () {
+    var phoneEl = document.getElementById('phone_number');
+    if (phoneEl) {
+      phoneEl.addEventListener('input', function () {
+        var v = this.value.replace(/\D/g, '');
+        if (v.indexOf('08') === 0) v = '628' + v.substring(2);
+        this.value = v;
+      });
+    }
+    var nikEl = document.getElementById('nik');
+    if (nikEl) {
+      nikEl.addEventListener('input', function () { this.value = this.value.replace(/[^0-9]/g, '').slice(0, 16); });
+    }
+    var rekEl = document.getElementById('account_number');
+    if (rekEl) {
+      rekEl.addEventListener('input', function () { this.value = this.value.replace(/[^0-9]/g, '').slice(0, 20); });
+    }
+    var hargaEls = document.querySelectorAll('.harga-dual');
+    if (hargaEls && hargaEls.length) {
+      // Format ribu otomatis ala 3.000.000 saat ketik; server menyimpan digit murni.
+      Array.prototype.forEach.call(hargaEls, function (he) {
+        he.addEventListener('input', function () {
+          var d = this.value.replace(/\D/g, '').slice(0, 12);
+          this.value = d ? d.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
+        });
+      });
+    }
+    // Harga sewa per tipe (keduanya opsional, boleh kosong, diisi admin)
+    window._japRefreshHarga = function () {
+      var hb = document.getElementById('harga_sewa_bss');
+      var he = document.getElementById('harga_sewa_evcs');
+      if (hb) {
+        hb.placeholder = 'Contoh: 3.000.000 (boleh kosong)';
+        try { hb.setCustomValidity(''); } catch (e) {}
+      }
+      if (he) {
+        he.placeholder = 'Contoh: 6.000.000 (boleh kosong)';
+        try { he.setCustomValidity(''); } catch (e) {}
+      }
+    };
+    // Nilai jenis unit: checkbox multi (ajukan) atau radio/select (kompatibel lama)
+    window._japGetUnitTypes = function () {
+      var out = [];
+      Array.prototype.forEach.call(document.querySelectorAll('input[name="unit_type"]:checked'), function (r) {
+        if (r.value === 'bss_motor' || r.value === 'evcs_mobil') out.push(r.value);
+      });
+      if (out.length) return out;
+      var sel = document.getElementById('unit_type');
+      if (sel && (sel.value === 'bss_motor' || sel.value === 'evcs_mobil')) return [sel.value];
+      return [];
+    };
+    window._japGetUnitType = function () {
+      var list = window._japGetUnitTypes();
+      return list.length ? list[0] : 'bss_motor';
+    };
+    var unitEl = document.getElementById('unit_type');
+    // Kolom slot aktif mengikuti unit yang dicentang (boleh keduanya)
+    function paintSlotCols() {
+      var list = window._japGetUnitTypes();
+      var cb = document.getElementById('slotColBss');
+      var ce = document.getElementById('slotColEvcs');
+      if (cb) cb.classList.toggle('active', list.indexOf('bss_motor') !== -1);
+      if (ce) ce.classList.toggle('active', list.indexOf('evcs_mobil') !== -1);
+    }
+    // Bangun grid slot sekali (BSS 1-4 | EVCS 1-4); pilihan dipertahankan
+    function buildSlotGrids() {
+      var defs = [['slotGridBss', 'BSS', 'slot_bss', 'bss_motor'], ['slotGridEvcs', 'EVCS', 'slot_evcs', 'evcs_mobil']];
+      defs.forEach(function (d) {
+        var grid = document.getElementById(d[0]);
+        if (!grid || grid.getAttribute('data-built') === '1') return;
+        grid.setAttribute('data-built', '1');
+        for (var i = 1; i <= 4; i++) {
+          (function (val, fname, uval) {
+            var lab = document.createElement('label');
+            lab.className = 'slot-card';
+            var inp = document.createElement('input');
+            inp.type = 'radio';
+            inp.name = fname;
+            inp.value = String(val);
+            inp.addEventListener('change', function () {
+              // Pilih slot = ikut centang jenis unit kolomnya
+              var ur = document.querySelector('input[name="unit_type"][value="' + uval + '"]');
+              if (ur && (ur.type !== 'checkbox' || !ur.checked)) {
+                ur.checked = true;
+                try { ur.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
+              }
+              try { window._japRefreshHarga(); } catch (e) {}
+              try { paintSlotCols(); } catch (e) {}
+            });
+            var sp = document.createElement('span');
+            sp.textContent = String(val);
+            lab.appendChild(inp);
+            lab.appendChild(sp);
+            grid.appendChild(lab);
+          })(i, d[2], d[3]);
+        }
+      });
+    }
+    // Legalitas + hint mengikuti unit tercentang (server memaksa per unit saat simpan)
+    window._japRefreshSlot = function () {
+      try { paintSlotCols(); } catch (e) {}
+      var list = window._japGetUnitTypes();
+      var onlyEvcs = list.length === 1 && list[0] === 'evcs_mobil';
+      var leg = document.getElementById('legal_doc_type');
+      if (leg) {
+        leg.value = onlyEvcs ? 'shm' : 'pbb';
+        try { leg.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
+      }
+      var legNote = document.getElementById('legalAutoNote');
+      if (legNote) legNote.textContent = !list.length
+        ? 'Centang minimal satu jenis unit.'
+        : (list.length === 2
+          ? 'Otomatis per unit: BSS → PBB (3 tahun + bukti bayar), EVCS → SHM.'
+          : (onlyEvcs ? 'Otomatis: EVCS wajib SHM.' : 'Otomatis: BSS memakai PBB (3 tahun terakhir + bukti bayar).'));
+      var hint = document.getElementById('slotHint');
+      if (hint) hint.textContent = !list.length
+        ? 'Centang BSS / EVCS lalu pilih slotnya.'
+        : (list.length === 2
+          ? 'BSS + EVCS dipilih — pilih Slot BSS dan Slot EVCS (2 unit terkirim sekaligus).'
+          : (onlyEvcs ? 'Jenis EVCS — pilih Slot EVCS 1 sampai 4.' : 'Jenis BSS — pilih Slot BSS 1 sampai 4.'));
+    };
+    if (unitEl) {
+      unitEl.addEventListener('change', function () { try { window._japRefreshHarga(); } catch (e) {} try { window._japRefreshSlot(); } catch (e) {} });
+      try { window._japRefreshHarga(); } catch (e) {}
+      try { window._japRefreshSlot(); } catch (e) {}
+    }
+    Array.prototype.forEach.call(document.querySelectorAll('input[name="unit_type"]'), function (r) {
+      r.addEventListener('change', function () { try { window._japRefreshHarga(); } catch (e) {} try { window._japRefreshSlot(); } catch (e) {} });
+    });
+    try { buildSlotGrids(); } catch (e) {}
+    try { window._japRefreshHarga(); } catch (e) {}
+    try { window._japRefreshSlot(); } catch (e) {}
+    try { paintSlotCols(); } catch (e) {}
+    // Validasi nama toko ala referensi
+    var foodKeywords = ['makan', 'padang', 'ayam', 'soto', 'bakso', 'nasi', 'goreng',
+      'seafood', 'steak', 'pizza', 'pasta', 'mie', 'bebek', 'ikan',
+      'udang', 'cumi', 'pecel', 'rawon', 'rendang', 'sate', 'gado'];
+    window._japCheckShopName = function (text) {
+      var lower = String(text || '').toLowerCase().trim();
+      if (!lower) return { forbidden: false };
+      if (lower.indexOf('pribadi') !== -1) return { forbidden: true, reason: 'pribadi' };
+      if (lower.indexOf('rumah') !== -1) {
+        if (lower.indexOf('rumah makan') !== -1) return { forbidden: false };
+        return { forbidden: true, reason: 'rumah' };
+      }
+      if (lower.indexOf('rmh') !== -1) return { forbidden: true, reason: 'rmh' };
+      if (lower.indexOf('rm') !== -1) {
+        var words = lower.split(/\s+/);
+        var isFood = false, isStandalone = false;
+        for (var i = 0; i < words.length; i++) {
+          if (words[i] === 'rm') {
+            var next = words[i + 1] || '';
+            if (foodKeywords.some(function (f) { return next.indexOf(f) !== -1; })) isFood = true;
+            else isStandalone = true;
+          }
+        }
+        if (isFood) return { forbidden: false };
+        if (isStandalone || lower === 'rm') return { forbidden: true, reason: 'rm' };
+        if (lower.indexOf('rm ') === 0 && !isFood) return { forbidden: true, reason: 'rm' };
+      }
+      return { forbidden: false };
+    };
+    var shopEl = document.getElementById('shop_name');
+    var shopAlert = document.getElementById('shopNameAlert');
+    function paintShop() {
+      if (!shopEl) return true;
+      var r = window._japCheckShopName(shopEl.value);
+      if (r.forbidden && shopEl.value.length > 0) {
+        if (shopAlert) shopAlert.classList.add('show');
+        shopEl.style.borderColor = '#ef4444';
+        shopEl.setCustomValidity('Nama toko mengandung kata terlarang.');
+        return false;
+      }
+      if (shopAlert) shopAlert.classList.remove('show');
+      shopEl.style.borderColor = '';
+      shopEl.setCustomValidity('');
+      return true;
+    }
+    if (shopEl) {
+      shopEl.addEventListener('input', paintShop);
+      try { paintShop(); } catch (e) {}
+    }
+    window._japValidateShop = paintShop;
+    // Koordinat terlihat: validasi format + sinkron 2 arah dengan pin peta
+    var latEl = document.getElementById('input_lat_long');
+    var errEl = document.getElementById('error_msg');
+    function paintCoord(msg, cls, borderCls) {
+      if (errEl) {
+        errEl.textContent = msg;
+        errEl.className = 'loc-status ' + cls;
+      }
+      if (latEl) {
+        latEl.classList.remove('coord-ok', 'coord-bad', 'coord-err');
+        if (borderCls) latEl.classList.add(borderCls);
+      }
+    }
+    if (latEl) {
+      latEl.addEventListener('input', function () {
+        var v = latEl.value;
+        if (/[^0-9.,\-\s]/.test(v)) {
+          paintCoord('* Input tidak menerima huruf! Gunakan format koordinat angka', 'muted-text', 'coord-err');
+          latEl.value = v.replace(/[^0-9.,\-\s]/g, '');
+          latEl.setCustomValidity('Format koordinat salah.');
+          return;
+        }
+        var re = /^-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?$/;
+        if (v.trim() === '') {
+          paintCoord('* Masukkan angka dipisahkan koma', 'muted-text', '');
+          latEl.setCustomValidity('Koordinat wajib diisi.');
+        } else if (!re.test(v)) {
+          paintCoord('* Format belum sesuai contoh: -6.200000, 106.816666', 'muted-text', 'coord-bad');
+          latEl.setCustomValidity('Format koordinat belum benar.');
+        } else {
+          paintCoord('* Format Koordinat Benar!', 'muted-text', 'coord-ok');
+          latEl.setCustomValidity('');
+          var parts = v.split(',');
+          var la = parseFloat(parts[0]), ln = parseFloat(parts[1]);
+          if (isFinite(la) && isFinite(ln) && typeof window._japSetMapPin === 'function') {
+            try { window._japSetMapPin(la, ln); } catch (e) {}
+          }
+        }
+      });
+    }
+    window._japSyncLatFromMaps = function (mapsVal) {
+      if (!latEl || !mapsVal) return;
+      if (latEl.value.trim()) return; // jangan timpa ketikan manual
+      var m = String(mapsVal).match(/q=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+      if (m) {
+        latEl.value = parseFloat(m[1]).toFixed(6) + ', ' + parseFloat(m[2]).toFixed(6);
+        try { latEl.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+      }
+    };
+    // Tombol kalibrasi ala referensi: paksa GPS akurasi tinggi lalu pasang pin
+    var btnCal = document.getElementById('btnRecalibrate');
+    if (btnCal) {
+      btnCal.addEventListener('click', function () {
+        var st = document.getElementById('locStatus');
+        if (!navigator.geolocation) {
+          if (st) st.textContent = 'Perangkat tidak mendukung GPS — klik manual pada peta.';
+          return;
+        }
+        if (st) st.textContent = '📡 Kalibrasi lokasi — mohon izinkan akses lokasi…';
+        navigator.geolocation.getCurrentPosition(function (pos) {
+          var la = pos.coords.latitude, ln = pos.coords.longitude;
+          if (typeof window._japSetMapPin === 'function') {
+            try { window._japSetMapPin(la, ln); } catch (e) {}
+          } else {
+            var g = document.getElementById('btnGps');
+            if (g) try { g.click(); } catch (e) {}
+          }
+          if (st) st.textContent = '📍 Kalibrasi berhasil: ' + la.toFixed(6) + ',' + ln.toFixed(6);
+        }, function (err) {
+          if (st) st.textContent = 'Gagal melacak lokasi akurat (' + (err.message || 'izin ditolak') + '). Gunakan penyesuaian manual.';
+        }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
+      });
+    }
+  })();
+
+  // 2) Wizard + draft localStorage (teks saja; file tidak bisa disimpan browser)
+  (function () {
+    var DRAFT_KEY = 'jap_ajukan_draft_v1';
+    var STEP_KEY = 'jap_ajukan_step_v1';
+    var TEXT_FIELDS = ['owner_name', 'phone_number', 'address', 'nik', 'ttl', 'surat', 'shop_name', 'city', 'kecamatan', 'district', 'harga_sewa_bss', 'harga_sewa_evcs', 'bank_name', 'bank_name_other', 'account_number', 'location_address', 'area_size', 'location_type', 'floor_ready', 'has_canopy', 'legal_doc_type', 'maps_link', 'lat_long', 'maps_url'];
+    var form = document.getElementById('ajukanForm');
+    if (!form) return;
+    var steps = Array.prototype.slice.call(form.querySelectorAll('.wizard-step'));
+    var stepItems = Array.prototype.slice.call(document.querySelectorAll('#wizardSteps li'));
+    var bar = document.getElementById('wizardBar');
+    var current = 1;
+
+    function loadDraft() {
+      // Alur "Ajukan Unit Lain" (?again=1): isi identitas pemilik otomatis, sekali pakai
+      try {
+        var again = new URLSearchParams(window.location.search).get('again');
+        if (again) {
+          var rep = JSON.parse(localStorage.getItem('jap_ajukan_repeat_v1') || 'null');
+          if (rep && typeof rep === 'object') {
+            ['owner_name', 'phone_number', 'address', 'nik', 'ttl', 'bank_name', 'bank_name_other', 'account_number'].forEach(function (name) {
+              var el = form.querySelector('[name="' + name + '"]');
+              if (el && rep[name]) el.value = rep[name];
+            });
+            toggleBankOther();
+          }
+          localStorage.removeItem('jap_ajukan_repeat_v1');
+        }
+      } catch (e) {}
+      var draft = null;
+      try { draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (e) { draft = null; }
+      if (draft && typeof draft === 'object') {
+        TEXT_FIELDS.forEach(function (name) {
+          if (draft[name] != null && draft[name] !== '') {
+            var el = form.querySelector('[name="' + name + '"]');
+            if (!el) return;
+            if (el.type === 'radio') {
+              var target = form.querySelector('[name="' + name + '"][value="' + draft[name] + '"]');
+              if (target) {
+                target.checked = true;
+                try { target.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
+              }
+            } else if (!el.value) el.value = draft[name];
+          }
+        });
+        // Kembalikan centangan unit + slot per kolom
+        try {
+          var du = draft.unit_type;
+          var uarr = Array.isArray(du) ? du : (du ? [du] : []);
+          if (uarr.length) {
+            form.querySelectorAll('input[name="unit_type"]').forEach(function (box) {
+              box.checked = uarr.indexOf(box.value) !== -1;
+            });
+          }
+          ['slot_bss', 'slot_evcs'].forEach(function (sn) {
+            if (draft[sn] && /^[1-4]$/.test(String(draft[sn]))) {
+              var t = form.querySelector('input[name="' + sn + '"][value="' + draft[sn] + '"]');
+              if (t) t.checked = true;
+            }
+          });
+        } catch (e) {}
+        var statusEl = document.getElementById('locStatus');
+        var mapsVal = form.querySelector('[name="maps_link"]').value;
+        if (mapsVal && statusEl && statusEl.textContent.indexOf('Belum ada titik') !== -1) {
+          statusEl.textContent = '📍 Lokasi tersimpan dari draft: ' + mapsVal;
+        }
+        var locAddrEl = form.querySelector('[name="location_address"]');
+        var locAddrStatus = document.getElementById('locAddrStatus');
+        if (locAddrEl && locAddrEl.value.trim() && locAddrStatus) {
+          locAddrStatus.textContent = '✓ Alamat lokasi dari tersimpan — boleh diubah manual.';
+        }
+      }
+      try {
+        var s = parseInt(localStorage.getItem(STEP_KEY) || '1', 10);
+        if (s >= 1 && s <= steps.length) current = s;
+      } catch (e) {}
+      toggleBankOther();
+      try { if (typeof window._japRefreshHarga === 'function') window._japRefreshHarga(); } catch (e) {}
+      try { if (typeof window._japRefreshSlot === 'function') window._japRefreshSlot(); } catch (e) {}
+      try {
+        var latDraft = form.querySelector('[name="lat_long"]');
+        if (latDraft && latDraft.value) {
+          try { latDraft.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+        } else if (typeof window._japSyncLatFromMaps === 'function') {
+          var mv = form.querySelector('[name="maps_link"]');
+          if (mv && mv.value) window._japSyncLatFromMaps(mv.value);
+        }
+      } catch (e) {}
+    }
+
+    function saveDraft() {
+      var draft = {};
+      TEXT_FIELDS.forEach(function (name) {
+        var el = form.querySelector('[name="' + name + '"]');
+        if (!el) return;
+        if (el.type === 'radio') {
+          var ch = form.querySelector('[name="' + name + '"]:checked');
+          draft[name] = ch ? ch.value : '';
+        } else if (el) draft[name] = el.value;
+      });
+      // Grup multi-pilih: jenis unit (checkbox) + slot per kolom (radio)
+      draft.unit_type = Array.prototype.map.call(
+        form.querySelectorAll('input[name="unit_type"]:checked'), function (x) { return x.value; });
+      ['slot_bss', 'slot_evcs'].forEach(function (sn) {
+        var sc = form.querySelector('input[name="' + sn + '"]:checked');
+        draft[sn] = sc ? sc.value : '';
+      });
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+        localStorage.setItem(STEP_KEY, String(current));
+      } catch (e) {}
+    }
+
+    function paint() {
+      steps.forEach(function (sec) {
+        sec.classList.toggle('active', parseInt(sec.getAttribute('data-step'), 10) === current);
+      });
+      stepItems.forEach(function (li) {
+        var n = parseInt(li.getAttribute('data-step'), 10);
+        li.classList.toggle('current', n === current);
+        li.classList.toggle('done', n < current);
+      });
+      if (bar) bar.style.width = (current / steps.length * 100) + '%';
+      if (current === 3) {
+        if (typeof window._japInvalidateMap === 'function') {
+          window._japInvalidateMap();
+        }
+        // Paksa aktifkan GPS: sekali saja, minta izin lokasi saat masuk tahap 3 bila pin masih kosong
+        var mapsVal = form.querySelector('[name="maps_link"]').value;
+        if (!mapsVal && !window._japGpsAutoTried) {
+          window._japGpsAutoTried = true;
+          var btnGps = document.getElementById('btnGps');
+          var statusEl = document.getElementById('locStatus');
+          if (btnGps && statusEl) {
+            statusEl.textContent = '📡 Mengaktifkan GPS — mohon izinkan akses lokasi di browser/HP Anda…';
+            setTimeout(function () { try { btnGps.click(); } catch (e) {} }, 400);
+          }
+        }
+      }
+      var card = form;
+      if (card && card.scrollIntoView) {
+        try { card.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
+      }
+    }
+
+    function validateStep(n) {
+      var sec = form.querySelector('.wizard-step[data-step="' + n + '"]');
+      if (!sec) return true;
+      // Tahap 2: validasi nama toko + harga dinamis dulu (pola referensi)
+      if (n === 2) {
+        if (typeof window._japRefreshHarga === 'function') { try { window._japRefreshHarga(); } catch (e) {} }
+        if (typeof window._japValidateShop === 'function') {
+          if (!window._japValidateShop()) {
+            var shopEl = document.getElementById('shop_name');
+            if (shopEl) {
+              shopEl.reportValidity();
+              if (shopEl.scrollIntoView) shopEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            return false;
+          }
+        }
+        // Multi-unit: minimal satu jenis tercentang + slot terisi per jenisnya
+        var picked = [];
+        Array.prototype.forEach.call(sec.querySelectorAll('input[name="unit_type"]:checked'), function (x) {
+          if (x.value === 'bss_motor' || x.value === 'evcs_mobil') picked.push(x.value);
+        });
+        if (!picked.length) {
+          alert('Pilih minimal satu jenis unit: BSS, EVCS, atau keduanya.');
+          var up = document.getElementById('unitPick');
+          if (up && up.scrollIntoView) up.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return false;
+        }
+        var needSlot = { bss_motor: 'slot_bss', evcs_mobil: 'slot_evcs' };
+        var labelSlot = { bss_motor: 'Slot BSS 1–4', evcs_mobil: 'Slot EVCS 1–4' };
+        for (var si = 0; si < picked.length; si++) {
+          var sn = needSlot[picked[si]];
+          if (!sec.querySelector('input[name="' + sn + '"]:checked')) {
+            alert('Pilih ' + labelSlot[picked[si]] + ' untuk unit yang dicentang.');
+            var grid = document.getElementById(picked[si] === 'evcs_mobil' ? 'slotGridEvcs' : 'slotGridBss');
+            if (grid && grid.scrollIntoView) grid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return false;
+          }
+        }
+      }
+      // Khusus tahap peta + detail lokasi: pin, koordinat, alamat, kelurahan, jenis & dokumen
+      if (n === 3) {
+        var mapsVal = form.querySelector('[name="maps_link"]').value;
+        if (!mapsVal) {
+          var statusEl = document.getElementById('locStatus');
+          if (statusEl) statusEl.textContent = '⚠️ Tempatkan pin 📍 di peta atau tekan "Gunakan Posisi Saya" sebelum lanjut.';
+          var mapDiv = document.getElementById('locationMap');
+          if (mapDiv && mapDiv.scrollIntoView) mapDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return false;
+        }
+        var latEl = form.querySelector('[name="lat_long"]');
+        if (latEl && !latEl.checkValidity()) {
+          latEl.reportValidity();
+          if (latEl.scrollIntoView) latEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return false;
+        }
+        var locAddr = form.querySelector('[name="location_address"]');
+        if (locAddr && !locAddr.checkValidity()) {
+          locAddr.reportValidity();
+          return false;
+        }
+        var rest = sec.querySelectorAll('input, select, textarea');
+        for (var k = 0; k < rest.length; k++) {
+          var rf = rest[k];
+          if (rf.type === 'file') continue;
+          if (rf.name === 'maps_link' || rf.name === 'lat_long' || rf.name === 'location_address') continue;
+          if (!rf.checkValidity()) {
+            rf.reportValidity();
+            return false;
+          }
+        }
+        return true;
+      }
+      var fields = sec.querySelectorAll('input, select, textarea');
+      for (var i = 0; i < fields.length; i++) {
+        var f = fields[i];
+        if (f.type === 'file') continue; // file divalidasi di tahap 4 saat submit
+        if (!f.checkValidity()) {
+          f.reportValidity();
+          return false;
+        }
+      }
+      return true;
+    }
+
+    form.addEventListener('click', function (e) {
+      var next = e.target.closest ? e.target.closest('[data-next]') : null;
+      var prev = e.target.closest ? e.target.closest('[data-prev]') : null;
+      if (next) {
+        if (!validateStep(current)) return;
+        saveDraft();
+        if (current < steps.length) { current++; paint(); saveDraft(); }
+      } else if (prev) {
+        saveDraft();
+        if (current > 1) { current--; paint(); saveDraft(); }
+      }
+    });
+
+    // Klik pada nomor tahap: hanya boleh mundur, tidak boleh loncat maju tanpa validasi
+    stepItems.forEach(function (li) {
+      li.style.cursor = 'pointer';
+      li.addEventListener('click', function () {
+        var target = parseInt(li.getAttribute('data-step'), 10);
+        if (target < current) { current = target; paint(); saveDraft(); }
+      });
+    });
+
+    // Autosave saat mengetik / mengganti pilihan / peta berubah
+    form.addEventListener('input', saveDraft);
+    form.addEventListener('change', function (e) {
+      saveDraft();
+      // Input galeri (.pick-gal-input) dikelola modul grid; abaikan di sini
+      if (e.target && e.target.classList && e.target.classList.contains('pick-gal-input')) return;
+      // Tampilkan nama berkas yang dipilih (fallback input biasa)
+      if (e.target && e.target.type === 'file') {
+        var info = document.getElementById(e.target.id + '_picked');
+        if (info) {
+          if (e.target.files && e.target.files[0]) {
+            var f = e.target.files[0];
+            info.style.display = 'block';
+            info.textContent = '✓ ' + f.name + ' (' + Math.round(f.size / 1024) + ' KB)';
+          } else {
+            info.style.display = 'none';
+            info.textContent = '';
+          }
+        }
+      }
+    });
+
+    // maps_link diubah oleh location-map.js secara programatik (tidak memicu event) → pantau berkala ringan.
+    // Kolom maps_url tersembunyi: ikut terisi otomatis dari pin agar backend tetap menerima nilai.
+    var lastMaps = '';
+    setInterval(function () {
+      var el = form.querySelector('[name="maps_link"]');
+      if (el && el.value !== lastMaps) {
+        lastMaps = el.value;
+        saveDraft();
+        if (typeof window._japSyncLatFromMaps === 'function') {
+          try { window._japSyncLatFromMaps(el.value); } catch (e) {}
+        }
+      }
+      var mu = form.querySelector('[name="maps_url"]');
+      if (mu && el && el.value && !mu.value) mu.value = el.value;
+    }, 1500);
+
+    // Bank "Lainnya" -> tampilkan kolom tulis manual
+    function toggleBankOther() {
+      var sel = document.getElementById('bank_name');
+      var wrap = document.getElementById('bankOtherWrap');
+      var other = document.getElementById('bank_name_other');
+      if (!sel || !wrap) return;
+      var show = sel.value === 'Lainnya';
+      wrap.hidden = !show;
+      if (other) {
+        other.required = show;
+        if (!show) other.value = '';
+      }
+    }
+    var bankSel = document.getElementById('bank_name');
+    if (bankSel) bankSel.addEventListener('change', function () { toggleBankOther(); saveDraft(); });
+
+    // Tombol tahap 1: isi/timpa alamat PEMILIK dari GPS (geolocation langsung,
+    // tidak menggerakkan pin peta Tahap 3 karena alamat pemilik boleh beda dengan titik lahan).
+    // Klik eksplisit = selalu timpa isi manual; pengetikan manual tetap bebas kapan saja.
+    var btnGpsAddr = document.getElementById('btnGpsAddress');
+    if (btnGpsAddr) {
+      btnGpsAddr.addEventListener('click', function () {
+        var addrStatus = document.getElementById('addrStatus');
+        if (!navigator.geolocation) {
+          if (addrStatus) addrStatus.textContent = 'Browser/HP tidak mendukung GPS — silakan ketik alamat manual.';
+          return;
+        }
+        if (addrStatus) addrStatus.textContent = '📡 Mengaktifkan GPS — mohon izinkan akses lokasi…';
+        navigator.geolocation.getCurrentPosition(function (pos) {
+          try { window._japAutofillAddress(pos.coords.latitude, pos.coords.longitude, 'owner', true); } catch (e) {}
+        }, function (err) {
+          if (addrStatus) addrStatus.textContent = 'GPS ditolak (' + (err.message || 'izin ditolak') + ') — silakan ketik alamat manual atau coba lagi.';
+        }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
+      });
+    }
+
+    // Submit akhir: validasi semua tahap teks + berkas wajib
+    form.addEventListener('submit', function (e) {
+      for (var n = 1; n <= 3; n++) {
+        if (!validateStep(n)) {
+          e.preventDefault();
+          current = n;
+          paint();
+          return;
+        }
+      }
+      var step4 = form.querySelector('.wizard-step[data-step="4"]');
+      var files = step4.querySelectorAll('input.pick-real[type="file"]');
+      var LABELS = { ktp_file: 'KTP', photo_1_file: 'Foto Sebrang Jalan', photo_3_file: 'Foto Jaringan Listrik', photo_spot_file: 'Foto Penempatan 3/4m', photo_right_file: 'Foto Sudut Kanan', photo_left_file: 'Foto Sudut Kiri', photo_selfie_file: 'Foto Selfie Pemilik', photo_maps_file: 'Screenshot Koordinat', legal_doc_file: 'Dokumen Legalitas', family_doc_file: 'Foto KK / Buku Nikah', sewa_doc_file: 'Surat Sewa', support_doc_file: 'Dokumen Pendukung' };
+      var OPTIONAL_FILES = { support_doc_file: 1 };
+      for (var i = 0; i < files.length; i++) {
+        if (OPTIONAL_FILES[files[i].name]) continue;
+        if (!files[i].files || !files[i].files[0]) {
+          e.preventDefault();
+          current = 4;
+          paint();
+          var grp = files[i].closest ? files[i].closest('[data-shot-group]') : null;
+          if (grp && grp.scrollIntoView) grp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          alert('Wajib: pilih berkas untuk "' + (LABELS[files[i].name] || files[i].name) + '" — via Kamera atau Galeri, lalu klik salah satu di grid.');
+          return;
+        }
+        if (files[i].files[0].size > 5 * 1024 * 1024) {
+          e.preventDefault();
+          current = 4;
+          paint();
+          alert('Ukuran berkas melebihi 5 MB: ' + files[i].files[0].name);
+          return;
+        }
+      }
+      // Stash identitas pemilik untuk alur "Ajukan Unit Lain" (dipakai bila ?again=1)
+      try {
+        var repStash = {};
+        ['owner_name', 'phone_number', 'address', 'nik', 'ttl', 'bank_name', 'bank_name_other', 'account_number'].forEach(function (name) {
+          var el = form.querySelector('[name="' + name + '"]');
+          if (el) repStash[name] = el.value;
+        });
+        localStorage.setItem('jap_ajukan_repeat_v1', JSON.stringify(repStash));
+      } catch (e) {}
+      // maps_url tersembunyi: pastikan terisi dari pin sebelum kirim
+      var muEl = form.querySelector('[name="maps_url"]');
+      var mlEl = form.querySelector('[name="maps_link"]');
+      if (muEl && mlEl && !muEl.value && mlEl.value) muEl.value = mlEl.value;
+      // Mode offline-first: cegah submit bawaan — kirim via fetch bila online,
+      // simpan ke antrean HP bila offline/gagal (otomatis terkirim saat online).
+      // Draft teks dibiarkan agar jika server mengembalikan galat,
+      // user tidak kehilangan isian. Draft dibersihkan di halaman sukses.
+      e.preventDefault();
+      if (window._japSubmitLahan) { try { window._japSubmitLahan(form); } catch (err) { form.submit(); } }
+      else form.submit();
+    });
+
+    var clearBtn = document.getElementById('clearDraft');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function () {
+        if (!confirm('Hapus semua isian draft di browser ini?')) return;
+        try { localStorage.removeItem(DRAFT_KEY); localStorage.removeItem(STEP_KEY); } catch (e) {}
+        form.reset();
+        // Kembalikan referral dari sessionStorage setelah reset
+        try {
+          var ref = sessionStorage.getItem('jap_ref') || '';
+          if (ref) form.querySelector('[name="referral_code"]').value = ref;
+        } catch (e) {}
+        form.querySelectorAll('.file-picked').forEach(function (el) { el.style.display = 'none'; el.textContent = ''; });
+        // Bersihkan grid kamera/galeri
+        if (window._japClearShots) { try { window._japClearShots(); } catch (e) {} }
+        current = 1;
+        paint();
+      });
+    }
+
+    loadDraft();
+    paint();
+  })();
+
+</script>
+<script src="/js/photo-picker.js"></script>
+<script src="/js/offline-queue.js"></script>
+
+<% if (typeof withMap !== 'undefined' && withMap) { %>
+<script src="/vendor/leaflet/leaflet.js"></script>
+<script src="/vendor/leaflet/Control.FullScreen.js"></script>
+<script src="/js/location-map.js"></script>
+<% } %>
+
+<%- include('../partials/foot') %>

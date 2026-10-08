@@ -1,0 +1,89 @@
+<%- include('../partials/head', { title: 'Kirim Notifikasi - BSS' }) %>
+<%- include('../partials/dashNavbar') %>
+
+<main>
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Broadcast</span>
+        <h2>Kirim Notifikasi</h2>
+        <p>Sampaikan pengumuman ke head marketing, marketing, atau sesama admin. Masuk ke bell 🔔 mereka.</p>
+      </div>
+
+      <% if (flash && flash.message) { %>
+        <div class="alert alert-<%= flash.type %>"><%= flash.message %></div>
+      <% } %>
+
+      <div class="card mb-3" style="max-width:640px;margin-inline:auto;">
+        <form action="/admin/notifikasi" method="POST">
+          <div class="form-group">
+            <label for="audience">Tujuan</label>
+            <select class="form-control" id="audience" name="audience" required>
+              <option value="all_marketing">📣 Semua Marketing (+ Head)</option>
+              <option value="heads">⭐ Head Marketing saja</option>
+              <option value="admins">🛡️ Sesama Admin</option>
+              <option value="user">👤 Satu orang…</option>
+            </select>
+          </div>
+          <div class="form-group" id="userWrap" hidden>
+            <label for="user_id">Pilih marketing</label>
+            <select class="form-control" id="user_id" name="user_id">
+              <option value="">— Pilih —</option>
+              <% marketers.forEach(function (m) { %>
+                <option value="<%= m.id %>"><%= m.name %> (<%= m.referral_code %>)<%= Number(m.is_head) === 1 ? ' ⭐' : '' %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="title">Judul</label>
+            <input class="form-control" type="text" id="title" name="title" required maxlength="150" placeholder="Contoh: Jadwal survei minggu ini" />
+          </div>
+          <div class="form-group">
+            <label for="body">Isi pesan</label>
+            <textarea class="form-control" id="body" name="body" rows="3" maxlength="2000" placeholder="Tulis pengumuman…"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="link">Tautan (opsional)</label>
+            <input class="form-control" type="text" id="link" name="link" maxlength="500" placeholder="/marketing atau https://…" />
+            <p class="form-hint">Diklik dari bell / inbox. Kosongkan bila hanya pengumuman.</p>
+          </div>
+          <button type="submit" class="btn btn-accent"><strong>📨 Kirim Notifikasi</strong></button>
+        </form>
+      </div>
+
+      <div class="card" style="max-width:640px;margin-inline:auto;">
+        <div class="card-title-row" style="margin-bottom:10px;">
+          <h3 style="margin:0;">Terkirim Terakhir</h3>
+        </div>
+        <% if (sent.length === 0) { %>
+          <p class="subtext" style="margin:0;">Belum ada notifikasi terkirim.</p>
+        <% } else { %>
+          <% sent.forEach(function (s) { %>
+            <div style="border-bottom:1px solid var(--card-border);padding:8px 0;font-size:.82rem;">
+              <strong><%= s.title %></strong>
+              <span class="muted-text">→ <%= s.n %> penerima · <%= s.created_at ? new Date(s.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '' %></span>
+              <% if (s.body) { %><div class="muted-text"><%= s.body.length > 120 ? s.body.slice(0, 120) + '…' : s.body %></div><% } %>
+            </div>
+          <% }) %>
+        <% } %>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+  (function () {
+    var aud = document.getElementById('audience');
+    var wrap = document.getElementById('userWrap');
+    var sel = document.getElementById('user_id');
+    function toggle() {
+      var one = aud.value === 'user';
+      wrap.hidden = !one;
+      if (sel) sel.required = one;
+    }
+    if (aud) aud.addEventListener('change', toggle);
+    toggle();
+  })();
+</script>
+
+<%- include('../partials/foot') %>

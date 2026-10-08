@@ -1,0 +1,126 @@
+<%- include('../partials/head', { title: 'Struktur Tim - BSS' }) %>
+<%- include('../partials/navbar') %>
+
+<style>
+  .org-legend { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 0 0 18px; }
+  .org-legend span { font-size: .72rem; font-weight: 800; padding: 5px 14px; border-radius: 999px; color: #fff; letter-spacing: .4px; }
+  .lg-knab { background: linear-gradient(135deg, #0f2a43, #334155); }
+  .lg-coord { background: linear-gradient(135deg, #1d4ed8, #0ea5e9); }
+  .lg-head { background: linear-gradient(135deg, #b45309, #f59e0b); }
+  .lg-mkt { background: linear-gradient(135deg, #15803d, #22c55e); }
+  .lg-owner { background: linear-gradient(135deg, #0f766e, #2dd4bf); }
+  .org-scroll { overflow-x: auto; padding-bottom: 12px; }
+  .org-tree, .org-tree ul { display: flex; justify-content: center; padding-top: 22px; margin: 0; position: relative; }
+  .org-tree ul { padding-left: 0; }
+  .org-tree li { list-style: none; position: relative; padding: 22px 10px 0; text-align: center; }
+  .org-tree li::before, .org-tree li::after { content: ''; position: absolute; top: 0; right: 50%; width: 50%; height: 22px; border-top: 2px solid var(--card-border); }
+  .org-tree li::after { right: auto; left: 50%; border-left: 2px solid var(--card-border); }
+  .org-tree li:only-child::before, .org-tree li:only-child::after { display: none; }
+  .org-tree li:only-child { padding-top: 0; }
+  .org-tree li:first-child::before, .org-tree li:last-child::after { border: 0 none; }
+  .org-tree li:last-child::before { border-right: 2px solid var(--card-border); border-radius: 0 8px 0 0; }
+  .org-tree li:first-child::after { border-radius: 8px 0 0 0; }
+  .org-tree > li::before, .org-tree > li::after { display: none; }
+  .org-tree > li { padding-top: 0; }
+  .org-tree ul ul::before { content: ''; position: absolute; top: 0; left: 50%; width: 0; height: 22px; border-left: 2px solid var(--card-border); }
+  .org-node { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; min-width: 128px; max-width: 170px; background: var(--card); border: 1px solid var(--card-border); border-radius: 16px; padding: 14px 12px 12px; position: relative; overflow: hidden; transition: transform .16s ease, box-shadow .16s ease; }
+  .org-node:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+  .org-node::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 5px; }
+  .org-node.knab::before { background: linear-gradient(90deg, #0f2a43, #64748b); }
+  .org-node.coord::before { background: linear-gradient(90deg, #1d4ed8, #0ea5e9); }
+  .org-node.head::before { background: linear-gradient(90deg, #b45309, #f59e0b); }
+  .org-node.mkt::before { background: linear-gradient(90deg, #15803d, #22c55e); }
+  .org-node.owner::before { background: linear-gradient(90deg, #0f766e, #2dd4bf); }
+  .org-avatar { position: relative; width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), #3a93e8); color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 1rem; margin-bottom: 6px; overflow: hidden; }
+  .org-node.coord .org-avatar { background: linear-gradient(135deg, #1d4ed8, #0ea5e9); }
+  .org-node.head .org-avatar { background: linear-gradient(135deg, #f59e0b, #f97316); }
+  .org-node.mkt .org-avatar { background: linear-gradient(135deg, #15803d, #22c55e); }
+  .org-node.owner .org-avatar { background: linear-gradient(135deg, #0f766e, #2dd4bf); font-size: 1.3rem; }
+  .org-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .org-avatar-logo { background: #fff; }
+  .org-avatar-logo img { object-fit: contain; padding: 6px; }
+  .org-name { font-size: .82rem; font-weight: 800; line-height: 1.3; overflow-wrap: anywhere; }
+  .org-meta { display: contents; }
+  .org-role { font-size: .6rem; font-weight: 800; letter-spacing: 1px; padding: 2px 10px; border-radius: 999px; background: var(--bg-soft); border: 1px solid var(--card-border); color: var(--text-muted); margin-top: 4px; }
+  .org-stat { font-size: .7rem; font-weight: 700; color: var(--primary); margin-top: 2px; }
+  .org-counts { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 20px; }
+  .org-count { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; padding: 8px 18px; text-align: center; }
+  .org-count b { display: block; font-size: 1.25rem; }
+  .org-count span { font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--text-muted); }
+  @media (max-width: 640px) {
+    /* Timeline vertikal modern: kartu horizontal full-width + garis alur kiri */
+    .org-scroll { overflow: visible; }
+    .org-tree, .org-tree ul { display: block; padding: 0; margin: 0; min-width: 0; }
+    .org-tree li { display: block; padding: 0; text-align: left; }
+    .org-tree li::before, .org-tree li::after { display: none; }
+    .org-tree ul ul::before { display: none; }
+    .org-tree ul { margin: 10px 0 6px 20px; padding: 4px 0 4px 16px; border-left: 2px solid var(--card-border); border-radius: 2px; }
+    .org-tree > li > ul { margin-left: 6px; }
+    .org-tree ul > li { margin-bottom: 10px; }
+    .org-tree ul > li:last-child { margin-bottom: 2px; }
+    .org-node { display: flex; flex-direction: row; align-items: center; gap: 12px; min-width: 0; max-width: none; width: 100%; text-align: left; padding: 10px 14px 10px 18px; }
+    .org-node::before { top: 0; bottom: 0; left: 0; right: auto; width: 5px; height: auto; }
+    .org-avatar { width: 46px; height: 46px; margin-bottom: 0; flex: 0 0 46px; font-size: .9rem; }
+    .org-node.owner .org-avatar { font-size: 1.1rem; }
+    .org-meta { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
+    .org-name { font-size: .86rem; }
+    .org-role { margin-top: 0; }
+    .org-stat { margin-top: 0; }
+  }
+</style>
+
+<main>
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Flowchart Organisasi</span>
+        <h2>PT KARYA NYATA ANAK BANGSA</h2>
+        <p>KNAB → Koordinator → Head Marketing → Marketing → Penyedia Lahan.</p>
+      </div>
+
+      <div class="org-counts">
+        <div class="org-count"><b><%= counts.coords %></b><span>Koordinator</span></div>
+        <div class="org-count"><b><%= counts.heads %></b><span>Head</span></div>
+        <div class="org-count"><b><%= counts.marketing %></b><span>Marketing</span></div>
+        <div class="org-count"><b><%= counts.owners %></b><span>Penyedia</span></div>
+        <div class="org-count"><b><%= counts.units %></b><span>Unit</span></div>
+      </div>
+
+      <div class="org-legend">
+        <span class="lg-knab">KNAB</span>
+        <span class="lg-coord">KOORDINATOR</span>
+        <span class="lg-head">HEAD</span>
+        <span class="lg-mkt">MARKETING</span>
+        <span class="lg-owner">PENYEDIA</span>
+      </div>
+
+      <div class="org-scroll">
+        <ul class="org-tree">
+          <li>
+            <div class="org-node knab">
+              <span class="org-avatar org-avatar-logo"><img src="<%= typeof brandLogo !== 'undefined' ? brandLogo : '/img/logo.png' %>" alt="Logo" loading="lazy" onerror="this.remove()" /><b>KN</b></span>
+              <strong class="org-name"><%= typeof brandFullName !== 'undefined' ? brandFullName : 'KNAB' %></strong>
+              <span class="org-meta">
+                <span class="org-role">PUSAT</span>
+                <span class="org-stat">Sewa Lahan BSS × V-Green</span>
+              </span>
+            </div>
+            <% if (tree && tree.length) { %>
+            <ul>
+              <% tree.forEach(function (node) { %>
+                <%- include('./_struktur-node', { node: node }) %>
+              <% }) %>
+            </ul>
+            <% } %>
+          </li>
+        </ul>
+      </div>
+
+      <% if (!tree || !tree.length) { %>
+        <p class="text-center" style="color:var(--text-muted);">Belum ada data tim untuk ditampilkan.</p>
+      <% } %>
+    </div>
+  </section>
+</main>
+
+<%- include('../partials/foot') %>

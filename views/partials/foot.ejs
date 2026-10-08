@@ -1,0 +1,133 @@
+<footer class="footer footer-new">
+  <div class="container footer-inner">
+    <div class="footer-brand">
+      <a href="/" class="brand">
+        <img src="<%= typeof brandLogo !== 'undefined' ? brandLogo : '/img/logo.png' %>" alt="<%= typeof brandFullName !== 'undefined' ? brandFullName : (typeof brandName !== 'undefined' ? brandName : 'BSS') %> logo" class="logo-img" />
+        <span class="brand-text"><%= typeof brandFullName !== 'undefined' ? brandFullName : (typeof brandName !== 'undefined' ? brandName : 'BSS') %></span>
+      </a>
+      <p>Sewa Lahan BSS × V-Green — ubah lahan kecil menjadi penghasilan tahunan sekaligus dukung ekosistem kendaraan listrik.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Menu</h4>
+      <a href="/">Beranda</a>
+      <a href="/panduan">Panduan</a>
+      <a href="/struktur">Struktur Tim</a>
+      <a href="/lacak">Lacak Pengajuan</a>
+      <a href="/daftar-marketing">Daftar Marketing</a>
+      <a href="/login">Login</a>
+    </div>
+    <div class="footer-col">
+      <h4>Bantuan</h4>
+      <a href="/panduan">Syarat Lokasi</a>
+      <a href="/panduan">Berkas Wajib</a>
+      <a href="/lacak">Pantau Status</a>
+    </div>
+  </div>
+  <div class="container footer-bottom">
+    <p>© <%= new Date().getFullYear() %> <%= typeof brandFullName !== 'undefined' ? brandFullName : (typeof brandName !== 'undefined' ? brandName : 'BSS') %> — Hak cipta dilindungi.</p>
+    <a href="#" class="to-top" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;">↑ Kembali ke atas</a>
+  </div>
+</footer>
+
+<style>
+  .footer-new {
+    margin-top: 48px;
+    padding: 0;
+    background: linear-gradient(180deg, var(--footer-bg), rgba(0,0,0,.28)), var(--footer-bg);
+    color: var(--footer-text);
+    position: relative;
+  }
+  .footer-new::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary), var(--accent));
+  }
+  .footer-inner {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr;
+    gap: 28px;
+    padding-top: 40px;
+    padding-bottom: 26px;
+    text-align: left;
+  }
+  .footer-brand .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 1.05rem;
+    margin-bottom: 12px;
+    color: #fff;
+    max-width: 100%;
+  }
+  .footer-brand .brand-text {
+    max-width: none;
+    white-space: normal;
+    line-height: 1.35;
+  }
+  .footer-brand p { font-size: .84rem; line-height: 1.7; margin: 0; max-width: 360px; color: var(--footer-muted); }
+  .footer-col h4 {
+    margin: 0 0 12px;
+    font-size: .74rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #fff;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--accent);
+    display: inline-block;
+  }
+  .footer-col a {
+    display: block;
+    font-size: .86rem;
+    padding: 5px 0;
+    color: var(--footer-text);
+    transition: transform .18s ease, color .18s ease;
+  }
+  .footer-col a:hover { color: #fff; transform: translateX(5px); }
+  .footer-bottom {
+    border-top: 1px solid rgba(255,255,255,.12);
+    padding-top: 16px;
+    padding-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .footer-bottom p { margin: 0; font-size: .78rem; color: var(--footer-muted); }
+  .to-top {
+    font-size: .78rem;
+    font-weight: 800;
+    color: var(--footer-text);
+    border: 1px solid rgba(255,255,255,.22);
+    border-radius: 99px;
+    padding: 6px 14px;
+    transition: background .18s ease, color .18s ease;
+  }
+  .to-top:hover { background: rgba(255,255,255,.12); color: #fff; }
+  @media (max-width: 760px) {
+    .footer-inner { grid-template-columns: 1fr 1fr; gap: 22px; padding-top: 32px; }
+    .footer-brand { grid-column: 1 / -1; }
+  }
+  @media (max-width: 480px) {
+    .footer-inner { grid-template-columns: 1fr; gap: 20px; }
+    .footer-bottom { flex-direction: column; text-align: center; }
+  }
+</style>
+
+<script>
+  (function () {
+    var params = new URLSearchParams(window.location.search);
+    var ref = params.get('ref');
+    if (ref && ref.trim()) {
+      sessionStorage.setItem('jap_ref', ref.trim());
+    }
+  })();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,103 @@
+  .file-picked { font-size: .78rem; color: var(--primary); margin-top: 4px; display: none; }
+  /* Pemilih foto: kamera + galeri + grid */
+  .pick-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .pick-row .btn { flex: 1; padding: 9px 0; font-size: .82rem; }
+  .shot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+  .shot-grid:empty { display: none; }
+  .shot { position: relative; border: 2px solid var(--card-border); border-radius: 10px; overflow: hidden; background: var(--bg-soft); cursor: pointer; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; }
+  .shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .shot .shot-pdf { font-size: .7rem; text-align: center; padding: 6px; word-break: break-all; }
+  .shot.selected { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft, rgba(0,0,0,.08)); }
+  .shot .shot-badge { position: absolute; top: 4px; left: 4px; background: var(--primary); color: #fff; font-size: .65rem; font-weight: 700; border-radius: 99px; padding: 2px 8px; display: none; }
+  .shot.selected .shot-badge { display: block; }
+  .shot .shot-del { position: absolute; top: 4px; right: 4px; width: 26px; height: 26px; border-radius: 50%; border: none; background: rgba(0,0,0,.6); color: #fff; font-size: .8rem; cursor: pointer; line-height: 1; }
+  .shot .shot-edit { position: absolute; bottom: 4px; right: 4px; border: none; background: rgba(0,0,0,.6); color: #fff; font-size: .68rem; font-weight: 700; border-radius: 99px; padding: 4px 10px; cursor: pointer; }
+  .shot .shot-view { position: absolute; bottom: 4px; left: 4px; border: none; background: rgba(0,0,0,.6); color: #fff; font-size: .72rem; border-radius: 99px; padding: 4px 10px; cursor: pointer; }
+  /* Pratinjau grid + popup zoom */
+  .shot-lb { position: fixed; inset: 0; z-index: 10001; background: rgba(0,0,0,.9); display: flex; align-items: center; justify-content: center; padding: 18px; }
+  .shot-lb[hidden] { display: none; }
+  .shot-lb-figure { max-width: min(1000px, 96vw); width: 100%; display: flex; flex-direction: column; gap: 8px; align-items: center; margin: 0; }
+  .shot-lb-stage { width: 100%; max-height: 80vh; overflow: auto; display: flex; align-items: center; justify-content: center; border-radius: 10px; }
+  .shot-lb-stage img { max-width: 100%; max-height: 80vh; border-radius: 10px; cursor: zoom-in; transition: transform .15s ease; }
+  .shot-lb-stage iframe { width: min(900px, 92vw); height: 80vh; border: none; border-radius: 10px; background: #fff; }
+  .shot-lb-cap { color: #fff; font-size: .82rem; font-weight: 600; text-align: center; word-break: break-all; }
+  .shot-lb-hint { color: rgba(255,255,255,.65); font-size: .72rem; text-align: center; }
+  .shot-lb-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .shot-lb-actions .btn { padding: 9px 18px; font-size: .8rem; }
+  .shot-lb-close { position: absolute; top: 14px; right: 16px; border: none; background: rgba(255,255,255,.15); color: #fff; font-size: 1.2rem; border-radius: 50%; width: 38px; height: 38px; cursor: pointer; }
+  .shot-lb-controls { position: absolute; top: 14px; left: 16px; display: flex; gap: 6px; }
+  .shot-lb-controls button { border: none; background: rgba(255,255,255,.15); color: #fff; font-size: 1rem; font-weight: 800; border-radius: 10px; min-width: 38px; height: 38px; cursor: pointer; padding: 0 10px; }
+  .shot-lb-controls button[hidden] { display: none; }
+  .shot-empty-note { font-size: .78rem; color: var(--muted, #888); }
+  /* Editor watermark */
+  #edCanvas { width: 100%; border-radius: 10px; background: #000; display: block; }
+  .ed-controls { display: grid; gap: 8px; padding: 12px 14px 14px; }
+  .ed-controls label { font-size: .8rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .ed-controls select { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--card-border); background: var(--bg-soft); color: var(--text); font-size: .85rem; }
+  .ed-row { display: flex; gap: 8px; }
+  .ed-row .btn { flex: 1; }
+  /* Modal kamera */
+  .cam-modal { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.75); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .cam-modal[hidden] { display: none; }
+  .cam-box { width: 100%; max-width: 480px; background: var(--card); border-radius: 14px; overflow: hidden; border: 1px solid var(--card-border); max-height: 92vh; overflow-y: auto; }
+  .cam-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; }
+  .cam-head button { border: none; background: none; font-size: 1.1rem; cursor: pointer; color: var(--text); }
+  .cam-box video { width: 100%; max-height: 60vh; background: #000; display: block; }
+  .cam-actions { display: flex; gap: 8px; padding: 12px 14px 4px; }
+  .cam-actions .btn { flex: 1; }
+  .cam-box .form-hint { padding: 0 14px 12px; }
+
+  /* ===== Fullscreen camera ala GeoPicker Pro BSS ===== */
+  .cam-fullscreen { background: #09070f; flex-direction: column; padding: 0; align-items: stretch; justify-content: flex-start; }
+  .cam-topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; z-index: 5; }
+  .cam-live-badge { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.15); color: #fff; padding: 8px 12px; border-radius: 99px; font-size: .8rem; }
+  .cam-live-badge strong { font-size: .78rem; }
+  .cam-dot { width: 8px; height: 8px; border-radius: 50%; background: #ec4899; animation: camBlink 1.2s infinite; }
+  @keyframes camBlink { 50% { opacity: .3; } }
+  .cam-bss-badge { background: rgba(16,185,129,.25); border: 1px solid rgba(16,185,129,.5); color: #34d399; font-size: .68rem; font-weight: 800; padding: 3px 10px; border-radius: 99px; }
+  .cam-top-actions { display: flex; gap: 8px; }
+  .cam-icon-btn { background: rgba(0,0,0,.6); border: 1px solid rgba(255,255,255,.2); color: #fff; border-radius: 12px; padding: 9px 12px; font-size: .78rem; font-weight: 700; cursor: pointer; }
+  .cam-icon-btn span { margin-left: 2px; }
+  .cam-stage { position: relative; flex: 1; min-height: 52vh; max-height: 68vh; background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center; touch-action: none; }
+  .cam-stage video, .cam-gal-preview { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .cam-gal-preview[hidden] { display: none; }
+  .cam-logo-box { position: absolute; z-index: 7; cursor: move; touch-action: none; user-select: none; border: 2px dashed rgba(255,255,255,.4); border-radius: 12px; background: rgba(0,0,0,.08); box-shadow: 0 0 30px rgba(0,0,0,.5); }
+  .cam-logo-box[hidden] { display: none; }
+  .cam-logo-box img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; border-radius: 8px; display: block; }
+  .cam-logo-resize { position: absolute; bottom: -12px; right: -12px; width: 28px; height: 28px; background: #ec4899; border: 2px solid #fff; border-radius: 50%; cursor: nwse-resize; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #fff; touch-action: none; }
+  .cam-wm-panel { position: absolute; left: 50%; transform: translateX(-50%); bottom: 96px; width: 92%; max-width: 360px; background: rgba(0,0,0,.9); border: 1px solid rgba(255,255,255,.12); border-radius: 16px; padding: 12px; z-index: 8; display: grid; gap: 0; color: #fff; }
+  .cam-wm-panel[hidden] { display: none; }
+  .cam-wm-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0; }
+  .cam-wm-tabs button { background: #1e293b; border: 1px solid #475569; color: #cbd5e1; font-size: .74rem; font-weight: 800; padding: 8px 4px; border-radius: 10px; cursor: pointer; font-family: inherit; }
+  .cam-wm-tabs button.active { background: #059669; border-color: #34d399; color: #fff; }
+  .cam-wm-pane { display: grid; gap: 6px; }
+  .cam-wm-pane[hidden] { display: none; }
+  .cam-wm-panel .form-hint { margin: 8px 0 0; font-size: .68rem; }
+  .cam-wm-head { display: flex; justify-content: space-between; align-items: center; font-size: .78rem; font-weight: 800; border-bottom: 1px solid rgba(255,255,255,.1); padding-bottom: 6px; }
+  .cam-wm-head button { background: none; border: none; color: #f472b6; font-weight: 800; font-size: .68rem; cursor: pointer; }
+  .cam-wm-label { font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: #cbd5e1; }
+  .cam-wm-panel input[type="text"] { width: 100%; background: #0f172a; border: 1px solid rgba(255,255,255,.15); border-radius: 10px; padding: 9px 10px; color: #fff; font-size: .82rem; font-weight: 700; outline: none; box-sizing: border-box; }
+  .cam-wm-row { font-size: .7rem; color: #94a3b8; font-weight: 700; display: flex; justify-content: space-between; }
+  .cam-wm-row b { color: #f472b6; }
+  .cam-wm-panel input[type="range"] { width: 100%; accent-color: #ec4899; }
+  .cam-bss-settings { padding-top: 0; display: grid; gap: 6px; }
+  .cam-logo-btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .cam-logo-btns button { background: #1e293b; border: 1px solid #475569; color: #cbd5e1; font-size: .68rem; font-weight: 800; padding: 7px 2px; border-radius: 10px; cursor: pointer; }
+  .cam-logo-btns button.active { background: #059669; border-color: #34d399; color: #fff; }
+  .cam-actions-full { display: flex; align-items: center; justify-content: center; gap: 28px; padding: 14px 16px 4px; z-index: 5; }
+  .cam-round-btn { width: 54px; height: 54px; border-radius: 50%; background: rgba(0,0,0,.6); border: 1px solid rgba(255,255,255,.2); color: #fff; font-size: 1.2rem; cursor: pointer; }
+  .cam-shutter { width: 78px; height: 78px; border-radius: 50%; background: #fff; border: none; padding: 5px; cursor: pointer; box-shadow: 0 0 40px rgba(236,72,153,.45); }
+  .cam-shutter:active { transform: scale(.93); }
+  .cam-shutter span { display: block; width: 100%; height: 100%; border-radius: 50%; background: linear-gradient(135deg,#ec4899,#8b5cf6); border: 4px solid rgba(0,0,0,.08); }
+  .cam-status { text-align: center; color: #f9a8d4; font-size: .72rem; padding: 8px 16px 16px; min-height: 32px; }
+  .cam-mini { align-items: center; }
+  .cam-result-img { width: 100%; border-radius: 10px; background: #000; display: block; max-height: 52vh; object-fit: contain; }
+  .cam-toast { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); background: #111827; color: #fff; font-size: .75rem; font-weight: 800; letter-spacing: .04em; padding: 10px 18px; border-radius: 99px; border: 1px solid rgba(255,255,255,.15); box-shadow: 0 10px 30px rgba(0,0,0,.4); z-index: 10000; }
+  .cam-toast[hidden] { display: none; }
+  /* Readout GPS sinkron (kamera & editor) */
+  .cam-gps-box { padding-top: 0; display: grid; gap: 5px; }
+  .cam-gps-coords { font-size: .78rem; font-weight: 800; color: #6ee7b7; font-family: monospace; word-break: break-all; }
+  .cam-gps-addr { font-size: .68rem; color: #94a3b8; line-height: 1.45; word-break: break-word; }
+  .ed-gps-box { background: var(--bg-soft); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 12px; display: grid; gap: 4px; }
+  .ed-gps-coords { font-size: .8rem; font-weight: 800; color: var(--text); font-family: monospace; word-break: break-all; }
+  .ed-gps-addr { font-size: .72rem; color: var(--muted, #888); line-height: 1.45; word-break: break-word; }

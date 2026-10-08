@@ -1,0 +1,104 @@
+<%- include('../partials/head', { title: 'Daftar Marketing - BSS' }) %>
+<%- include('../partials/navbar') %>
+
+<main>
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Gabung Tim Marketing</span>
+        <h2>📝 Daftar Jadi Marketing</h2>
+        <p>Isi data di bawah — <strong>wajib pakai kode referral</strong> dari marketing yang mengajak Anda. Setelah daftar: verifikasi email, lalu menunggu persetujuan admin.</p>
+      </div>
+
+      <% if (typeof error !== 'undefined' && error) { %>
+        <div class="alert alert-error" style="max-width:640px;margin:0 auto 16px;"><%= error %></div>
+      <% } %>
+
+      <div class="card mb-3 mkt-form" style="max-width:640px;margin-inline:auto;">
+        <form action="/daftar-marketing" method="POST">
+          <div class="form-group">
+            <label for="name">Nama Lengkap</label>
+            <input class="form-control" type="text" id="name" name="name" required maxlength="100" placeholder="Nama sesuai KTP" value="<%= form.name || '' %>" />
+          </div>
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input class="form-control" type="email" id="email" name="email" required maxlength="100" placeholder="email@domain.com" value="<%= form.email || '' %>" />
+            <p class="form-hint">Link verifikasi dikirim ke email ini — pastikan aktif & benar.</p>
+          </div>
+          <div class="form-group">
+            <label for="whatsapp">No. WhatsApp</label>
+            <div class="input-group">
+              <span class="input-group-addon">+62</span>
+              <input class="form-control" type="tel" id="whatsapp" name="whatsapp" required placeholder="8xx xxxx xxxx" value="<%= form.whatsapp || '' %>" />
+            </div>
+            <p class="form-hint">Tidak bisa double — 1 nomor untuk 1 akun.</p>
+          </div>
+          <div class="form-group">
+            <label for="nik">No. KTP / NIK (16 digit)</label>
+            <input class="form-control" type="text" id="nik" name="nik" required inputmode="numeric" maxlength="16" pattern="[0-9]{16}" placeholder="16 digit angka" value="<%= form.nik || '' %>" />
+            <p class="form-hint">Tidak bisa double — 1 NIK untuk 1 akun.</p>
+          </div>
+          <div class="form-group">
+            <label for="bank_name">Nama Bank</label>
+            <select class="form-control" id="bank_name" name="bank_name" required>
+              <option value="">Pilih bank…</option>
+              <% ['BCA','BRI','Mandiri','BNI','BTN','BSI','CIMB Niaga','Danamon','Permata','Panin','OCBC','Maybank','Lainnya'].forEach(function (b) { %>
+                <option value="<%= b %>" <%= form.bank_name === b ? 'selected' : '' %>><%= b === 'Lainnya' ? 'Lainnya (tulis manual)' : b %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="form-group" id="bankOtherWrap" hidden>
+            <label for="bank_name_other">Nama Bank Lainnya</label>
+            <input class="form-control" type="text" id="bank_name_other" name="bank_name_other" maxlength="100" placeholder="Tulis nama bank" value="<%= form.bank_name_other || '' %>" />
+          </div>
+          <div class="form-group">
+            <label for="account_number">No. Rekening</label>
+            <input class="form-control" type="text" id="account_number" name="account_number" required inputmode="numeric" maxlength="20" placeholder="6–20 digit angka" value="<%= form.account_number || '' %>" />
+            <p class="form-hint">Untuk pencairan fee — pastikan atas nama sendiri.</p>
+          </div>
+          <div class="form-group">
+            <label for="ref_code">Kode Referral (wajib)</label>
+            <input class="form-control" type="text" id="ref_code" name="ref_code" required maxlength="20" placeholder="Contoh: JAPXXXXXX" value="<%= form.ref_code || '' %>" style="text-transform:uppercase;" />
+            <p class="form-hint">Kode milik marketing yang mengajak Anda. Salah kode = pendaftaran ditolak.</p>
+          </div>
+          <div class="form-group">
+            <label for="password">Password (min. 6 karakter)</label>
+            <input class="form-control" type="password" id="password" name="password" required minlength="6" autocomplete="new-password" placeholder="••••••••" />
+          </div>
+          <div class="form-group">
+            <label for="confirm_password">Konfirmasi Password</label>
+            <input class="form-control" type="password" id="confirm_password" name="confirm_password" required minlength="6" autocomplete="new-password" placeholder="••••••••" />
+          </div>
+          <div class="form-group">
+            <label class="head-check" for="agree">
+              <input type="checkbox" id="agree" name="agree" value="1" required />
+              <span>Saya menyetujui syarat &amp; ketentuan: data benar, 1 akun per orang, dan proses pencairan mengikuti survei &amp; persetujuan pusat (estimasi &gt; 90 hari kerja). <a href="/panduan">Baca panduan</a>.</span>
+            </label>
+          </div>
+          <button type="submit" class="btn btn-accent btn-block"><strong>🚀 Daftar Sekarang</strong></button>
+          <p class="form-hint text-center" style="margin-top:10px;">Sudah punya akun? <a href="/login">Login di sini</a></p>
+        </form>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+  (function () {
+    var sel = document.getElementById('bank_name');
+    var wrap = document.getElementById('bankOtherWrap');
+    var other = document.getElementById('bank_name_other');
+    function toggle() {
+      if (!sel || !wrap) return;
+      var show = sel.value === 'Lainnya';
+      wrap.hidden = !show;
+      if (other) { other.required = show; if (!show) other.value = ''; }
+    }
+    if (sel) sel.addEventListener('change', toggle);
+    toggle();
+    var ref = document.getElementById('ref_code');
+    if (ref) ref.addEventListener('input', function () { ref.value = ref.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
+  })();
+</script>
+
+<%- include('../partials/foot') %>

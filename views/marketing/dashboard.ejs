@@ -1,0 +1,406 @@
+<%- include('../partials/head', { title: 'Dashboard Marketing - BSS' }) %>
+<%- include('../partials/dashNavbar') %>
+
+<style>
+  .referral-card { overflow: hidden; position: relative; }
+  .referral-card::before { content: '🔍'; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, var(--primary), var(--accent, #f5a623)); }
+  /* ===== Daftar pengajuan — modern desktop (mobile tidak diubah) ===== */
+  .mkt-card { overflow: hidden; padding: 0; }
+  .mkt-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 18px 20px 14px; }
+  .mkt-head h3 { margin: 0; font-size: 1.02rem; display: flex; align-items: center; gap: 8px; }
+  .mkt-count { font-size: .7rem; font-weight: 800; background: var(--primary-soft); color: var(--primary); border: 1px solid var(--card-border); border-radius: 99px; padding: 3px 11px; white-space: nowrap; }
+  .mkt-legend { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; font-size: .68rem; color: var(--muted, #888); font-weight: 700; }
+  .mkt-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+  .mkt-search { flex: 1 1 200px; min-width: 180px; max-width: 320px; position: relative; }
+  .mkt-search input { width: 100%; padding: 9px 14px 9px 36px; border-radius: 999px; border: 1px solid var(--card-border); background: var(--bg-soft); color: var(--text); font-size: .82rem; font-family: inherit; }
+  .mkt-search input:focus { outline: 2px solid var(--primary); border-color: var(--primary); background: var(--card); }
+  .mkt-search::before { content: ''; position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: .85rem; pointer-events: none; }
+  @media (max-width: 640px) { .mkt-search { flex: 1 1 100%; max-width: none; order: 3; } }
+  .lg-ok i { background: var(--success); } .lg-pend i { background: var(--warning, #f5a623); } .lg-no i { background: var(--danger); }
+  .mkt-table { border-collapse: separate; border-spacing: 0; }
+  .mkt-table tbody tr:last-child td { border-bottom: none; }
+  .c-id { color: var(--primary); font-weight: 800; white-space: nowrap; }
+  .c-num { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .c-fee { text-align: right; }
+  .c-addr { max-width: 260px; }
+  .c-addr span { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .fix-act { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+  .btn-xs { padding: 6px 12px !important; font-size: .72rem !important; white-space: nowrap; }
+  @media (min-width: 641px) {
+    .mkt-card .table-wrap { overflow-x: auto; border-top: 1px solid var(--card-border); }
+    .mkt-table { min-width: 920px; }
+    .mkt-table thead th { position: sticky; top: 0; z-index: 1; background: var(--bg-soft); border-bottom: 1px solid var(--card-border); padding: 10px 14px; font-size: .66rem; letter-spacing: .08em; white-space: nowrap; }
+    .mkt-table thead th.c-fee { text-align: right; }
+    .mkt-table tbody td { padding: 12px 14px; border-bottom: 1px solid var(--card-border); vertical-align: middle; }
+    .mkt-table tbody tr:nth-child(even) { background: rgba(0,0,0,.015); }
+    [data-theme="dark"] .mkt-table tbody tr:nth-child(even) { background: rgba(255,255,255,.02); }
+    .mkt-table tbody tr { transition: background .15s ease; }
+    .mkt-table tbody tr:hover { background: var(--bg-soft); }
+    .mkt-table tbody tr[data-status="approved"] td:first-child { box-shadow: inset 3px 0 0 var(--success); }
+    .mkt-table tbody tr[data-status="pending"] td:first-child { box-shadow: inset 3px 0 0 var(--warning, #f5a623); }
+    .mkt-table tbody tr[data-status="rejected"] td:first-child { box-shadow: inset 3px 0 0 var(--danger); }
+    .owner-cell { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .owner-av { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: .82rem; color: #fff; background: linear-gradient(135deg, var(--primary), var(--accent, #f5a623)); }
+    .owner-tx { min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+    .owner-tx strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px; }
+    .owner-tx small { font-size: .68rem; color: var(--muted, #888); }
+    .slot-pill { display: inline-flex; align-items: center; gap: 5px; font-size: .7rem; font-weight: 800; border-radius: 99px; padding: 4px 11px; border: 1px solid var(--card-border); background: var(--bg-soft); white-space: nowrap; }
+    .slot-bss { background: rgba(11,94,215,.1); color: #0b5ed7; border-color: rgba(11,94,215,.3); }
+    .slot-evcs { background: rgba(128,46,184,.1); color: #7c2ab8; border-color: rgba(128,46,184,.3); }
+    [data-theme="dark"] .slot-bss { color: #7db4ff; }
+    [data-theme="dark"] .slot-evcs { color: #d3a6ff; }
+    .fee-val { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .sppl-btn { display: inline-flex; align-items: center; gap: 6px; font-size: .74rem; font-weight: 800; color: #fff !important; background: #15803d; border-radius: 99px; padding: 6px 14px; text-decoration: none; box-shadow: 0 3px 10px rgba(21,128,61,.28); white-space: nowrap; }
+    .sppl-btn:hover { filter: brightness(.93); color: #fff !important; }
+    .sppl-empty { color: var(--muted, #888); }
+    .mkt-foot { padding: 10px 20px 16px; font-size: .72rem; color: var(--muted, #888); }
+    .mkt-empty { text-align: center; padding: 34px 20px !important; }
+    .mkt-empty .big { font-size: 2rem; display: block; margin-bottom: 8px; }
+  }
+  @media (max-width: 640px) {
+    .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .stat-grid .stat-card { padding: 14px 10px; border-radius: 16px; }
+    .stat-grid .stat-value { font-size: 1.15rem; }
+    .stat-grid .stat-label { font-size: .64rem; }
+    .copy-row { flex-direction: column; align-items: stretch; }
+    .copy-row .btn { width: 100%; }
+    .share-medsos { justify-content: center; }
+    /* Tabel jadi kartu di HP */
+    .mkt-table thead { display: none; }
+    .mkt-table, .mkt-table tbody { display: block; }
+    .mkt-table tr { display: block; background: var(--bg-soft); border: 1px solid var(--card-border); border-radius: 14px; margin-bottom: 10px; padding: 6px 14px; }
+    .mkt-table td { display: flex; justify-content: space-between; align-items: center; gap: 10px; border: none; padding: 7px 0; border-bottom: 1px dashed var(--card-border); text-align: right; }
+    .mkt-table td:last-child { border-bottom: none; }
+    .mkt-table td::before { content: attr(data-label); font-size: .64rem; font-weight: 800; color: var(--muted, #888); text-transform: uppercase; letter-spacing: .05em; text-align: left; flex-shrink: 0; }
+    .mkt-table .owner-cell, .mkt-table .fix-act { margin-left: auto; }
+    .mkt-table .fix-act { justify-content: flex-end; }
+    .mkt-table .c-addr { max-width: none; }
+    .mkt-table .c-fee { text-align: right; }
+    .table-wrap { overflow: visible; }
+  }
+</style>
+
+<main>
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Halo, <%= me.name %> <% if ((Number(me.is_head) === 1 || Number(me.is_coordinator) === 1)) { %>⭐ Head<% } %></span>
+        <h2>Dashboard Marketing</h2>
+        <p>Bagikan link referral Anda untuk mulai mengumpulkan lahan.</p>
+      </div>
+
+      <% if (flash && flash.message) { %>
+        <div class="alert alert-<%= flash.type %>"><%= flash.message %></div>
+      <% } %>
+
+      <div class="card referral-card mb-3">
+        <div class="card-title-row">
+          <div class="feature-icon">🔗</div>
+          <h3 style="margin:0;">Link Referral Saya</h3>
+        </div>
+        <div class="copy-row mt-2">
+          <input class="copy-input" id="referralLink" readonly value="<%= referralLink %>" />
+          <button type="button" class="btn btn-accent btn-copy" data-copy="<%= referralLink %>">📋 Salin Link</button>
+        </div>
+        <%- include('../partials/shareButtons', { shareUrl: referralLink, shareText: 'Sewa lahan kecil Anda untuk BSS/V-Green — ajukan di sini:' }) %>
+        <p class="subtext mt-2">Kode referral: <code><%= referralCode %></code> — pengajuan melalui link ini otomatis tercatat atas nama Anda.</p>
+          <div class="card-title-row mt-3">
+            <div class="feature-icon">🤝</div>
+            <h3 style="margin:0;">Link Rekrut Marketing</h3>
+          </div>
+          <div class="copy-row mt-2">
+            <input class="copy-input" id="rekrutLink" readonly value="<%= typeof rekrutLink !== 'undefined' ? rekrutLink : '' %>" />
+            <button type="button" class="btn btn-outline btn-copy" data-copy="<%= typeof rekrutLink !== 'undefined' ? rekrutLink : '' %>">Salin Link</button>
+          <%- include('../partials/shareButtons', { shareUrl: (typeof rekrutLink !== 'undefined' ? rekrutLink : ''), shareText: 'Gabung jadi Marketing Sewa Lahan BSS/V-Green — daftar di sini:' }) %>
+          </div>
+          <p class="subtext mt-2">Bagikan ke calon marketing — pendaftar wajib pakai kode referral Anda &amp; disetujui admin sebelum aktif.</p>
+        </div>
+
+      <% if ((Number(me.is_head) === 1 || Number(me.is_coordinator) === 1)) { %>
+        <div class="card mb-3" style="border-style:dashed;">
+          <div class="card-title-row">
+            <div>
+              <h3 style="margin:0;">👥 Daftarkan Downline</h3>
+              <div class="subtext">Head Marketing tanpa batas kuota</div>
+            </div>
+            <a href="/marketing/tambah" class="btn btn-accent" style="margin-left:auto;white-space:nowrap;">＋ Tambah Marketing</a>
+          </div>
+        </div>
+      <% } %>
+
+      <div class="card mb-3">
+        <div class="card-title-row">
+          <div>
+            <h3 style="margin:0;">🪪 ID Card Digital</h3>
+            <div class="subtext">Kartu anggota <%= Number(me.is_coordinator) === 1 ? 'Koordinator' : (Number(me.is_head) === 1 ? 'Head Marketing' : 'Marketing') %> — cetak 54mm × 85,6mm + QR verifikasi</div>
+          </div>
+          <a href="/marketing/id-card" class="btn btn-outline" style="margin-left:auto;white-space:nowrap;text-decoration:none;">Lihat ID Card →</a>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-title-row">
+          <div>
+            <h3 style="margin:0;">📄 Surat Tugas Digital</h3>
+            <div class="subtext">Identitas penugasan lapangan — cetak / simpan PDF + QR verifikasi</div>
+          </div>
+          <a href="/marketing/surat-tugas" class="btn btn-outline" style="margin-left:auto;white-space:nowrap;text-decoration:none;">Lihat Surat Tugas →</a>
+        </div>
+      </div>
+
+      <div class="grid-3 stat-grid">
+        <div class="card stat-card">
+          <div class="stat-value"><%= statusCounts.pending %></div>
+          <div class="stat-label">Pengajuan Pending</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value"><%= statusCounts.approved %></div>
+          <div class="stat-label">Disetujui</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value"><%= statusCounts.rejected %></div>
+          <div class="stat-label">Ditolak</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value">Rp <%= Number(totalFee).toLocaleString('id-ID') %></div>
+          <div class="stat-label">💰 Total Fee (approve)</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value">Rp <%= Number(typeof paidFee !== 'undefined' ? paidFee : 0).toLocaleString('id-ID') %></div>
+          <div class="stat-label">✅ Sudah Dibayar</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value">Rp <%= Number(typeof unpaidFee !== 'undefined' ? unpaidFee : 0).toLocaleString('id-ID') %></div>
+          <div class="stat-label">⏳ Belum Dibayar</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value"><%= me.downline_quota %></div>
+          <div class="stat-label">Kuota Downline</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value"><%= downlines.length %></div>
+          <div class="stat-label">Total Downline</div>
+        </div>
+      </div>
+
+      <div class="card mt-3 mkt-card">
+        <div class="mkt-head">
+          <h3>🗂️ Daftar Pengajuan Lahan Saya</h3>
+          <span class="mkt-count" id="mktCount"><%= lands.length %> pengajuan</span>
+          <span class="mkt-search"><input type="search" id="mktSearch" placeholder="🔍 Cari nama, alamat, HP, slot…" autocomplete="off" /></span>
+          <span class="mkt-legend"><span class="lg-ok"><i></i>Disetujui</span><span class="lg-pend"><i></i>Pending</span><span class="lg-no"><i></i>Ditolak</span></span>
+        </div>
+        <div class="table-wrap">
+          <table class="table mkt-table" id="mktTable">
+            <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Pemilik</th>
+                  <th>Slot</th>
+                  <th>No. HP</th>
+                  <th>Alamat</th>
+                  <th>Luas</th>
+                  <th>Status</th>
+                  <th class="c-fee">Fee</th>
+                  <th>SPPL</th>
+                  <% if (typeof isHead !== 'undefined' && isHead) { %><th>Perbaikan</th><% } %>
+                </tr>
+            </thead>
+            <tbody id="mktBody">
+              <% if (lands.length === 0) { %>
+                <tr><td colspan="<%= (typeof isHead !== 'undefined' && isHead) ? 10 : 9 %>" class="empty-cell mkt-empty"><span class="big">📭</span><strong>Belum ada pengajuan lahan.</strong><br><span class="subtext">Bagikan link referral Anda untuk mulai mengumpulkan lahan!</span></td></tr>
+              <% } else { %>
+                <% lands.forEach(function (l) { %>
+                  <% var stLbl = l.status === 'approved' ? 'Disetujui' : (l.status === 'rejected' ? 'Ditolak' : 'Pending'); %>
+                  <% var ini = String(l.owner_name || '?').trim().charAt(0).toUpperCase() || '?'; %>
+                  <% var fixValid = !!(l.edit_token && l.edit_expires && new Date(l.edit_expires) > new Date()); %>
+                  <% var fixUrl = (typeof APP_URL !== 'undefined' ? APP_URL : '') + '/perbaiki/' + (l.edit_token || ''); %>
+                  <% var fixExp = l.edit_expires ? new Date(l.edit_expires).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : ''; %>
+                  <% var waMsg = 'Yth. Bpk/Ibu ' + (l.owner_name || '') + ',\nPengajuan lahan BSS (ID #' + l.id + ') perlu perbaikan data.\nSilakan perbaiki & upload ulang via link ini (berlaku s/d ' + fixExp + '):\n' + fixUrl + '\n- ' + (typeof me !== 'undefined' ? me.name : 'Marketing'); %>
+                  <% var slotTxt = l.slot ? (l.slot.typeCode + '-' + l.slot.typeSeq + '/' + l.slot.typeTotal + ' ' + l.slot.typeCode) : ''; %>
+                  <tr data-status="<%= l.status %>" data-search="<%= (String(l.id || '') + ' ' + (l.owner_name || '') + ' ' + (l.phone_number || '') + ' ' + (l.address || '') + ' ' + (l.location_address || '') + ' ' + (l.unit_type === 'evcs_mobil' ? 'evcs mobil' : 'bss motor') + ' ' + (l.location_type || '') + ' ' + stLbl + ' ' + l.status + ' ' + slotTxt).toLowerCase().replace(/"/g, '') %>">
+                    <td data-label="ID" class="c-id">#<%= l.id %></td>
+                    <td data-label="Pemilik">
+                      <span class="owner-cell">
+                        <span class="owner-av" aria-hidden="true"><%= ini %></span>
+                        <span class="owner-tx"><strong title="<%= l.owner_name %>"><%= l.owner_name %></strong><small><%= l.unit_type === 'evcs_mobil' ? '🔌 EVCS Mobil' : '🔋 BSS Motor' %></small></span>
+                      </span>
+                    </td>
+                    <td data-label="Slot"><% if (l.slot) { %><span class="slot-pill <%= l.slot.typeCode === 'EVCS' ? 'slot-evcs' : 'slot-bss' %>" title="Unit ke-<%= l.slot.seq %> dari <%= l.slot.total %> untuk pemilik ini"><%= l.slot.typeCode === 'EVCS' ? '🔌' : '🔋' %> <%= l.slot.typeCode %>-<%= l.slot.typeSeq %>/<%= l.slot.typeTotal %></span><% } else { %><span class="sppl-empty">-</span><% } %></td>
+                    <td data-label="No. HP" class="c-num"><%= l.phone_number %></td>
+                    <td data-label="Alamat" class="cell-wrap c-addr"><span><%= l.location_address || l.address %></span></td>
+                    <td data-label="Luas" class="c-num"><%= l.area_size %> m²</td>
+                    <td data-label="Status"><span class="status status-<%= l.status %>"><%= stLbl %></span></td>
+                    <td data-label="Fee" class="c-fee"><span class="fee-val">Rp <%= Number(l.fee_amount).toLocaleString('id-ID') %></span></td>
+                    <td data-label="SPPL"><% if (l.sppl_file) { %><a class="sppl-btn" href="<%= l.sppl_file %>" target="_blank" rel="noopener">📄 SPPL</a><% } else { %><span class="sppl-empty">-</span><% } %></td>
+                    <% if (typeof isHead !== 'undefined' && isHead) { %>
+                    <td data-label="Perbaikan">
+                      <% if (l.status === 'approved') { %><span class="sppl-empty" title="Sudah disetujui — terkunci">🔒</span><% } else if (fixValid) { %>
+                        <span class="fix-act">
+                          <button type="button" class="btn btn-outline btn-xs" data-copylink="<%= fixUrl %>" title="Salin link perbaikan (s/d <%= fixExp %>)">📋 Salin Link</button>
+                          <a class="btn btn-outline btn-xs" style="text-decoration:none;" href="https://wa.me/<%= String(l.phone_number).replace(/\D/g, '') %>?text=<%= encodeURIComponent(waMsg) %>" target="_blank" rel="noopener" title="Kirim via WhatsApp">💬 WA</a>
+                        </span>
+                      <% } else { %>
+                        <form action="/marketing/lands/request-fix" method="POST" class="inline-form" data-confirm="Buat link perbaikan untuk lahan #<%= l.id %>? Berlaku 7 hari."><input type="hidden" name="land_id" value="<%= l.id %>" /><button type="submit" class="btn btn-outline btn-xs">✏️ Minta Perbaikan</button></form>
+                      <% } %>
+                    </td>
+                    <% } %>
+                  </tr>
+                <% }) %>
+                <tr id="mktNoResult" style="display:none;"><td colspan="<%= (typeof isHead !== 'undefined' && isHead) ? 10 : 9 %>" class="empty-cell mkt-empty"><span class="big">🔍</span><strong>Tidak ada hasil.</strong><br><span class="subtext">Coba kata kunci lain.</span></td></tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+        <% if (lands.length > 0) { %>
+          <div class="mkt-foot" id="mktFoot">Menampilkan <%= lands.length %> pengajuan · Klik baris tidak ada aksi — gunakan link SPPL untuk unduh dokumen.</div>
+        <% } %>
+      </div>
+
+      <% if (typeof isHead !== 'undefined' && isHead) { %>
+      <div class="card mt-3 mkt-card">
+        <div class="mkt-head">
+          <h3>👥 Pengajuan Jaringan (Downline)</h3>
+          <span class="mkt-count"><%= (typeof netLands !== 'undefined' ? netLands.length : 0) %> pengajuan</span>
+        </div>
+        <p class="subtext" style="padding:0 20px 10px;">Referral Anda + seluruh tim bawah Anda. Head hanya bisa <strong>✏️ Minta Perbaikan</strong> — <strong>tidak ada</strong> tombol Proposal / Setujui / Tolak di sini.</p>
+        <div class="table-wrap">
+          <table class="table mkt-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Pemilik</th>
+                <th>Marketing</th>
+                <th>Slot</th>
+                <th>Alamat</th>
+                <th>Status</th>
+                <th>Perbaikan</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% var nl = (typeof netLands !== 'undefined' ? netLands : []); %>
+              <% if (nl.length === 0) { %>
+                <tr><td colspan="7" class="empty-cell mkt-empty"><span class="big">👥</span><strong>Belum ada pengajuan dari jaringan.</strong><br><span class="subtext">Downline Anda belum mengumpulkan lahan.</span></td></tr>
+              <% } else { %>
+                <% nl.forEach(function (l) { %>
+                  <% var nst = l.status === 'approved' ? 'Disetujui' : (l.status === 'rejected' ? 'Ditolak' : 'Pending'); %>
+                  <% var nini = String(l.owner_name || '?').trim().charAt(0).toUpperCase() || '?'; %>
+                  <% var nfix = !!(l.edit_token && l.edit_expires && new Date(l.edit_expires) > new Date()); %>
+                  <% var nurl = (typeof APP_URL !== 'undefined' ? APP_URL : '') + '/perbaiki/' + (l.edit_token || ''); %>
+                  <% var nexp = l.edit_expires ? new Date(l.edit_expires).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : ''; %>
+                  <% var nwa = 'Yth. Bpk/Ibu ' + (l.owner_name || '') + ',\nPengajuan lahan BSS (ID #' + l.id + ') perlu perbaikan data.\nSilakan perbaiki & upload ulang via link ini (berlaku s/d ' + nexp + '):\n' + nurl + '\n- ' + (typeof me !== 'undefined' ? me.name : 'Marketing'); %>
+                  <tr data-status="<%= l.status %>">
+                    <td data-label="ID" class="c-id">#<%= l.id %></td>
+                    <td data-label="Pemilik">
+                      <span class="owner-cell">
+                        <span class="owner-av" aria-hidden="true"><%= nini %></span>
+                        <span class="owner-tx"><strong title="<%= l.owner_name %>"><%= l.owner_name %></strong><small><%= l.unit_type === 'evcs_mobil' ? '🔌 EVCS Mobil' : '🔋 BSS Motor' %> · <%= l.area_size %> m²</small></span>
+                      </span>
+                    </td>
+                    <td data-label="Marketing" class="c-num"><%= l.marketer_name || ('#' + l.marketing_id) %></td>
+                    <td data-label="Slot"><% if (l.slot) { %><span class="slot-pill <%= l.slot.typeCode === 'EVCS' ? 'slot-evcs' : 'slot-bss' %>"><%= l.slot.typeCode %>-<%= l.slot.typeSeq %>/<%= l.slot.typeTotal %></span><% } else { %>-<% } %></td>
+                    <td data-label="Alamat" class="cell-wrap c-addr"><span><%= l.location_address || l.address %></span></td>
+                    <td data-label="Status"><span class="status status-<%= l.status %>"><%= nst %></span></td>
+                    <td data-label="Perbaikan">
+                      <% if (l.status === 'approved') { %><span class="sppl-empty" title="Sudah disetujui — terkunci">🔒</span><% } else if (nfix) { %>
+                        <span class="fix-act">
+                          <button type="button" class="btn btn-outline btn-xs" data-copylink="<%= nurl %>" title="Salin link perbaikan (s/d <%= nexp %>)">📋 Salin Link</button>
+                          <a class="btn btn-outline btn-xs" style="text-decoration:none;" href="https://wa.me/<%= String(l.phone_number).replace(/\D/g, '') %>?text=<%= encodeURIComponent(nwa) %>" target="_blank" rel="noopener" title="Kirim via WhatsApp">💬 WA</a>
+                        </span>
+                      <% } else { %>
+                        <form action="/marketing/lands/request-fix" method="POST" class="inline-form" data-confirm="Buat link perbaikan untuk lahan #<%= l.id %> milik <%= l.marketer_name || '' %>? Berlaku 7 hari."><input type="hidden" name="land_id" value="<%= l.id %>" /><button type="submit" class="btn btn-outline btn-xs">✏️ Minta Perbaikan</button></form>
+                      <% } %>
+                    </td>
+                  </tr>
+                <% }) %>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <% } %>
+
+      <% if (downlines.length > 0) { %>
+        <div class="card mt-3">
+          <div class="card-title-row" style="margin-bottom:14px;">
+            <h3 style="margin:0;">Tim Downline Saya</h3>
+            <a href="/marketing/jaringan" class="btn btn-outline" style="margin-left:auto;padding:8px 16px;font-size:.75rem;">Lihat Jaringan →</a>
+          </div>
+          <div class="table-wrap">
+            <table class="table mkt-table">
+              <thead>
+                <tr>
+                  <th>Nama</th>
+                  <th>Email</th>
+                  <th>Kode Referral</th>
+                  <th>Tanggal Gabung</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% downlines.forEach(function (d) { %>
+                  <tr>
+                    <td data-label="Nama"><strong><%= d.name %></strong></td>
+                    <td data-label="Email"><%= d.email %></td>
+                    <td data-label="Referral"><code><%= d.referral_code %></code></td>
+                    <td data-label="Gabung"><%= d.created_at ? new Date(d.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-' %></td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      <% } %>
+    </div>
+  </section>
+</main>
+
+<script>
+  (function () {
+    // Cari cepat daftar sendiri (client-side, tanpa reload)
+    var sInput = document.getElementById('mktSearch');
+    var sBody = document.getElementById('mktBody');
+    var sCount = document.getElementById('mktCount');
+    var sFoot = document.getElementById('mktFoot');
+    var sNo = document.getElementById('mktNoResult');
+    if (sInput && sBody) {
+      var sRows = Array.prototype.slice.call(sBody.querySelectorAll('tr[data-search]'));
+      var sTotal = sRows.length;
+      sInput.addEventListener('input', function () {
+        var q = sInput.value.trim().toLowerCase();
+        var vis = 0;
+        sRows.forEach(function (r) {
+          var hit = !q || (r.getAttribute('data-search') || '').indexOf(q) !== -1;
+          r.style.display = hit ? '' : 'none';
+          if (hit) vis++;
+        });
+        if (sNo) sNo.style.display = (vis === 0 && sTotal > 0) ? '' : 'none';
+        if (sCount) sCount.textContent = q ? (vis + ' dari ' + sTotal + ' pengajuan') : (sTotal + ' pengajuan');
+        if (sFoot) sFoot.textContent = q
+          ? ('Menampilkan ' + vis + ' dari ' + sTotal + ' pengajuan · Klik baris tidak ada aksi — gunakan link SPPL untuk unduh dokumen.')
+          : ('Menampilkan ' + sTotal + ' pengajuan · Klik baris tidak ada aksi — gunakan link SPPL untuk unduh dokumen.');
+      });
+    }
+    document.querySelectorAll('form[data-confirm]').forEach(function (fm) {
+      fm.addEventListener('submit', function (e) {
+        if (!window.confirm(fm.getAttribute('data-confirm'))) e.preventDefault();
+      });
+    });
+    document.querySelectorAll('[data-copylink]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var link = b.getAttribute('data-copylink');
+        function done() {
+          var t = b.textContent;
+          b.textContent = '✓ Tersalin';
+          setTimeout(function () { b.textContent = t; }, 1500);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(link).then(done, function () { prompt('Salin link:', link); });
+        } else {
+          prompt('Salin link:', link);
+        }
+      });
+    });
+  })();
+</script>
+
+<%- include('../partials/foot') %>

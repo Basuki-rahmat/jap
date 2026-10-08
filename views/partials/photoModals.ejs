@@ -1,0 +1,172 @@
+      <!-- Modal kamera fullscreen ala GeoPicker Pro BSS -->
+      <div id="camModal" class="cam-modal cam-fullscreen" hidden>
+        <div class="cam-topbar">
+          <div class="cam-live-badge">
+            <span class="cam-dot"></span>
+            <strong id="camTitle">📷 Ambil Foto</strong>
+            <span id="camBssBadge" class="cam-bss-badge" hidden>⚡ BSS</span>
+          </div>
+          <div class="cam-top-actions">
+            <button type="button" id="camWmToggle" class="cam-icon-btn" title="Pengaturan watermark">🎨 <span>Watermark</span></button>
+            <button type="button" id="camClose" class="cam-icon-btn" aria-label="Tutup kamera">✕</button>
+          </div>
+        </div>
+
+        <div id="camStage" class="cam-stage">
+          <video id="camVideo" playsinline autoplay muted></video>
+          <img id="camGalPreview" class="cam-gal-preview" alt="Pratinjau galeri" hidden />
+          <div id="camLogoBox" class="cam-logo-box" hidden>
+            <img id="camLogoImg" alt="Logo unit" draggable="false" />
+            <div id="camLogoResize" class="cam-logo-resize" title="Seret untuk ubah ukuran">⤢</div>
+          </div>
+          <canvas id="camCanvas" hidden></canvas>
+        </div>
+
+        <!-- Panel pengaturan watermark (2 tab agar muat tanpa scroll) -->
+        <div id="camWmPanel" class="cam-wm-panel" hidden>
+          <div class="cam-wm-head">
+            <span>⚙️ Pengaturan</span>
+            <button type="button" id="camWmReset">RESET</button>
+          </div>
+          <div class="cam-wm-tabs">
+            <button type="button" data-wmtab="gps" class="active">📍 GPS</button>
+            <button type="button" data-wmtab="logo">⚡ Logo</button>
+          </div>
+          <div class="cam-wm-pane" data-wmpane="gps">
+            <div class="cam-gps-box">
+              <span class="cam-wm-label">📍 GPS yang akan ditempel</span>
+              <div class="cam-gps-coords" id="camGpsCoords">memuat…</div>
+              <div class="cam-gps-addr" id="camGpsAddr">—</div>
+              <button type="button" id="camGpsSync" class="btn btn-outline" style="width:100%;margin-top:2px;">🔄 Sinkron GPS sekarang</button>
+            </div>
+          </div>
+          <div class="cam-wm-pane" data-wmpane="logo" hidden>
+            <div id="camBssSettings" class="cam-bss-settings">
+              <span class="cam-wm-label">⚡ Logo unit (BSS / EVCS) — geser & cubit di layar</span>
+              <div class="cam-logo-btns">
+                <button type="button" data-logo="none">Tanpa</button>
+                <button type="button" data-logo="bss.png" class="active">BSS Miring</button>
+                <button type="button" data-logo="bss1.png">BSS 1</button>
+                <button type="button" data-logo="bss12.png">BSS 2</button>
+                <button type="button" data-logo="evcs1.png">EVCS 1</button>
+                <button type="button" data-logo="evcs21.png">EVCS 2</button>
+              </div>
+              <div class="cam-wm-row">
+                <span>Ukuran logo <b id="camLogoScaleVal">100%</b></span>
+              </div>
+              <input type="range" id="camLogoScale" min="20" max="250" step="1" value="100" />
+              <button type="button" id="camLogoResetPos" class="btn btn-outline" style="width:100%;margin-top:2px;">↺ Reset posisi & ukuran logo</button>
+            </div>
+          </div>
+          <p class="form-hint" style="padding:0;">Seret logo langsung di layar untuk atur posisi.</p>
+        </div>
+
+        <!-- Tombol aksi -->
+        <div class="cam-actions-full">
+          <button type="button" id="camCancelFull" class="cam-round-btn" aria-label="Tutup">✕</button>
+          <button type="button" id="camShot" class="cam-shutter" aria-label="Ambil foto"><span></span></button>
+          <button type="button" id="camFlip" class="cam-round-btn" aria-label="Ganti kamera">🔄</button>
+        </div>
+        <p class="cam-status" id="camStatus">Mengaktifkan kamera…</p>
+      </div>
+
+      <!-- Pilih logo untuk foto dari galeri -->
+      <div id="galLogoModal" class="cam-modal cam-mini" hidden>
+        <div class="cam-box">
+          <div class="cam-head"><strong>🖼️ Pilih watermark logo</strong><button type="button" id="galLogoClose" aria-label="Tutup">✕</button></div>
+          <div style="padding:0 14px 14px;display:grid;gap:8px;">
+            <p class="form-hint" style="padding:0;">Foto galeri akan dibuka di editor kamera — Anda tetap bisa menggeser & mengubah ukuran logo sebelum disimpan.</p>
+            <div class="cam-logo-btns">
+              <button type="button" data-glogo="none">Tanpa logo</button>
+              <button type="button" data-glogo="bss.png" class="active">⚡ BSS 1</button>
+              <button type="button" data-glogo="bss1.png">⚡ BSS 2</button>
+              <button type="button" data-glogo="bss12.png">⚡ BSS 3</button>
+              <button type="button" data-glogo="evcs1.png">🔌 EVCS 1</button>
+              <button type="button" data-glogo="evcs21.png">🔌 EVCS 2</button>
+            </div>
+            <div class="ed-row">
+              <button type="button" id="galLogoCancel" class="btn btn-outline">Batal</button>
+              <button type="button" id="galLogoNext" class="btn btn-primary">Pilih foto →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hasil jepret: pratinjau sebelum masuk grid -->
+      <div id="camResultModal" class="cam-modal cam-mini" hidden>
+        <div class="cam-box">
+          <div class="cam-head"><strong>✅ Hasil foto</strong><button type="button" id="camResultClose" aria-label="Tutup">✕</button></div>
+          <div style="padding:0 14px;">
+            <img id="camResultImg" class="cam-result-img" alt="Hasil foto" />
+          </div>
+          <div class="ed-row" style="padding:12px 14px 14px;">
+            <button type="button" id="camRetake" class="btn btn-outline">🔁 Ulangi</button>
+            <button type="button" id="camSaveGrid" class="btn btn-primary">💾 Simpan ke grid</button>
+          </div>
+          <p class="form-hint" id="camResultStatus" style="padding:0 14px 12px;">Sudah ber-watermark permanen. Simpan untuk masuk ke grid berkas.</p>
+        </div>
+      </div>
+
+      <div id="camToast" class="cam-toast" hidden><span id="camToastMsg">OK</span></div>
+
+      <!-- Pratinjau grid + popup zoom (foto & PDF) -->
+      <div id="shotBox" class="shot-lb" hidden>
+        <div class="shot-lb-controls">
+          <button type="button" id="shotZoomIn" aria-label="Perbesar">＋</button>
+          <button type="button" id="shotZoomOut" aria-label="Perkecil">－</button>
+          <button type="button" id="shotZoomReset" aria-label="Reset">⤾</button>
+        </div>
+        <button type="button" class="shot-lb-close" id="shotClose" aria-label="Tutup">✕</button>
+        <figure class="shot-lb-figure">
+          <div class="shot-lb-stage">
+            <img id="shotImg" src="" alt="Pratinjau foto" hidden />
+            <iframe id="shotFrame" src="" title="Pratinjau PDF" hidden></iframe>
+          </div>
+          <figcaption class="shot-lb-cap" id="shotCap"></figcaption>
+          <div class="shot-lb-hint">Klik foto / tombol ＋－ untuk zoom · scroll untuk zoom · ESC tutup</div>
+          <div class="shot-lb-actions">
+            <button type="button" id="shotPick" class="btn btn-primary">✓ Pilih foto ini</button>
+            <button type="button" id="shotPickClose" class="btn btn-outline" style="color:#fff;border-color:rgba(255,255,255,.35);">Tutup</button>
+          </div>
+        </figure>
+      </div>
+
+      <!-- Modal editor watermark (legacy, tetap dipakai untuk edit ulang dari grid) -->
+      <div id="edModal" class="cam-modal cam-mini" hidden>
+        <div class="cam-box">
+          <div class="cam-head"><strong>✏️ Edit Foto — Watermark</strong><button type="button" id="edClose" aria-label="Tutup editor">✕</button></div>
+          <div style="padding:0 14px;">
+            <canvas id="edCanvas"></canvas>
+          </div>
+          <div class="ed-controls">
+            <label><input type="checkbox" id="edGps" checked /> Watermark GPS (koordinat + alamat + waktu)</label>
+            <label>Stiker unit:
+              <select id="edUnit">
+                <option value="none">Tanpa stiker</option>
+                <option value="bss" selected>BSS Motor</option>
+                <option value="evcs">EVCS Mobil</option>
+              </select>
+            </label>
+            <label>Posisi stiker:
+              <select id="edPos">
+                <option value="tr" selected>Kanan atas</option>
+                <option value="tl">Kiri atas</option>
+                <option value="br">Kanan bawah</option>
+                <option value="bl">Kiri bawah</option>
+              </select>
+            </label>
+            <div class="ed-gps-box">
+              <div class="ed-gps-coords">📍 <span id="edGpsCoords">memuat…</span></div>
+              <div class="ed-gps-addr" id="edGpsAddr">—</div>
+              <div class="ed-row" style="margin-top:6px;">
+                <button type="button" id="edGpsSync" class="btn btn-outline" style="flex:1;">🔄 Sinkron GPS</button>
+              </div>
+            </div>
+            <div class="ed-row">
+              <button type="button" id="edCancel" class="btn btn-outline">Batal</button>
+              <button type="button" id="edSave" class="btn btn-primary">💾 Simpan</button>
+            </div>
+            <p class="form-hint" id="edStatus" style="padding:0;">Pratinjau langsung. Simpan menimpa foto di grid.</p>
+          </div>
+        </div>
+      </div>

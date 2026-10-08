@@ -1,0 +1,36 @@
+<%- include('../partials/head', { title: 'Pengajuan Terkirim - JAP' }) %>
+<%- include('../partials/navbar') %>
+
+<main>
+  <section class="section">
+    <div class="container">
+      <div class="hero-card" style="max-width:560px;margin:0 auto;text-align:center;">
+        <div style="font-size:3rem;margin-bottom:12px;">✅</div>
+        <h2 class="mb-3">Pengajuan Terkirim!</h2>
+        <p style="color:var(--text-muted);margin-bottom:22px;">
+          Terima kasih. Data lahan Anda telah kami terima dengan status
+          <strong>Pending</strong> dan akan diverifikasi oleh tim admin.
+        </p>
+        <% if (referralCode) { %>
+          <div class="referral-note" style="justify-content:center;margin-bottom:22px;">
+            Kode referral: <strong><%= referralCode %></strong>
+          </div>
+        <% } %>
+        <a href="/" class="btn btn-primary">Kembali ke Beranda</a>
+        <div style="margin-top:12px;">
+          <a href="/ajukan<%= referralCode ? '?ref=' + encodeURIComponent(referralCode) + '&again=1' : '?again=1' %>" class="btn btn-outline">＋ Ajukan Unit Lain</a>
+          <p class="form-hint" style="margin-top:8px;">Satu pengajuan = satu unit. Data pemilik terisi otomatis untuk unit berikutnya.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<%- include('../partials/foot') %>
+<script>
+  // Pengajuan berhasil: bersihkan draft form, referral (jap_ref) tetap disimpan
+  try {
+    localStorage.removeItem('jap_ajukan_draft_v1');
+    localStorage.removeItem('jap_ajukan_step_v1');
+  } catch (e) {}
+</script>

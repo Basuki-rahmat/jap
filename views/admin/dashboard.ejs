@@ -1,0 +1,510 @@
+<%- include('../partials/head', { title: 'Dashboard Admin - BSS' }) %>
+<%- include('../partials/dashNavbar') %>
+
+<style>
+  .bi-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .seg { display: inline-flex; background: var(--card); border: 1px solid var(--card-border); border-radius: 10px; padding: 3px; gap: 2px; }
+  .seg a, .seg button { border: none; background: transparent; color: inherit; font-size: .76rem; font-weight: 700; padding: 7px 14px; border-radius: 8px; cursor: pointer; text-decoration: none; font-family: inherit; }
+  .seg .on { background: var(--primary); color: #fff; }
+  .toolbar-note { font-size: .72rem; color: var(--muted, #888); margin-left: auto; }
+  .pantau-hero { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
+  .hero-card { position: relative; overflow: hidden; background: var(--card); border: 1px solid var(--card-border); border-radius: 18px; padding: 16px 18px; display: flex; gap: 14px; align-items: center; box-shadow: var(--shadow); transition: transform .15s ease, box-shadow .15s ease; }
+  .hero-card:hover { transform: translateY(-2px); }
+  .hero-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; }
+  .hero-green::before { background: linear-gradient(90deg, #22b573, #7be0ad); }
+  .hero-orange::before { background: linear-gradient(90deg, #f5a623, #ffd08a); }
+  .hero-blue::before { background: linear-gradient(90deg, #3a93e8, #9cc8f5); }
+  .hero-card .hic { width: 52px; height: 52px; flex: 0 0 52px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+  .hero-green .hic { background: rgba(34,181,115,.14); }
+  .hero-orange .hic { background: rgba(245,166,35,.16); }
+  .hero-blue .hic { background: rgba(58,147,232,.14); }
+  .hero-card .hlbl { font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: var(--muted, #888); }
+  .hero-card .hnum { font-size: 1.65rem; font-weight: 800; line-height: 1.15; letter-spacing: -.01em; }
+  .hero-card .hsub { font-size: .72rem; color: var(--muted, #888); margin-top: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .delta { display: inline-flex; align-items: center; gap: 3px; font-size: .68rem; font-weight: 800; border-radius: 99px; padding: 2px 9px; }
+  .delta.up { background: rgba(34,181,115,.14); color: #15915b; }
+  .delta.down { background: rgba(224,82,82,.13); color: #d33; }
+  .pantau-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 14px; padding: 16px 18px; box-shadow: var(--shadow); margin-bottom: 14px; }
+  .pantau-card h3 { margin: 0; font-size: .95rem; }
+  .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .card-hint { font-size: .7rem; color: var(--muted, #888); font-weight: 400; }
+  .chart-box { position: relative; height: 260px; }
+  .chart-box.sm { height: 230px; }
+  .pantau-grid { display: grid; grid-template-columns: 1fr 1.4fr; gap: 12px; }
+  .pantau-grid .pantau-card { margin-bottom: 14px; }
+  .aktiv-list { display: grid; gap: 10px; }
+  .aktiv-item { display: flex; align-items: center; gap: 10px; font-size: .82rem; }
+  .aktiv-item .grow { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge { font-size: .68rem; font-weight: 800; border-radius: 7px; padding: 3px 10px; white-space: nowrap; }
+  .badge-approved { background: rgba(25,135,84,.14); color: #198754; }
+  .badge-pending { background: rgba(31,127,224,.14); color: #1f7fe0; }
+  .badge-rejected { background: rgba(220,38,38,.12); color: #dc2626; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .pantau-empty { text-align: center; color: var(--text-muted); padding: 24px; }
+  .pill { border: 1px solid var(--card-border); background: transparent; color: inherit; border-radius: 20px; padding: 5px 13px; font-size: .72rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+  .pill.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+  #sebaranMap { height: 430px; border-radius: 12px; border: 1px solid var(--card-border); z-index: 1; }
+  /* Pin peta model Pin Maker: teardrop warna status + outline putih (jelas di Peta & Satelit) */
+  .jap-pin-wrap { background: none; border: none; }
+  .jap-pin { width: 30px; height: 30px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+    background: var(--pin, #eab308); border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.5);
+    display: flex; align-items: center; justify-content: center; }
+  .jap-pin span { transform: rotate(45deg); font-size: 13px; line-height: 1; }
+  .map-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .legend-check { display: inline-flex; align-items: center; gap: 7px; font-size: .74rem; font-weight: 700; border: 1px solid var(--card-border); background: var(--bg-soft); color: var(--text); border-radius: 99px; padding: 6px 13px; cursor: pointer; user-select: none; }
+  .legend-check input { accent-color: var(--primary); width: 15px; height: 15px; cursor: pointer; }
+  .legend-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+  .map-foot { font-size: .72rem; color: var(--muted, #888); margin-top: 8px; }
+  .map-btns { margin-left: auto; display: flex; gap: 6px; }
+  @media (max-width: 900px) { .pantau-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 560px) {
+    .pantau-hero { grid-template-columns: 1fr; }
+    .toolbar-note { margin-left: 0; }
+  }
+</style>
+
+<main>
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Super Admin</span>
+        <h2>Dashboard Statistik</h2>
+        <p>Pantau status lahan, total fee, dan sisa kuota downline secara real-time.</p>
+      </div>
+
+      <% if (flash && flash.message) { %>
+        <div class="alert alert-<%= flash.type %>"><%= flash.message %></div>
+      <% } %>
+
+      <%
+        var lahan = (statusCounts.pending || 0) + (statusCounts.approved || 0) + (statusCounts.rejected || 0);
+        var ap = statusCounts.approved || 0;
+        var pe = statusCounts.pending || 0;
+        var rj = statusCounts.rejected || 0;
+        var m = typeof months !== 'undefined' ? months : 6;
+        var dL = typeof deltaLahan !== 'undefined' ? deltaLahan : 0;
+        var dF = typeof deltaFee !== 'undefined' ? deltaFee : 0;
+        function dBadge(v) { return (v >= 0 ? '▲ +' : '▼ ') + Math.abs(v) + '%'; }
+        function statusBadge(s) { return s === 'approved' ? ['Disetujui', 'badge-approved'] : s === 'rejected' ? ['Ditolak', 'badge-rejected'] : ['Pending', 'badge-pending']; }
+        function dotColor(s) { return s === 'approved' ? '#22b573' : s === 'rejected' ? '#e05252' : '#3a93e8'; }
+        var j = function (x) { return JSON.stringify(x).replace(/</g, '\\u003c'); };
+      %>
+
+      <div class="bi-toolbar">
+        <div class="seg" role="group" aria-label="Periode">
+          <a href="/admin?months=6" class="<%= m === 6 ? 'on' : '' %>">6 Bulan</a>
+          <a href="/admin?months=12" class="<%= m === 12 ? 'on' : '' %>">12 Bulan</a>
+        </div>
+        <div class="seg" role="group" aria-label="Tipe grafik tren">
+          <button type="button" id="tBar" class="on">Batang</button>
+          <button type="button" id="tLine">Garis</button>
+        </div>
+        <span class="toolbar-note">vs <%= m %> bulan sebelumnya · klik donat untuk memfilter aktivitas</span>
+      </div>
+
+      <div class="pantau-hero">
+        <div class="hero-card hero-green">
+          <div class="hic">📍</div>
+          <div><div class="hlbl">Total Lahan</div><div class="hnum"><%= lahan %></div><div class="hsub"><%= ap %> disetujui · <%= pe %> pending<span class="delta <%= dL >= 0 ? 'up' : 'down' %>"><%= dBadge(dL) %></span></div></div>
+        </div>
+        <div class="hero-card hero-orange">
+          <div class="hic">💰</div>
+          <div><div class="hlbl">Total Fee</div><div class="hnum" style="font-size:1.3rem;">Rp <%= Number(totalApproved).toLocaleString('id-ID') %></div><div class="hsub">Total pendapatan<span class="delta <%= dF >= 0 ? 'up' : 'down' %>"><%= dBadge(dF) %></span></div></div>
+        </div>
+        <div class="hero-card hero-blue">
+          <div class="hic">👥</div>
+          <div><div class="hlbl">Sisa Kuota Downline</div><div class="hnum"><%= Number(sisaKuota).toLocaleString('id-ID') %></div><div class="hsub"><%= totalMarketing %> marketing · <%= totalDownlines %> downline</div></div>
+        </div>
+      </div>
+
+      <div class="pantau-card">
+        <div class="card-head">
+          <h3>Tren Pengajuan &amp; Fee</h3>
+          <span class="card-hint">arahkan kursor / sentuh titik untuk detail</span>
+        </div>
+        <div class="chart-box"><canvas id="chTrend"></canvas></div>
+      </div>
+
+      <div class="pantau-grid">
+        <div class="pantau-card">
+          <div class="card-head"><h3>Status Lahan</h3></div>
+          <div class="chart-box sm"><canvas id="chStatus"></canvas></div>
+        </div>
+        <div class="pantau-card">
+          <div class="card-head"><h3>Top 5 Marketing (Fee)</h3></div>
+          <div class="chart-box sm"><canvas id="chTop"></canvas></div>
+        </div>
+      </div>
+
+      <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
+      <div class="pantau-card">
+        <div class="card-head">
+          <h3>Peta Sebaran — Jabodetabek</h3>
+          <span class="card-hint">poligon resmi Kemendagri · pin 3 status</span>
+          <span class="map-btns">
+            <button type="button" class="pill on" id="baseOsm">🗺️ Peta</button>
+            <button type="button" class="pill" id="baseSat">🛰️ Satelit</button>
+          </span>
+        </div>
+        <div class="map-legend" id="mapLegend">
+          <label class="legend-check"><input type="checkbox" id="lgPoly" checked /><span class="legend-dot" style="background:#3a93e8;"></span>Kabupaten / Kota</label>
+          <label class="legend-check"><input type="checkbox" id="lgApproved" checked /><span class="legend-dot" style="background:#22c55e;"></span>✅ Disetujui</label>
+          <label class="legend-check"><input type="checkbox" id="lgPending" checked /><span class="legend-dot" style="background:#eab308;"></span>⏳ Pending</label>
+          <label class="legend-check"><input type="checkbox" id="lgRejected" checked /><span class="legend-dot" style="background:#ef4444;"></span>❌ Ditolak</label>
+        </div>
+        <div id="sebaranMap"></div>
+        <div class="map-foot" id="mapCount"></div>
+      </div>
+
+      <div class="pantau-card">
+        <div class="card-head">
+          <h3>Aktivitas Terbaru</h3>
+          <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;">
+            <button type="button" class="pill on" data-f="all">Semua</button>
+            <button type="button" class="pill" data-f="approved">Disetujui</button>
+            <button type="button" class="pill" data-f="pending">Pending</button>
+            <button type="button" class="pill" data-f="rejected">Ditolak</button>
+          </span>
+        </div>
+        <% if (recentLands.length === 0) { %>
+          <div class="pantau-empty">Belum ada pengajuan lahan.</div>
+        <% } else { %>
+          <div class="aktiv-list" id="aktivList">
+            <% recentLands.slice(0, 6).forEach(function (l) {
+                 var b = statusBadge(l.status);
+            %>
+              <div class="aktiv-item" data-status="<%= l.status %>">
+                <span class="dot" style="background:<%= dotColor(l.status) %>;"></span>
+                <span class="grow">Pengajuan lahan - <%= (((l.location_address || l.address) || '').split(',')[0] || l.owner_name || '').slice(0, 45) %></span>
+                <span class="badge <%= b[1] %>"><%= b[0] %></span>
+              </div>
+            <% }) %>
+          </div>
+          <div style="margin-top:12px;text-align:right;">
+            <a href="/admin/lands" class="btn btn-outline" style="padding:8px 16px;font-size:.75rem;">Lihat Semua</a>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="/js/chart.umd.min.js"></script>
+<script>
+  (function () {
+    var labels = <%- j(typeof trendLabels !== 'undefined' ? trendLabels : []) %>;
+    var tLahan = <%- j(typeof trendLahan !== 'undefined' ? trendLahan : {approved:[],pending:[],rejected:[]}) %>;
+    var tFee = <%- j(typeof trendFee !== 'undefined' ? trendFee : []) %>;
+    var top = <%- j(typeof topMarketing !== 'undefined' ? topMarketing : []) %>;
+    var rp = function (v) { return 'Rp ' + Number(v).toLocaleString('id-ID'); };
+    var tickColor = function () {
+      return document.documentElement.getAttribute('data-theme') === 'light' ? '#555' : '#b9c2cc';
+    };
+
+    if (window.Chart) {
+      Chart.defaults.color = tickColor();
+      Chart.defaults.font.family = 'inherit';
+    } else {
+      document.querySelectorAll('.chart-box').forEach(function (b) {
+        b.innerHTML = '<div class="pantau-empty">Grafik gagal dimuat (chart.js). Muat ulang halaman.</div>';
+      });
+      return;
+    }
+
+    // --- Tren: batang bertumpuk + garis fee (sumbu kanan) ---
+    var trendCtx = document.getElementById('chTrend');
+    var trendChart = null;
+    if (trendCtx && window.Chart) {
+      var feeMax = Math.max.apply(null, tFee.concat([1]));
+      trendChart = new Chart(trendCtx, {
+        data: {
+          labels: labels,
+          datasets: [
+            { type: 'bar', label: 'Disetujui', data: tLahan.approved, backgroundColor: '#22b573', borderRadius: 5, stack: 's' },
+            { type: 'bar', label: 'Pending', data: tLahan.pending, backgroundColor: '#3a93e8', borderRadius: 5, stack: 's' },
+            { type: 'bar', label: 'Ditolak', data: tLahan.rejected, backgroundColor: '#e05252', borderRadius: 5, stack: 's' },
+            { type: 'line', label: 'Fee (Rp)', data: tFee, borderColor: '#f5a623', backgroundColor: '#f5a623', borderWidth: 2.5, pointRadius: 4, tension: .35, yAxisID: 'yFee' },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } },
+            tooltip: { callbacks: {
+              footer: function (items) {
+                var i = items[0].dataIndex;
+                var n = (tLahan.approved[i] || 0) + (tLahan.pending[i] || 0) + (tLahan.rejected[i] || 0);
+                return 'Total: ' + n + ' lahan · ' + rp(tFee[i] || 0);
+              },
+            } },
+          },
+          scales: {
+            x: { stacked: true, grid: { display: false } },
+            y: { stacked: true, beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: 'Lahan' } },
+            yFee: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, ticks: { callback: function (v) { return v >= 1000000 ? (v / 1000000) + 'jt' : v >= 1000 ? (v / 1000) + 'rb' : v; } }, title: { display: true, text: 'Fee (Rp)' } },
+          },
+        },
+      });
+      var setTrendType = function (mode) {
+        trendChart.data.datasets.forEach(function (ds, i) {
+          if (i < 3) ds.type = mode;
+        });
+        trendChart.options.scales.x.stacked = (mode === 'bar');
+        trendChart.options.scales.y.stacked = (mode === 'bar');
+        trendChart.update();
+        document.getElementById('tBar').classList.toggle('on', mode === 'bar');
+        document.getElementById('tLine').classList.toggle('on', mode === 'line');
+      };
+      document.getElementById('tBar').addEventListener('click', function () { setTrendType('bar'); });
+      document.getElementById('tLine').addEventListener('click', function () { setTrendType('line'); });
+    }
+
+    // --- Filter aktivitas (hanya pill ber-data-f; tombol layer peta dikecualikan) ---
+    var pills = Array.prototype.slice.call(document.querySelectorAll('.pill[data-f]'));
+    var items = Array.prototype.slice.call(document.querySelectorAll('#aktivList .aktiv-item'));
+    var applyFilter = function (f) {
+      pills.forEach(function (p) { p.classList.toggle('on', p.getAttribute('data-f') === f); });
+      items.forEach(function (el) {
+        el.style.display = (f === 'all' || el.getAttribute('data-status') === f) ? '' : 'none';
+      });
+    };
+    pills.forEach(function (p) {
+      p.addEventListener('click', function () { applyFilter(p.getAttribute('data-f')); });
+    });
+
+    // --- Donat status: klik segmen = filter aktivitas ---
+    var stCtx = document.getElementById('chStatus');
+    if (stCtx && window.Chart) {
+      var order = ['approved', 'pending', 'rejected'];
+      var stChart = new Chart(stCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Disetujui', 'Pending', 'Ditolak'],
+          datasets: [{ data: order.map(function (s) { return (tLahan[s] || []).reduce(function (a, b) { return a + b; }, 0); }), backgroundColor: ['#22b573', '#3a93e8', '#e05252'], borderWidth: 2 }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, cutout: '62%',
+          onClick: function (e, els) {
+            if (els.length) applyFilter(order[els[0].index]);
+          },
+          onHover: function (e, els) { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
+          plugins: { legend: { position: 'right', labels: { boxWidth: 12, usePointStyle: true } } },
+        },
+      });
+    }
+
+    // --- Top marketing ---
+    var topCtx = document.getElementById('chTop');
+    if (topCtx && window.Chart) {
+      new Chart(topCtx, {
+        type: 'bar',
+        data: {
+          labels: top.map(function (t) { return t.name; }),
+          datasets: [{ label: 'Fee approved (Rp)', data: top.map(function (t) { return Number(t.fee); }), backgroundColor: '#3a93e8', borderRadius: 6 }],
+        },
+        options: {
+          indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: {
+              label: function (c) { return ' ' + rp(c.raw); },
+              afterLabel: function (c) {
+                var r = top[c.dataIndex] || {};
+                return ' ' + (r.approved || 0) + ' approved dari ' + (r.total || 0) + ' lahan';
+              },
+            } },
+          },
+          scales: { x: { beginAtZero: true, ticks: { callback: function (v) { return v >= 1000000 ? (v / 1000000) + 'jt' : v; } } }, y: { ticks: { autoSkip: false } } },
+        },
+      });
+    }
+
+    // Samakan warna tick saat tema diganti
+    var themeBtn = document.getElementById('themeToggle');
+    if (themeBtn && window.Chart) {
+      themeBtn.addEventListener('click', function () {
+        setTimeout(function () {
+          Chart.defaults.color = tickColor();
+          Chart.instances && Object.values(Chart.instances).forEach(function (ch) { ch.update(); });
+        }, 50);
+      });
+    }
+  })();
+</script>
+
+<script src="/vendor/leaflet/leaflet.js"></script>
+<script>
+  (function () {
+    var mapDiv = document.getElementById('sebaranMap');
+    if (!mapDiv || typeof L === 'undefined') return;
+    var POINTS = <%- JSON.stringify(typeof mapPoints !== 'undefined' ? mapPoints : []).replace(/</g, '\\u003c') %>;
+
+    var osm = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: '© Esri © OpenStreetMap contributors' });
+    var sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: '© Esri Maxar' });
+    var map = L.map(mapDiv, { center: [-6.28, 106.85], zoom: 10, layers: [osm] });
+
+    var bOsm = document.getElementById('baseOsm'), bSat = document.getElementById('baseSat');
+    function bringPointsFront() {
+      [approvedLayer, pendingLayer, rejectedLayer].forEach(function (ly) {
+        if (ly && map.hasLayer(ly) && ly.bringToFront) { try { ly.bringToFront(); } catch (e) {} }
+      });
+    }
+    function setBase(which) {
+      if (which === 'sat') { map.removeLayer(osm); if (!map.hasLayer(sat)) map.addLayer(sat); }
+      else { map.removeLayer(sat); if (!map.hasLayer(osm)) map.addLayer(osm); }
+      if (bOsm) bOsm.classList.toggle('on', which !== 'sat');
+      if (bSat) bSat.classList.toggle('on', which === 'sat');
+      bringPointsFront();
+    }
+    if (bOsm) bOsm.addEventListener('click', function () { setBase('osm'); });
+    if (bSat) bSat.addEventListener('click', function () { setBase('sat'); });
+
+    // Poligon resmi administrasi Kemendagri (BIG): /geojson/jabodetabek-kemendagri.json
+    // Fallback diamond bila berkas tidak termuat.
+    var WIL_FB = [
+      { n: 'Jakarta Pusat', c: '#e05252', lat: -6.186, lng: 106.83, dLat: 0.045, dLng: 0.05 },
+      { n: 'Jakarta Utara', c: '#f5a623', lat: -6.12, lng: 106.88, dLat: 0.05, dLng: 0.09 },
+      { n: 'Jakarta Barat', c: '#3a93e8', lat: -6.16, lng: 106.76, dLat: 0.06, dLng: 0.06 },
+      { n: 'Jakarta Selatan', c: '#22b573', lat: -6.26, lng: 106.81, dLat: 0.07, dLng: 0.07 },
+      { n: 'Jakarta Timur', c: '#9b59b6', lat: -6.225, lng: 106.9, dLat: 0.09, dLng: 0.08 },
+      { n: 'Kota Bogor', c: '#16a085', lat: -6.595, lng: 106.79, dLat: 0.06, dLng: 0.07 },
+      { n: 'Kab. Bogor', c: '#27ae60', lat: -6.48, lng: 106.85, dLat: 0.14, dLng: 0.18 },
+      { n: 'Depok', c: '#e67e22', lat: -6.39, lng: 106.82, dLat: 0.06, dLng: 0.06 },
+      { n: 'Kota Tangerang', c: '#2980b9', lat: -6.17, lng: 106.63, dLat: 0.07, dLng: 0.07 },
+      { n: 'Tangerang Selatan', c: '#8e44ad', lat: -6.30, lng: 106.70, dLat: 0.07, dLng: 0.07 },
+      { n: 'Kab. Tangerang', c: '#3498db', lat: -6.22, lng: 106.50, dLat: 0.12, dLng: 0.12 },
+      { n: 'Kota Bekasi', c: '#d35400', lat: -6.235, lng: 106.99, dLat: 0.06, dLng: 0.07 },
+      { n: 'Kab. Bekasi', c: '#c0392b', lat: -6.30, lng: 107.15, dLat: 0.13, dLng: 0.17 }
+    ];
+    function diamond(w) {
+      return [[w.lat - w.dLat, w.lng], [w.lat, w.lng + w.dLng], [w.lat + w.dLat, w.lng], [w.lat, w.lng - w.dLng]];
+    }
+    function inBox(p, w) {
+      return Math.abs(p.lat - w.lat) <= w.dLat && Math.abs(p.lng - w.lng) <= w.dLng;
+    }
+    // Layer titik per status — warna & ikon selaras Pin Maker (3 varian).
+    // Marker divIcon teardrop + pane khusus 'japPins' (zIndex 650) agar selalu
+    // tampil di atas poligon maupun basemap Peta/Satelit.
+    map.createPane('japPins');
+    map.getPane('japPins').style.zIndex = 650;
+    var polyLayer = L.layerGroup();
+    var approvedLayer = L.layerGroup(), pendingLayer = L.layerGroup(), rejectedLayer = L.layerGroup();
+    var STATUS_STYLE = {
+      approved: { fill: '#22c55e', icon: '✅', label: 'Disetujui' },
+      pending:  { fill: '#eab308', icon: '⏳', label: 'Pending' },
+      rejected: { fill: '#ef4444', icon: '❌', label: 'Ditolak' }
+    };
+    function pinIcon(st) {
+      return L.divIcon({
+        className: 'jap-pin-wrap',
+        html: '<div class="jap-pin" style="--pin:' + st.fill + '"><span>' + st.icon + '</span></div>',
+        iconSize: [30, 30],
+        iconAnchor: [15, 28],
+        popupAnchor: [0, -26]
+      });
+    }
+    var regionCounts = [];
+    function esc(s) { return String(s == null ? '' : s).replace(/</g, '&lt;'); }
+    function pip(lng, lat, ring) {
+      var inside = false;
+      for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        var xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+        if (((yi > lat) !== (yj > lat)) && (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi)) inside = !inside;
+      }
+      return inside;
+    }
+    function countInFeature(f) {
+      var g = f.geometry;
+      if (!g) return 0;
+      var polys = g.type === 'Polygon' ? [g.coordinates] : (g.coordinates || []);
+      var n = 0;
+      for (var k = 0; k < POINTS.length; k++) {
+        var p = POINTS[k], hit = false;
+        for (var a = 0; a < polys.length && !hit; a++) {
+          var rings = polys[a];
+          if (rings.length && pip(p.lng, p.lat, rings[0])) hit = true;
+        }
+        if (hit) n++;
+      }
+      return n;
+    }
+    function finishCounts(official) {
+      var total = POINTS.length;
+      var mc = document.getElementById('mapCount');
+      if (!mc) return;
+      if (!total) {
+        mc.textContent = 'Belum ada titik koordinat di Jabodetabek. Titik muncul otomatis dari maps_link pengajuan (format ?q=lat,lng).';
+        return;
+      }
+      var nAp = POINTS.filter(function (p) { return p.status === 'approved'; }).length;
+      var nPe = POINTS.filter(function (p) { return p.status === 'pending'; }).length;
+      var nRj = POINTS.filter(function (p) { return p.status === 'rejected'; }).length;
+      var top = regionCounts.slice().sort(function (a, b) { return b.count - a.count; })[0];
+      mc.textContent = total + ' titik tampil (✅ ' + nAp + ' · ⏳ ' + nPe + ' · ❌ ' + nRj + ')' + (top && top.count > 0 ? ' · terpadat: ' + top.n + ' (' + top.count + ')' : '') + ' · poligon resmi Kemendagri' + (official ? '' : ' (fallback)') + ' · klik poligon/marker untuk detail.';
+    }
+    function paintFallback() {
+      regionCounts = WIL_FB.map(function (w) {
+        var cnt = POINTS.filter(function (p) { return inBox(p, w); }).length;
+        L.polygon(diamond(w), { color: w.c, weight: 2, fillColor: w.c, fillOpacity: 0.16 })
+          .bindTooltip('<b>' + esc(w.n) + '</b><br/>' + cnt + ' titik', { sticky: true })
+          .addTo(polyLayer);
+        return { n: w.n, count: cnt };
+      });
+      finishCounts(false);
+    }
+    function paintGeoJSON(fc) {
+      if (!fc || !fc.features || !fc.features.length) { paintFallback(); return; }
+      regionCounts = [];
+      fc.features.forEach(function (f) {
+        var pr = f.properties || {};
+        var col = pr.warna || '#3a93e8';
+        var cnt = countInFeature(f);
+        regionCounts.push({ n: pr.singkat || pr.nama, count: cnt });
+        L.geoJSON(f, { style: { color: col, weight: 2, fillColor: col, fillOpacity: 0.16 } })
+          .bindTooltip('<b>' + esc(pr.nama || pr.singkat) + '</b><br/><span style="color:#ddd">Kemendagri ' + esc(pr.kode_kemendagri || '-') + ' · ' + esc(pr.provinsi || '') + '</span><br/>' + cnt + ' titik', { sticky: true })
+          .addTo(polyLayer);
+      });
+      finishCounts(true);
+    }
+    if (window.fetch) {
+      fetch('/geojson/jabodetabek-kemendagri.json', { cache: 'force-cache' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(paintGeoJSON)
+        .catch(paintFallback);
+    } else { paintFallback(); }
+    POINTS.forEach(function (p) {
+      var st = STATUS_STYLE[p.status] || STATUS_STYLE.pending;
+      var isEvcs = p.unit === 'evcs_mobil';
+      var target = p.status === 'approved' ? approvedLayer : p.status === 'rejected' ? rejectedLayer : pendingLayer;
+      L.marker([p.lat, p.lng], { icon: pinIcon(st), pane: 'japPins', title: '#' + p.id + ' ' + (p.owner || '') })
+        .bindPopup('<b>#' + p.id + ' ' + String(p.owner || '').replace(/</g, '&lt;') + '</b><br/>' +
+        st.icon + ' ' + st.label + ' · ' + (isEvcs ? '🔌 EVCS Mobil' : '🔋 BSS Motor') + '<br/>' +
+        String(p.address || '').replace(/</g, '&lt;').slice(0, 90) + '<br/>' +
+        '<span style="color:#888">Mkt: ' + String(p.marketing || '-').replace(/</g, '&lt;') + '</span>')
+        .addTo(target);
+    });
+    polyLayer.addTo(map); approvedLayer.addTo(map); pendingLayer.addTo(map); rejectedLayer.addTo(map);
+    bringPointsFront();
+
+    var lgPoly = document.getElementById('lgPoly'),
+        lgApproved = document.getElementById('lgApproved'),
+        lgPending = document.getElementById('lgPending'),
+        lgRejected = document.getElementById('lgRejected');
+    function toggleLayer(el, layer) {
+      if (!el) return;
+      if (el.checked) { if (!map.hasLayer(layer)) map.addLayer(layer); }
+      else { if (map.hasLayer(layer)) map.removeLayer(layer); }
+    }
+    function syncLayers() {
+      toggleLayer(lgPoly, polyLayer);
+      toggleLayer(lgApproved, approvedLayer);
+      toggleLayer(lgPending, pendingLayer);
+      toggleLayer(lgRejected, rejectedLayer);
+      bringPointsFront();
+    }
+    [lgPoly, lgApproved, lgPending, lgRejected].forEach(function (el) { if (el) el.addEventListener('change', syncLayers); });
+  })();
+</script>
+
+<%- include('../partials/foot') %>

@@ -1,0 +1,803 @@
+<%- include('../partials/head', { title: 'Manajemen Marketing - BSS' }) %>
+<%- include('../partials/dashNavbar') %>
+
+<style>
+  .marketing-card { overflow: hidden; position: relative; border-radius: 18px; }
+  .marketing-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, var(--primary), var(--accent, #f5a623)); }
+  .marketing-card-head { flex-wrap: wrap; align-items: center; padding-top: 4px; }
+  .marketing-card-head > div:first-child { min-width: 0; flex: 1 1 140px; }
+  .marketing-card-head h3 { overflow-wrap: anywhere; }
+  .mkt-id { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1 1 140px; }
+  .mkt-avatar { width: 46px; height: 46px; flex: 0 0 46px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), #3a93e8); color: #fff; font-weight: 800; font-size: 1rem; display: flex; align-items: center; justify-content: center; letter-spacing: .02em; box-shadow: 0 3px 10px rgba(0,0,0,.15); }
+  .mkt-avatar.head { background: linear-gradient(135deg, #f5a623, #f97316); }
+  .mkt-avatar-wrap { position: relative; width: 46px; height: 46px; flex: 0 0 46px; }
+  .mkt-avatar-wrap.lg { width: 54px; height: 54px; flex-basis: 54px; }
+  .mkt-avatar-wrap .mkt-avatar { width: 100%; height: 100%; }
+  .mkt-avatar-wrap.lg .mkt-avatar { width: 100%; height: 100%; font-size: 1.15rem; }
+  .mkt-avatar-img { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; background: var(--bg-soft); }
+  .head-cover .mkt-avatar-img { border: 3px solid rgba(255,255,255,.9); }
+  .mkt-idtx { min-width: 0; }
+  .mkt-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; background: var(--bg-soft); border: 1px solid var(--card-border); border-radius: 14px; padding: 10px 6px; }
+  .mkt-stat { text-align: center; min-width: 0; }
+  .mkt-stat .n { font-weight: 800; font-size: 1.1rem; line-height: 1.2; }
+  .mkt-stat .n.small { font-size: .82rem; }
+  .mkt-stat .l { font-size: .62rem; font-weight: 700; color: var(--muted, #888); text-transform: uppercase; letter-spacing: .06em; margin-top: 2px; }
+  @media (max-width: 560px) { .mkt-stats { grid-template-columns: repeat(2, 1fr); } }
+  .marketing-meta { grid-template-columns: 1fr !important; gap: 0 !important; background: var(--bg-soft); border: 1px solid var(--card-border); border-radius: 14px; overflow: hidden; }
+  .meta-item { min-width: 0; overflow-wrap: anywhere; flex-direction: row !important; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--card-border); }
+  .meta-item:last-child { border-bottom: none; }
+  .meta-item .meta-label { flex-shrink: 0; }
+  .meta-item > :last-child { text-align: right; min-width: 0; }
+  .head-actions { flex-wrap: wrap; justify-content: flex-end; max-width: 100%; }
+  .head-actions .btn { white-space: nowrap; }
+  .copy-row { flex-wrap: wrap; }
+  .copy-row .copy-input { flex: 1 1 160px; min-width: 0; }
+  .mkt-search { margin-bottom: 12px; }
+  .mkt-search input { width: 100%; max-width: 420px; padding: 9px 14px; border-radius: 999px; border: 1px solid var(--card-border); background: var(--card); color: var(--text); font-size: .85rem; font-family: inherit; }
+  .head-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .head-card { border-radius: 18px; overflow: hidden; background: var(--card); border: 1px solid var(--card-border); display: flex; flex-direction: column; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+  .head-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: #f59e0b; }
+  .coord-card { border-radius: 18px; overflow: hidden; background: var(--card); border: 1px solid var(--card-border); display: flex; flex-direction: column; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+  .coord-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: #0ea5e9; }
+  .head-cover { background: linear-gradient(120deg, #b45309, #f59e0b 55%, #fbbf24); padding: 16px 14px; display: flex; align-items: center; gap: 12px; color: #fff; position: relative; overflow: hidden; }
+  .head-cover.coord-cover { background: linear-gradient(120deg, #1d4ed8, #0ea5e9 55%, #38bdf8); }
+  .head-cover::after { content: ''; position: absolute; right: -40px; top: -40px; width: 130px; height: 130px; border-radius: 50%; background: rgba(255,255,255,.16); }
+  .head-cover::before { content: ''; position: absolute; right: 30px; bottom: -55px; width: 90px; height: 90px; border-radius: 50%; background: rgba(255,255,255,.1); }
+  .head-cover .mkt-avatar { width: 54px; height: 54px; flex: 0 0 54px; font-size: 1.15rem; border: 3px solid rgba(255,255,255,.9); box-shadow: none; position: relative; z-index: 1; }
+  .head-id { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; overflow-wrap: anywhere; position: relative; z-index: 1; }
+  .head-id strong { color: #fff; font-size: 1rem; }
+  .head-id span { color: rgba(255,255,255,.88); font-size: .74rem; }
+  .head-wa { margin-left: auto; width: 38px; height: 38px; flex: 0 0 38px; border-radius: 50%; background: #026835fc; border: 1px solid rgba(255,255,255,.55); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 1rem; text-decoration: none; position: relative; z-index: 1; }
+  .head-wa:hover { background: rgba(255,255,255,.35); }
+  .head-body { padding: 12px 14px 14px; display: grid; gap: 10px; }
+  .head-ref { display: flex; gap: 8px; align-items: center; }
+  .head-ref code { flex: 1; text-align: center; padding: 7px 10px; background: var(--bg-soft); border: 1px dashed var(--card-border); border-radius: 10px; font-size: .8rem; }
+  .head-nums3 { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--bg-soft); border: 1px solid var(--card-border); border-radius: 12px; padding: 8px 4px; text-align: center; }
+  .head-nums3 b { display: block; font-size: 1.05rem; line-height: 1.2; }
+  .head-nums3 span { font-size: .6rem; font-weight: 700; color: var(--muted, #888); text-transform: uppercase; letter-spacing: .05em; }
+  .head-check { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; line-height: 1.5; }
+  .head-check input { width: 20px; height: 20px; flex: 0 0 auto; margin-top: 2px; accent-color: var(--primary); }
+  @media (max-width: 560px) {
+    .mkt-form { padding: 16px; }
+    .head-actions { justify-content: flex-start; width: 100%; }
+    .marketing-grid { gap: 12px; }
+    .marketing-card { padding: 16px; gap: 10px; }
+    .radio-chip { justify-content: center; }
+    .fee-type-row { flex-direction: column; align-items: stretch; }
+    .modal-box { padding: 18px 16px; }
+    .modal-actions { flex-direction: column-reverse; }
+    .modal-actions .btn { width: 100%; }
+  }
+</style>
+
+<main>
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Pendaftaran Akun</span>
+        <h2>Manajemen Marketing</h2>
+        <p>Buat akun marketing baru — kode referral dibuat otomatis.</p>
+      </div>
+
+      <% if (flash && flash.message) { %>
+        <div class="alert alert-<%= flash.type %>"><%= flash.message %></div>
+      <% } %>
+
+      <% const _pendingApproval = (typeof marketers !== 'undefined' ? marketers : []).filter(function (m) { return m.mkt_status === 'pending_approval'; }); %>
+      <% const _pendingVerify = (typeof marketers !== 'undefined' ? marketers : []).filter(function (m) { return m.mkt_status === 'pending_verification'; }); %>
+      <% if (_pendingApproval.length || _pendingVerify.length) { %>
+      <div class="card mb-3" style="border:2px solid var(--accent, #f5a623);">
+        <div class="section-head" style="margin-bottom:12px;text-align:left;">
+          <span class="eyebrow">Perlu Tindakan</span>
+          <h3 style="margin:0;">⏳ Persetujuan Pendaftar (<%= _pendingApproval.length %>)</h3>
+          <% if (_pendingVerify.length) { %>
+          <p><%= _pendingVerify.length %> pendaftar belum verifikasi email — tidak perlu tindakan.</p>
+          <% } %>
+        </div>
+        <% if (!_pendingApproval.length) { %>
+          <p class="muted-text">Belum ada pendaftar menunggu persetujuan.</p>
+        <% } %>
+        <% _pendingApproval.forEach(function (m) { %>
+          <div class="meta-item" style="border:1px solid var(--card-border);border-radius:12px;padding:12px;margin-bottom:10px;">
+            <div style="min-width:0;">
+              <strong><%= m.name %></strong>
+              <span class="muted-text" style="font-size:.78rem;"> — <%= m.email %> • <%= m.whatsapp || '-' %></span><br />
+              <span style="font-size:.78rem;">NIK: <%= m.nik || '-' %> • <%= m.bank_name || '-' %> / <%= m.account_number || '-' %></span><br />
+              <span style="font-size:.78rem;">Referral dari: <strong><%= m.parent_name || '-' %></strong> • Daftar: <%= m.created_at ? new Date(m.created_at).toLocaleString('id-ID') : '-' %></span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+              <form action="/admin/marketing/approve" method="POST" data-confirm="Setujui <%= m.name %>? Akun aktif & email sambutan terkirim.">
+                <input type="hidden" name="id" value="<%= m.id %>" />
+                <button type="submit" class="btn btn-accent">✅ Setujui & Aktifkan</button>
+              </form>
+              <form action="/admin/marketing/reject" method="POST" data-confirm="Tolak <%= m.name %>? Akun dihapus & email penolakan terkirim.">
+                <input type="hidden" name="id" value="<%= m.id %>" />
+                <input class="form-control" type="text" name="reason" maxlength="500" placeholder="Alasan penolakan (opsional)" style="min-width:220px;" />
+                <button type="submit" class="btn btn-outline">Tolak</button>
+              </form>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+      <% } %>
+
+      <div class="card mb-3 mkt-form" style="max-width:640px;margin-inline:auto;">
+        <form action="/admin/marketing" method="POST">
+          <div class="form-group">
+            <label for="name">Nama Lengkap</label>
+            <input class="form-control" type="text" id="name" name="name" required placeholder="Nama marketing" />
+          </div>
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input class="form-control" type="email" id="email" name="email" required placeholder="email@domain.com" />
+          </div>
+          <div class="form-group">
+            <label for="whatsapp">No. WhatsApp</label>
+            <div class="input-group">
+              <span class="input-group-addon">+62</span>
+              <input class="form-control" type="tel" id="whatsapp" name="whatsapp" required placeholder="8xx xxxx xxxx" />
+            </div>
+            <p class="form-hint">Tidak bisa double — 1 nomor untuk 1 akun.</p>
+          </div>
+          <div class="form-group">
+            <label for="nik">No. KTP / NIK (16 digit)</label>
+            <input class="form-control" type="text" id="nik" name="nik" required inputmode="numeric" maxlength="16" pattern="[0-9]{16}" placeholder="16 digit angka" />
+            <p class="form-hint">Tidak bisa double — 1 NIK untuk 1 akun.</p>
+          </div>
+          <div class="form-group">
+            <label for="bank_name">Nama Bank</label>
+            <select class="form-control" id="bank_name" name="bank_name" required>
+              <option value="">Pilih bank…</option>
+              <option value="BCA">BCA</option>
+              <option value="BRI">BRI</option>
+              <option value="Mandiri">Mandiri</option>
+              <option value="BNI">BNI</option>
+              <option value="BTN">BTN</option>
+              <option value="BSI">BSI</option>
+              <option value="CIMB Niaga">CIMB Niaga</option>
+              <option value="Danamon">Danamon</option>
+              <option value="Permata">Permata</option>
+              <option value="Panin">Panin</option>
+              <option value="OCBC">OCBC</option>
+              <option value="Maybank">Maybank</option>
+              <option value="Lainnya">Lainnya (tulis manual)</option>
+            </select>
+          </div>
+          <div class="form-group" id="bankOtherWrap" hidden>
+            <label for="bank_name_other">Nama Bank Lainnya</label>
+            <input class="form-control" type="text" id="bank_name_other" name="bank_name_other" maxlength="100" placeholder="Tulis nama bank" />
+          </div>
+          <div class="form-group">
+            <label for="account_number">No. Rekening</label>
+            <input class="form-control" type="text" id="account_number" name="account_number" required inputmode="numeric" maxlength="20" placeholder="6–20 digit angka" />
+          </div>
+          <div class="form-group">
+            <label for="parent_id">Head Marketing / Atasan (opsional)</label>
+            <select class="form-control" id="parent_id" name="parent_id">
+              <option value="">— Tanpa atasan —</option>
+              <% marketers.forEach(function (m) { %>
+                <option value="<%= m.id %>"><%= m.name %> (<%= m.referral_code %>)</option>
+              <% }) %>
+            </select>
+            <p class="form-hint">Marketing baru menjadi bawahan head yang dipilih.</p>
+          </div>
+          <div class="form-group">
+            <label class="head-check" for="is_head">
+              <input type="checkbox" id="is_head" name="is_head" value="1" />
+              <span>Daftarkan sebagai <strong>Head Marketing</strong> <span class="muted-text">(membawahi marketing)</span></span>
+            </label>
+            <label class="head-check" for="is_coordinator">
+              <input type="checkbox" id="is_coordinator" name="is_coordinator" value="1" />
+              <span>Daftarkan sebagai <strong>Koordinator</strong> <span class="muted-text">(membawahi head marketing)</span></span>
+            </label>
+          </div>
+          <div class="form-group">
+            <label>Fee Marketing (dihitung saat lahan disetujui)</label>
+            <div class="fee-type-row">
+              <label class="radio-chip">
+                <input type="radio" name="fee_type" value="rupiah" />
+                <span>Rp (Rupiah)</span>
+              </label>
+              <label class="radio-chip">
+                <input type="radio" name="fee_type" value="persen" />
+                <span>% (Persen dari fee lahan)</span>
+              </label>
+            </div>
+            <div class="input-group">
+              <span class="input-group-addon" id="feeAddon">Rp</span>
+              <input class="form-control" type="number" id="fee_value" name="fee_value" min="0" step="0.01" placeholder="Nominal / persen fee" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="password">Password Awal (opsional)</label>
+            <input class="form-control" type="text" id="password" name="password" minlength="6" autocomplete="new-password" placeholder="Kosongkan = pakai <%= DEFAULT_PASSWORD %>" />
+            <p class="form-hint">Minimal 6 karakter. Berikan password ini ke marketing untuk login pertama.</p>
+          </div>
+          <button type="submit" class="btn btn-accent"><strong>+ Tambah Marketing</strong></button>
+          <span class="help-note">Password sementara semua marketing: <code><%= DEFAULT_PASSWORD %></code></span>
+        </form>
+      </div>
+
+      <div class="text-center mb-3">
+        <button type="button" id="btnToggleList" class="btn btn-outline" onclick="toggleMarketingList()">👁 Lihat Daftar Marketing</button>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-title-row" style="margin-bottom:12px;">
+          <div class="feature-icon">👑</div>
+          <h3 style="margin:0;">Daftar Koordinator (<%= (typeof coords !== 'undefined' ? coords : []).length %>)</h3>
+        </div>
+        <div class="mkt-search">
+          <input type="search" id="coordSearch" placeholder="🔍 Cari koordinator: nama / email / referral…" />
+        </div>
+        <% if ((typeof coords !== 'undefined' ? coords : []).length === 0) { %>
+          <p class="subtext" style="margin:0;">Belum ada koordinator. Centang "Daftarkan sebagai Koordinator" pada form di atas, atau edit marketing yang sudah ada.</p>
+        <% } else { %>
+          <div class="head-grid">
+            <% coords.forEach(function (h) { %>
+              <div class="coord-card" data-search="<%= ((h.name || '') + ' ' + (h.email || '') + ' ' + (h.referral_code || '')).toLowerCase().replace(/"/g, '') %>">
+                <div class="head-cover coord-cover">
+                  <span class="mkt-avatar-wrap lg">
+                    <span class="mkt-avatar head"><%= h.name.trim().split(/\s+/).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase() %></span>
+                    <% if (h.photo_file) { %><img class="mkt-avatar-img" src="<%= h.photo_file %>" alt="Foto <%= h.name %>" loading="lazy" onerror="this.remove()" /><% } %>
+                  </span>
+                  <div class="head-id">
+                    <strong><%= h.name %></strong>
+                    <span><%= h.email %></span>
+                    <% if (Number(h.is_locked) === 1) { %><span style="font-size:.65rem;font-weight:800;background:rgba(0,0,0,.3);border-radius:99px;padding:2px 9px;">🔒 TERKUNCI</span><% } %>
+                  </div>
+                  <% if (h.whatsapp) { %>
+                    <a class="head-wa" href="https://wa.me/<%= h.whatsapp %>" target="_blank" rel="noopener" title="Chat WhatsApp">✆➤</a>
+                  <% } %>
+                </div>
+                <div class="head-body">
+                  <div class="head-ref">
+                    <code><%= h.referral_code %></code>
+                    <button type="button" class="btn btn-outline btn-copy" data-copy="<%= APP_URL %>/daftar-marketing?ref=<%= h.referral_code %>" style="padding:6px 10px;font-size:.7rem;flex-shrink:0;">📋 Salin</button>
+                  </div>
+                  <div class="head-nums3">
+                    <div><b><%= h.total_downlines %></b><span>Langsung</span></div>
+                    <div><b><%= h.net_total %></b><span>Jaringan</span></div>
+                    <div><b><%= h.total_lands %></b><span>Lahan</span></div>
+                  </div>
+                  <% if (Number(h.is_locked) === 1) { %>
+                    <form action="/admin/marketing/lock" method="POST" data-confirm="Buka kunci akun <%= h.name %>?">
+                      <input type="hidden" name="id" value="<%= h.id %>" />
+                      <input type="hidden" name="locked" value="0" />
+                      <button type="submit" class="btn btn-accent btn-block" style="padding:7px 12px;font-size:.72rem;">🔓 Buka Kunci</button>
+                    </form>
+                  <% } else { %>
+                    <form action="/admin/marketing/lock" method="POST" data-confirm="Kunci akun <%= h.name %>?">
+                      <input type="hidden" name="id" value="<%= h.id %>" />
+                      <input type="hidden" name="locked" value="1" />
+                      <button type="submit" class="btn btn-outline btn-block" style="padding:7px 12px;font-size:.72rem;">🔒 Kunci</button>
+                    </form>
+                  <% } %>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-title-row" style="margin-bottom:12px;">
+          <div class="feature-icon">⭐</div>
+          <h3 style="margin:0;">Daftar Head Marketing (<%= heads.length %>)</h3>
+        </div>
+        <div class="mkt-search">
+          <input type="search" id="headSearch" placeholder="🔍 Cari head: nama / email / referral…" />
+        </div>
+        <% if (heads.length === 0) { %>
+          <p class="subtext" style="margin:0;">Belum ada head. Centang "Daftarkan sebagai Head Marketing" pada form di atas, atau edit marketing yang sudah ada.</p>
+        <% } else { %>
+          <div class="head-grid">
+            <% heads.forEach(function (h) { %>
+              <div class="head-card" data-search="<%= ((h.name || '') + ' ' + (h.email || '') + ' ' + (h.referral_code || '')).toLowerCase().replace(/"/g, '') %>">
+                <div class="head-cover">
+                  <span class="mkt-avatar-wrap lg">
+                    <span class="mkt-avatar head"><%= h.name.trim().split(/\s+/).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase() %></span>
+                    <% if (h.photo_file) { %><img class="mkt-avatar-img" src="<%= h.photo_file %>" alt="Foto <%= h.name %>" loading="lazy" onerror="this.remove()" /><% } %>
+                  </span>
+                  <div class="head-id">
+                    <strong><%= h.name %></strong>
+                    <span><%= h.email %></span>
+                    <% if (Number(h.is_locked) === 1) { %><span style="font-size:.65rem;font-weight:800;background:rgba(0,0,0,.3);border-radius:99px;padding:2px 9px;">🔒 TERKUNCI</span><% } %>
+                  </div>
+                  <% if (h.whatsapp) { %>
+                    <a class="head-wa" href="https://wa.me/<%= h.whatsapp %>" target="_blank" rel="noopener" title="Chat WhatsApp">✆➤</a>
+                  <% } %>
+                </div>
+                <div class="head-body">
+                  <div class="head-ref">
+                    <code><%= h.referral_code %></code>
+                    <button type="button" class="btn btn-outline btn-copy" data-copy="<%= APP_URL %>/ajukan?ref=<%= h.referral_code %>" style="padding:6px 10px;font-size:.7rem;flex-shrink:0;">📋 Salin</button>
+                  </div>
+                  <div class="head-nums3">
+                    <div><b><%= h.total_downlines %></b><span>Langsung</span></div>
+                    <div><b><%= h.net_total %></b><span>Jaringan</span></div>
+                    <div><b><%= h.total_lands %></b><span>Lahan</span></div>
+                  </div>
+                  <% if (Number(h.is_locked) === 1) { %>
+                    <form action="/admin/marketing/lock" method="POST" data-confirm="Buka kunci akun <%= h.name %>?">
+                      <input type="hidden" name="id" value="<%= h.id %>" />
+                      <input type="hidden" name="locked" value="0" />
+                      <button type="submit" class="btn btn-accent btn-block" style="padding:7px 12px;font-size:.72rem;">🔓 Buka Kunci</button>
+                    </form>
+                  <% } else { %>
+                    <form action="/admin/marketing/lock" method="POST" data-confirm="Kunci akun <%= h.name %>?">
+                      <input type="hidden" name="id" value="<%= h.id %>" />
+                      <input type="hidden" name="locked" value="1" />
+                      <button type="submit" class="btn btn-outline btn-block" style="padding:7px 12px;font-size:.72rem;">🔒 Kunci</button>
+                    </form>
+                  <% } %>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
+      </div>
+
+      <div id="marketingList" class="hidden">
+        <div class="section-head" style="margin-bottom:24px;">
+          <h3>Daftar Marketing</h3>
+        </div>
+        <div class="mkt-search">
+          <input type="search" id="mktSearch" placeholder="🔍 Cari nama, HP, NIK, bank, referral…" />
+        </div>
+
+        <% if (marketers.length === 0) { %>
+          <div class="card text-center"><p class="empty-cell" style="margin:0;">Belum ada marketing.</p></div>
+        <% } else { %>
+          <div class="marketing-grid">
+            <% marketers.forEach(function (m) { %>
+              <div class="card marketing-card" data-search="<%= ((m.name || '') + ' ' + (m.email || '') + ' ' + (m.whatsapp || '') + ' ' + (m.nik || '') + ' ' + (m.bank_name || '') + ' ' + (m.account_number || '') + ' ' + (m.referral_code || '')).toLowerCase().replace(/"/g, '') %>">
+                <div class="marketing-card-head">
+                  <div class="mkt-id">
+                    <span class="mkt-avatar-wrap">
+                      <span class="mkt-avatar<%= (Number(m.is_head) === 1 || Number(m.is_coordinator) === 1) ? ' head' : '' %>"><%= m.name.trim().split(/\s+/).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase() %></span>
+                      <% if (m.photo_file) { %><img class="mkt-avatar-img" src="<%= m.photo_file %>" alt="Foto <%= m.name %>" loading="lazy" onerror="this.remove()" /><% } %>
+                    </span>
+                    <div class="mkt-idtx">
+                      <h3 style="margin-bottom:2px;"><%= m.name %> <% if (Number(m.is_coordinator) === 1) { %><span class="status status-approved" style="font-size:.65rem;">KOORDINATOR</span><% } %> <% if (Number(m.is_head) === 1) { %><span class="status status-approved" style="font-size:.65rem;">HEAD</span><% } %> <% if (m.mkt_status === 'pending_approval') { %><span class="status status-pending" style="font-size:.65rem;">⏳ MENUNGGU PERSETUJUAN</span><% } else if (m.mkt_status === 'pending_verification') { %><span class="status status-pending" style="font-size:.65rem;">✉️ BELUM VERIFIKASI EMAIL</span><% } %> <% if (Number(m.is_locked) === 1) { %><span class="status status-rejected" style="font-size:.65rem;">🔒 TERKUNCI</span><% } %></h3>
+                      <div class="subtext"><%= m.email %></div>
+                    </div>
+                  </div>
+                  <div class="head-actions">
+                    <button type="button" class="btn btn-outline btn-edit" style="padding:7px 12px;font-size:.72rem;"
+                      data-id="<%= m.id %>"
+                      data-name="<%= m.name %>"
+                      data-email="<%= m.email %>"
+                      data-whatsapp="<%= (m.whatsapp || '').replace(/^62/, '') %>"
+                      data-nik="<%= m.nik || '' %>"
+                      data-bank="<%= m.bank_name || '' %>"
+                      data-rek="<%= m.account_number || '' %>"
+                      data-fee-type="<%= m.fee_type || '' %>"
+                      data-fee-value="<%= m.fee_value || '' %>"
+                      data-parent-id="<%= m.parent_id || '' %>"
+                      data-is-head="<%= m.is_head || 0 %>"
+                      data-is-coordinator="<%= m.is_coordinator || 0 %>">Edit</button>
+                    <% if (m.whatsapp) { %>
+                      <a href="https://wa.me/<%= m.whatsapp %>" target="_blank" rel="noopener" class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;">✆➤</a>
+                    <% } %>
+                  </div>
+                </div>
+
+                <div class="mkt-stats">
+                  <div class="mkt-stat"><div class="n"><%= m.total_lands %></div><div class="l">📋 Lahan</div></div>
+                  <div class="mkt-stat"><div class="n"><%= m.approved_lands %></div><div class="l">✅ Disetujui</div></div>
+                  <div class="mkt-stat"><div class="n small">Rp <%= Number(m.acc_fee || 0).toLocaleString('id-ID') %></div><div class="l">💰 Akumulasi Fee</div></div>
+                  <div class="mkt-stat"><div class="n"><%= (Number(m.is_head) === 1 || Number(m.is_coordinator) === 1) ? m.net_total : m.total_downlines %></div><div class="l">👥 Jaringan</div></div>
+                </div>
+
+                <div class="marketing-meta">
+                  <div class="meta-item"><span class="meta-label">Kode Referral</span><code><%= m.referral_code %></code></div>
+                  <div class="meta-item">
+                    <span class="meta-label">Fee</span>
+                    <% if (m.fee_type === 'rupiah') { %>
+                      <strong>Rp <%= Number(m.fee_value).toLocaleString('id-ID') %></strong>
+                    <% } else if (m.fee_type === 'persen') { %>
+                      <strong><%= Number(m.fee_value) %>%</strong>
+                    <% } else { %>
+                      <span class="muted-text">-</span>
+                    <% } %>
+                  </div>
+                  <div class="meta-item"><span class="meta-label">Kuota Downline</span><%= m.downline_quota %></div>
+                  <div class="meta-item"><span class="meta-label">Atasan</span><%= m.parent_name || '-' %></div>
+                  <div class="meta-item"><span class="meta-label">NIK / No. KTP</span><%= m.nik || '-' %></div>
+                  <div class="meta-item"><span class="meta-label">Bank / No. Rek</span><%= m.bank_name ? m.bank_name + (m.account_number ? ' • ' + m.account_number : '') : '-' %></div>
+                  <% if (m.photo_file || m.ktp_file) { %>
+                  <div class="meta-item"><span class="meta-label">Foto</span>
+                    <% if (m.photo_file) { %><a href="<%= m.photo_file %>" target="_blank" rel="noopener">🧑 Foto</a><% } %>
+                    <% if (m.ktp_file) { %><a href="<%= m.ktp_file %>" target="_blank" rel="noopener" style="margin-left:8px;">🪪 KTP</a><% } %>
+                  </div>
+                  <% } %>
+                  <% if (Number(m.is_head) === 1 || Number(m.is_coordinator) === 1) { %>
+                  <div class="meta-item"><span class="meta-label">Jaringan</span><strong><%= m.net_total %></strong> marketing</div>
+                  <% } %>
+                </div>
+
+                <div class="copy-row mt-2">
+                  <input class="copy-input" readonly value="<%= APP_URL %>/ajukan?ref=<%= m.referral_code %>" />
+                  <button type="button" class="btn btn-outline btn-copy" data-copy="<%= APP_URL %>/ajukan?ref=<%= m.referral_code %>" style="padding:7px 12px;font-size:.72rem;">📋 Salin</button>
+                </div>
+                <%- include('../partials/shareButtons', { shareUrl: APP_URL + '/ajukan?ref=' + m.referral_code, shareText: 'Sewa lahan kecil Anda untuk BSS/V-Green — ajukan di sini:' }) %>
+                <button type="button" class="btn btn-accent btn-block btn-wa-tpl mt-2" style="padding:9px 12px;font-size:.78rem;"
+                  data-id="<%= m.id %>"
+                  data-name="<%= m.name %>"
+                  data-email="<%= m.email %>"
+                  data-whatsapp="<%= m.whatsapp || '' %>"
+                  data-referral="<%= m.referral_code %>">📲 Template WA (login + referral)</button>
+
+                <form action="/admin/marketing/delete" method="POST" class="mt-2" data-confirm="Hapus marketing <%= m.name %>? Data lahan terkait harus kosong.">
+                  <input type="hidden" name="id" value="<%= m.id %>" />
+                  <button type="submit" class="btn btn-outline btn-block" style="border-color:var(--danger);color:var(--danger);">Hapus</button>
+                </form>
+                <% if (Number(m.is_locked) === 1) { %>
+                  <form action="/admin/marketing/lock" method="POST" class="mt-2" data-confirm="Buka kunci akun <%= m.name %>? Ia bisa login kembali.">
+                    <input type="hidden" name="id" value="<%= m.id %>" />
+                    <input type="hidden" name="locked" value="0" />
+                    <button type="submit" class="btn btn-accent btn-block">🔓 Buka Kunci</button>
+                  </form>
+                <% } else { %>
+                  <form action="/admin/marketing/lock" method="POST" class="mt-2" data-confirm="Kunci akun <%= m.name %>? Ia tak bisa login dan sesi aktifnya ditendang.">
+                    <input type="hidden" name="id" value="<%= m.id %>" />
+                    <input type="hidden" name="locked" value="1" />
+                    <button type="submit" class="btn btn-outline btn-block" style="border-color:var(--warning);color:var(--warning);">🔒 Kunci Akun</button>
+                  </form>
+                <% } %>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="editModal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>Edit Data Marketing</h3>
+      <button type="button" class="modal-close" onclick="closeEditModal()" aria-label="Tutup">&times;</button>
+    </div>
+    <form action="/admin/marketing/update" method="POST" id="editForm">
+      <input type="hidden" id="edit_id" name="id" />
+      <div class="form-group">
+        <label for="edit_name">Nama Lengkap</label>
+        <input class="form-control" type="text" id="edit_name" name="name" required />
+      </div>
+      <div class="form-group">
+        <label for="edit_email">Email</label>
+        <input class="form-control" type="email" id="edit_email" name="email" required />
+      </div>
+      <div class="form-group">
+        <label for="edit_whatsapp">No. WhatsApp</label>
+        <div class="input-group">
+          <span class="input-group-addon">+62</span>
+          <input class="form-control" type="tel" id="edit_whatsapp" name="whatsapp" required placeholder="8xx xxxx xxxx" />
+        </div>
+        <p class="form-hint">Tidak bisa double — 1 nomor untuk 1 akun.</p>
+      </div>
+      <div class="form-group">
+        <label for="edit_nik">No. KTP / NIK (16 digit)</label>
+        <input class="form-control" type="text" id="edit_nik" name="nik" required inputmode="numeric" maxlength="16" pattern="[0-9]{16}" placeholder="16 digit angka" />
+        <p class="form-hint">Tidak bisa double — 1 NIK untuk 1 akun.</p>
+      </div>
+      <div class="form-group">
+        <label for="edit_bank_name">Nama Bank</label>
+        <select class="form-control" id="edit_bank_name" name="bank_name" required>
+          <option value="">Pilih bank…</option>
+          <option value="BCA">BCA</option>
+          <option value="BRI">BRI</option>
+          <option value="Mandiri">Mandiri</option>
+          <option value="BNI">BNI</option>
+          <option value="BTN">BTN</option>
+          <option value="BSI">BSI</option>
+          <option value="CIMB Niaga">CIMB Niaga</option>
+          <option value="Danamon">Danamon</option>
+          <option value="Permata">Permata</option>
+          <option value="Panin">Panin</option>
+          <option value="OCBC">OCBC</option>
+          <option value="Maybank">Maybank</option>
+          <option value="Lainnya">Lainnya (tulis manual)</option>
+        </select>
+      </div>
+      <div class="form-group" id="editBankOtherWrap" hidden>
+        <label for="edit_bank_name_other">Nama Bank Lainnya</label>
+        <input class="form-control" type="text" id="edit_bank_name_other" name="bank_name_other" maxlength="100" placeholder="Tulis nama bank" />
+      </div>
+      <div class="form-group">
+        <label for="edit_account_number">No. Rekening</label>
+        <input class="form-control" type="text" id="edit_account_number" name="account_number" required inputmode="numeric" maxlength="20" placeholder="6–20 digit angka" />
+      </div>
+      <div class="form-group">
+        <label for="edit_parent_id">Head Marketing / Atasan (opsional)</label>
+        <select class="form-control" id="edit_parent_id" name="parent_id">
+          <option value="">— Tanpa atasan —</option>
+          <% marketers.forEach(function (m) { %>
+            <option value="<%= m.id %>" data-pid="<%= m.id %>"><%= m.name %> (<%= m.referral_code %>)</option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Fee Marketing (dihitung saat lahan disetujui)</label>
+        <div class="fee-type-row">
+          <label class="radio-chip">
+            <input type="radio" name="fee_type" value="rupiah" id="fee_rupiah" />
+            <span>Rp (Rupiah)</span>
+          </label>
+          <label class="radio-chip">
+            <input type="radio" name="fee_type" value="persen" id="fee_persen" />
+            <span>% (Persen dari fee lahan)</span>
+          </label>
+        </div>
+        <div class="input-group">
+          <span class="input-group-addon" id="editFeeAddon">Rp</span>
+          <input class="form-control" type="number" id="edit_fee_value" name="fee_value" min="0" step="0.01" placeholder="Nominal / persen fee" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="head-check" for="edit_is_head">
+          <input type="checkbox" id="edit_is_head" name="is_head" value="1" />
+          <span><strong>Head Marketing</strong> <span class="muted-text">(bisa membawahi marketing lain)</span></span>
+        </label>
+        <label class="head-check" for="edit_is_coordinator">
+          <input type="checkbox" id="edit_is_coordinator" name="is_coordinator" value="1" />
+          <span><strong>Koordinator</strong> <span class="muted-text">(membawahi head marketing)</span></span>
+        </label>
+      </div>
+      <div class="form-group">
+        <label for="edit_password">Reset Password (opsional)</label>
+        <input class="form-control" type="text" id="edit_password" name="password" minlength="6" autocomplete="new-password" placeholder="Kosongkan = tidak diubah" />
+        <p class="form-hint">Isi untuk mengganti password marketing ini (minimal 6 karakter).</p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeEditModal()">Batal</button>
+        <button type="submit" class="btn btn-accent">Simpan Perubahan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="waModal" class="modal-overlay hidden" data-base="<%= APP_URL %>">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>📲 Template WA</h3>
+      <button type="button" class="modal-close" onclick="closeWaModal()" aria-label="Tutup">&times;</button>
+    </div>
+    <p class="subtext" id="waInfo">Password baru dibuat otomatis agar bisa dicantumkan.</p>
+    <pre id="waText" style="white-space:pre-wrap;background:var(--bg-soft);border:1px solid var(--card-border);border-radius:10px;padding:12px;font-size:.82rem;"></pre>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-outline" id="waCopy">Salin Teks</button>
+      <a href="#" id="waOpen" target="_blank" rel="noopener" class="btn btn-accent">Buka WhatsApp →</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Konfirmasi universal via data-confirm (pengganti onsubmit inline)
+  document.querySelectorAll('form[data-confirm]').forEach(function (fm) {
+    fm.addEventListener('submit', function (e) {
+      if (!window.confirm(fm.getAttribute('data-confirm'))) e.preventDefault();
+    });
+  });
+
+  function toggleMarketingList() {
+    var list = document.getElementById('marketingList');
+    var btn = document.getElementById('btnToggleList');
+    list.classList.toggle('hidden');
+    btn.textContent = list.classList.contains('hidden') ? '👁 Lihat Daftar Marketing' : '✕ Sembunyikan Daftar';
+  }
+
+  // Cari cepat marketing: nama / email / HP / NIK / bank / referral (client-side)
+  function bindQuickSearch(inputId, cardSel) {
+    var input = document.getElementById(inputId);
+    if (!input) return;
+    var cards = Array.prototype.slice.call(document.querySelectorAll(cardSel));
+    input.addEventListener('input', function () {
+      var q = input.value.trim().toLowerCase();
+      cards.forEach(function (c) {
+        c.style.display = (!q || (c.getAttribute('data-search') || '').indexOf(q) !== -1) ? '' : 'none';
+      });
+    });
+  }
+  bindQuickSearch('mktSearch', '.marketing-card');
+  bindQuickSearch('coordSearch', '.coord-card');
+  bindQuickSearch('headSearch', '.head-card');
+
+  document.querySelectorAll('.btn-copy:not([data-bound])').forEach(function (btn) {
+    btn.setAttribute('data-bound', '1');
+    btn.addEventListener('click', function () {
+      var text = btn.getAttribute('data-copy');
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () {
+          var old = btn.textContent;
+          btn.textContent = 'Tersalin ✓';
+          setTimeout(function () { btn.textContent = old; }, 1500);
+        });
+      } else {
+        var t = document.createElement('textarea');
+        t.value = text;
+        document.body.appendChild(t);
+        t.select();
+        document.execCommand('copy');
+        document.body.removeChild(t);
+        var old = btn.textContent;
+        btn.textContent = 'Tersalin ✓';
+        setTimeout(function () { btn.textContent = old; }, 1500);
+      }
+    });
+  });
+
+  document.querySelectorAll('input[name="fee_type"]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      document.getElementById('feeAddon').textContent = this.value === 'persen' ? '%' : 'Rp';
+    });
+  });
+
+  function openEditModal(data) {
+    document.getElementById('edit_id').value = data.id;
+    document.getElementById('edit_name').value = data.name;
+    document.getElementById('edit_email').value = data.email;
+    document.getElementById('edit_whatsapp').value = data.whatsapp || '';
+    document.getElementById('edit_nik').value = data.nik || '';
+    document.getElementById('edit_account_number').value = data.rek || '';
+    setBankSelect('edit_bank_name', 'editBankOtherWrap', 'edit_bank_name_other', data.bank || '');
+    document.getElementById('edit_fee_value').value = data.fee_value || '';
+    var rupiah = document.getElementById('fee_rupiah');
+    var persen = document.getElementById('fee_persen');
+    rupiah.checked = data.fee_type === 'rupiah';
+    persen.checked = data.fee_type === 'persen';
+    document.getElementById('editFeeAddon').textContent = data.fee_type === 'persen' ? '%' : 'Rp';
+    var headBox = document.getElementById('edit_is_head');
+    if (headBox) headBox.checked = data.is_head === '1' || data.is_head === 1;
+    var coordBox = document.getElementById('edit_is_coordinator');
+    if (coordBox) coordBox.checked = data.is_coordinator === '1' || data.is_coordinator === 1;
+    var parentSel = document.getElementById('edit_parent_id');
+    if (parentSel) {
+      Array.prototype.forEach.call(parentSel.options, function (opt) {
+        // Nonaktifkan pilihan diri sendiri agar tidak menjadi atasan sendiri
+        opt.disabled = opt.value !== '' && opt.value === String(data.id);
+      });
+      parentSel.value = data.parent_id || '';
+      if (parentSel.selectedIndex >= 0 && parentSel.options[parentSel.selectedIndex].disabled) parentSel.value = '';
+    }
+    document.getElementById('editModal').classList.remove('hidden');
+  }
+
+  // Bank "Lainnya" -> kolom tulis manual (form tambah & modal edit)
+  var KNOWN_BANKS = ['BCA', 'BRI', 'Mandiri', 'BNI', 'BTN', 'BSI', 'CIMB Niaga', 'Danamon', 'Permata', 'Panin', 'OCBC', 'Maybank'];
+  function setBankSelect(selId, wrapId, otherId, val) {
+    var sel = document.getElementById(selId), wrap = document.getElementById(wrapId), other = document.getElementById(otherId);
+    if (!sel || !wrap) return;
+    if (val && KNOWN_BANKS.indexOf(val) !== -1) {
+      sel.value = val; wrap.hidden = true;
+      if (other) { other.required = false; other.value = ''; }
+    } else if (val) {
+      sel.value = 'Lainnya'; wrap.hidden = false;
+      if (other) { other.required = true; other.value = val; }
+    } else {
+      sel.value = ''; wrap.hidden = true;
+      if (other) { other.required = false; other.value = ''; }
+    }
+  }
+  function bindBankToggle(selId, wrapId, otherId) {
+    var sel = document.getElementById(selId);
+    if (sel) sel.addEventListener('change', function () {
+      var wrap = document.getElementById(wrapId), other = document.getElementById(otherId);
+      var show = sel.value === 'Lainnya';
+      if (wrap) wrap.hidden = !show;
+      if (other) { other.required = show; if (!show) other.value = ''; }
+    });
+  }
+  bindBankToggle('bank_name', 'bankOtherWrap', 'bank_name_other');
+  bindBankToggle('edit_bank_name', 'editBankOtherWrap', 'edit_bank_name_other');
+
+  document.querySelectorAll('.btn-edit').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      openEditModal({
+        id: btn.getAttribute('data-id'),
+        name: btn.getAttribute('data-name'),
+        email: btn.getAttribute('data-email'),
+        whatsapp: btn.getAttribute('data-whatsapp'),
+        nik: btn.getAttribute('data-nik'),
+        bank: btn.getAttribute('data-bank'),
+        rek: btn.getAttribute('data-rek'),
+        fee_type: btn.getAttribute('data-fee-type'),
+        fee_value: btn.getAttribute('data-fee-value'),
+        parent_id: btn.getAttribute('data-parent-id'),
+        is_head: btn.getAttribute('data-is-head'),
+        is_coordinator: btn.getAttribute('data-is-coordinator'),
+      });
+    });
+  });
+
+  function closeEditModal() {
+    document.getElementById('editModal').classList.add('hidden');
+  }
+
+  document.getElementById('editModal').addEventListener('click', function (e) {
+    if (e.target === this) closeEditModal();
+  });
+
+  document.getElementById('fee_rupiah').addEventListener('change', function () {
+    document.getElementById('editFeeAddon').textContent = 'Rp';
+  });
+  document.getElementById('fee_persen').addEventListener('change', function () {
+    document.getElementById('editFeeAddon').textContent = '%';
+  });
+
+  // Template WA: buatkan password baru, lalu susun pesan login + referral.
+  // Base URL dibaca dari atribut data-base (hindari tag EJS di dalam <script>).
+  var APP_BASE = (function () {
+    var m = document.getElementById('waModal');
+    return m ? (m.getAttribute('data-base') || '') : '';
+  })();
+  function closeWaModal() {
+    document.getElementById('waModal').classList.add('hidden');
+  }
+  document.getElementById('waModal').addEventListener('click', function (e) {
+    if (e.target === this) closeWaModal();
+  });
+  document.getElementById('waCopy').addEventListener('click', function () {
+    var t = document.getElementById('waText').textContent;
+    var btn = this;
+    function done() { btn.textContent = 'Tersalin ✓'; setTimeout(function () { btn.textContent = 'Salin Teks'; }, 1500); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).then(done);
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = t;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      done();
+    }
+  });
+  document.querySelectorAll('.btn-wa-tpl').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (!confirm('Buatkan password BARU untuk ' + btn.getAttribute('data-name') + ' dan susun template WA? Password lama tidak berlaku lagi.')) return;
+      btn.disabled = true;
+      var orig = btn.textContent;
+      btn.textContent = '⏳...';
+      fetch('/admin/marketing/wa-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'id=' + encodeURIComponent(btn.getAttribute('data-id')),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          btn.disabled = false;
+          btn.textContent = orig;
+          if (!j.ok) { alert(j.message || 'Gagal membuat password.'); return; }
+          var msg =
+            'Halo ' + btn.getAttribute('data-name') + ', akun Marketing Sewa Lahan BSS Anda sudah aktif.\n\n' +
+            '*Login*\n' + APP_BASE + '/login\n' +
+            'User ID: ' + btn.getAttribute('data-email') + '\n' +
+            'Password: ' + j.password + '\n\n' +
+            '*Link referral untuk dishare*\n' + APP_BASE + '/ajukan?ref=' + btn.getAttribute('data-referral') + '\n\n' +
+            'Silakan login lalu sebarkan link referral Anda. Terima kasih.';
+          document.getElementById('waText').textContent = msg;
+          document.getElementById('waInfo').textContent = 'Password baru untuk ' + btn.getAttribute('data-email') + ' sudah disimpan.';
+          var wa = btn.getAttribute('data-whatsapp');
+          var open = document.getElementById('waOpen');
+          if (wa) {
+            open.href = 'https://wa.me/' + wa + '?text=' + encodeURIComponent(msg);
+            open.style.display = '';
+          } else {
+            open.style.display = 'none';
+          }
+          document.getElementById('waModal').classList.remove('hidden');
+        })
+        .catch(function () {
+          btn.disabled = false;
+          btn.textContent = orig;
+          alert('Gagal menghubungi server.');
+        });
+    });
+  });
+</script>
+
+<%- include('../partials/foot') %>

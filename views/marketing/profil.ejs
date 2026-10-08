@@ -1,0 +1,152 @@
+<%- include('../partials/head', { title: 'Profil Saya - BSS' }) %>
+<%- include('../partials/dashNavbar') %>
+
+<style>
+  .profil-wrap { max-width: 880px; margin-inline: auto; display: grid; gap: 16px; }
+  .profil-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .photo-box {
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    gap: 8px; background: var(--bg-soft); border: 1px solid var(--card-border);
+    border-radius: 14px; padding: 16px 14px;
+  }
+  .photo-box h4 { margin: 0; font-size: .9rem; }
+  .photo-box img { width: 100%; max-width: 200px; aspect-ratio: 3/4; object-fit: cover; border-radius: 12px; border: 1px solid var(--card-border); background: var(--card); }
+  .photo-box .ph-empty { width: 100%; max-width: 200px; aspect-ratio: 3/4; border-radius: 12px; border: 1px dashed var(--card-border); display: flex; align-items: center; justify-content: center; font-size: 2rem; color: var(--muted, #888); background: var(--card); }
+  .photo-box .form-control { width: 100%; max-width: 240px; }
+  .photo-box .form-hint { max-width: 250px; margin-bottom: 0; }
+  .status-pill { font-size: .72rem; font-weight: 800; border-radius: 99px; padding: 3px 11px; border: 1px solid var(--card-border); background: var(--card); color: var(--muted, #888); }
+  .status-pill.ok { background: rgba(25,135,84,.12); color: #146c43; border-color: rgba(25,135,84,.3); }
+  .form-divider { font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--muted, #888); margin: 18px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--card-border); }
+  .form-divider:first-child { margin-top: 0; }
+  .btn-row { display: flex; gap: 10px; margin-top: 6px; }
+  .btn-row .btn { flex: 1; }
+  @media (max-width: 640px) {
+    .profil-grid { grid-template-columns: 1fr; }
+    .btn-row { flex-direction: column; }
+  }
+</style>
+
+<main>
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Halo, <%= me.name %></span>
+        <h2>Profil Saya</h2>
+        <p>Lengkapi identitas & upload foto diri dan KTP secara mandiri.</p>
+      </div>
+
+      <% if (flash && flash.message) { %>
+        <div class="alert alert-<%= flash.type %>"><%= flash.message %></div>
+      <% } %>
+
+      <form action="/marketing/profil" method="POST" enctype="multipart/form-data" class="profil-wrap">
+      <div class="card mb-3">
+        <div class="card-title-row" style="margin-bottom:12px;">
+          <h3 style="margin:0;">📷 Foto Saya &amp; KTP</h3>
+        </div>
+        <div class="profil-grid">
+          <div class="photo-box">
+            <h4>🧑 Foto Diri</h4>
+            <% if (me.photo_file) { %>
+              <a href="<%= me.photo_file %>" target="_blank" rel="noopener"><img src="<%= me.photo_file %>" alt="Foto <%= me.name %>" /></a>
+            <% } else { %>
+              <div class="ph-empty">🧑</div>
+            <% } %>
+            <span class="status-pill <%= me.photo_file ? 'ok' : '' %>"><%= me.photo_file ? '✓ Sudah ada — upload lagi untuk mengganti' : 'Belum ada foto' %></span>
+            <input class="form-control" type="file" id="photo_file" name="photo_file" accept="image/*" aria-label="Foto Diri" />
+            <p class="form-hint">JPG/PNG/WebP maks 5 MB. Kosongkan bila tidak diganti.</p>
+          </div>
+          <div class="photo-box">
+            <h4>🪪 Foto KTP</h4>
+            <% if (me.ktp_file) { %>
+              <a href="<%= me.ktp_file %>" target="_blank" rel="noopener"><img src="<%= me.ktp_file %>" alt="KTP <%= me.name %>" /></a>
+            <% } else { %>
+              <div class="ph-empty">🪪</div>
+            <% } %>
+            <span class="status-pill <%= me.ktp_file ? 'ok' : '' %>"><%= me.ktp_file ? '✓ Sudah ada — upload lagi untuk mengganti' : 'Belum ada foto KTP' %></span>
+            <input class="form-control" type="file" id="ktp_file" name="ktp_file" accept="image/*" aria-label="Foto KTP" />
+            <p class="form-hint">JPG/PNG/WebP maks 5 MB. Kosongkan bila tidak diganti.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:0;">
+          <div class="form-divider">Akun</div>
+          <div class="form-group">
+            <label>Nama Lengkap</label>
+            <input class="form-control" type="text" value="<%= me.name %>" disabled />
+            <p class="form-hint">Nama & email hanya bisa diubah admin.</p>
+          </div>
+          <div class="grid-2-form">
+          <div class="form-group">
+            <label for="whatsapp">No. WhatsApp</label>
+            <div class="input-group">
+              <span class="input-group-addon">+62</span>
+              <input class="form-control" type="tel" id="whatsapp" name="whatsapp" required value="<%= (me.whatsapp || '').replace(/^62/, '') %>" placeholder="8xx xxxx xxxx" />
+            </div>
+            <p class="form-hint">Tidak bisa double — 1 nomor untuk 1 akun.</p>
+          </div>
+          <div class="form-group">
+            <label for="nik">No. KTP / NIK (16 digit)</label>
+            <input class="form-control" type="text" id="nik" name="nik" required inputmode="numeric" maxlength="16" pattern="[0-9]{16}" placeholder="16 digit angka" value="<%= me.nik || '' %>" />
+            <p class="form-hint">Tidak bisa double — 1 NIK untuk 1 akun.</p>
+          </div>
+          </div>
+          <%
+            var bankList = ['BCA', 'BRI', 'Mandiri', 'BNI', 'BTN', 'BSI', 'CIMB Niaga', 'Danamon', 'Permata', 'Panin', 'OCBC', 'Maybank'];
+            var curBank = me.bank_name || '';
+            var bankIsOther = !!(curBank && bankList.indexOf(curBank) === -1);
+          %>
+          <div class="form-divider">Rekening</div>
+          <div class="grid-2-form">
+          <div class="form-group">
+            <label for="bank_name">Nama Bank</label>
+            <select class="form-control" id="bank_name" name="bank_name" required>
+              <option value="">Pilih bank…</option>
+              <% bankList.forEach(function (b) { %>
+                <option value="<%= b %>" <%= curBank === b ? 'selected' : '' %>><%= b %></option>
+              <% }) %>
+              <option value="Lainnya" <%= bankIsOther ? 'selected' : '' %>>Lainnya (tulis manual)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="account_number">No. Rekening</label>
+            <input class="form-control" type="text" id="account_number" name="account_number" required inputmode="numeric" maxlength="20" placeholder="6–20 digit angka" value="<%= me.account_number || '' %>" />
+          </div>
+          </div>
+          <div class="form-group" id="bankOtherWrap" <%= bankIsOther ? '' : 'hidden' %>>
+            <label for="bank_name_other">Nama Bank Lainnya</label>
+            <input class="form-control" type="text" id="bank_name_other" name="bank_name_other" maxlength="100" placeholder="Tulis nama bank" value="<%= bankIsOther ? curBank : '' %>" />
+          </div>
+          <div class="form-group">
+            <label for="wilayah">Wilayah (untuk ID Card)</label>
+            <input class="form-control" type="text" id="wilayah" name="wilayah" maxlength="100" placeholder="Contoh: Bandar Lampung" value="<%= me.wilayah || '' %>" />
+            <p class="form-hint">Tercetak di ID Card. Boleh dikosongkan.</p>
+          </div>
+          <div class="btn-row">
+            <button type="submit" class="btn btn-accent"><strong>Simpan Profil</strong></button>
+            <a href="/marketing/id-card" class="btn btn-outline" style="text-decoration:none;">🪪 Lihat ID Card Saya</a>
+          </div>
+      </div>
+      </form>
+    </div>
+  </section>
+</main>
+
+<script>
+  (function () {
+    var sel = document.getElementById('bank_name');
+    var wrap = document.getElementById('bankOtherWrap');
+    var other = document.getElementById('bank_name_other');
+    function toggle() {
+      if (!sel || !wrap) return;
+      var show = sel.value === 'Lainnya';
+      wrap.hidden = !show;
+      if (other) { other.required = show; if (!show) other.value = ''; }
+    }
+    if (sel) sel.addEventListener('change', toggle);
+    toggle();
+  })();
+</script>
+
+<%- include('../partials/foot') %>

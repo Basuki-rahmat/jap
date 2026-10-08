@@ -1,0 +1,74 @@
+<nav class="navbar">
+  <div class="container navbar-inner">
+    <a href="/" class="brand">
+      <img src="<%= typeof brandLogo !== 'undefined' ? brandLogo : '/img/logo.png' %>" alt="<%= typeof brandName !== 'undefined' ? brandName : 'BSS' %> logo" class="logo-img" />
+      <span class="brand-text"><%= typeof brandName !== 'undefined' ? brandName : 'BSS' %></span>
+    </a>
+
+    <ul class="nav-menu">
+      <li><a href="/" class="nav-link <%= currentPath === '/' ? 'active' : '' %>">Beranda</a></li>
+      <li><a href="/panduan" class="nav-link <%= currentPath === '/panduan' ? 'active' : '' %>">Panduan</a></li>
+      <li><a href="/struktur" class="nav-link <%= currentPath === '/struktur' ? 'active' : '' %>">Struktur</a></li>
+      <li><a href="/lacak" class="nav-link <%= currentPath === '/lacak' ? 'active' : '' %>">Lacak</a></li>
+      <% if (typeof referralCode !== 'undefined' && referralCode) { %>
+      <li><a href="/ajukan?ref=<%= referralCode %>" class="nav-link <%= currentPath === '/ajukan' ? 'active' : '' %>">Ajukan Lahan</a></li>
+      <% } %>
+      <li>
+        <% if (user) { %>
+          <a href="<%= user.role === 'superadmin' ? '/admin' : '/marketing' %>" class="nav-link"><%= user.name %></a>
+        <% } else { %>
+          <a href="/login" class="nav-link">Login</a>
+      </li>
+      <li>
+          <a href="/daftar-marketing<%= (typeof referralCode !== 'undefined' && referralCode) ? '?ref=' + referralCode : '' %>" class="nav-link nav-cta <%= currentPath === '/daftar-marketing' ? 'active' : '' %>">Daftar Marketing</a>
+        <% } %>
+      </li>
+    </ul>
+
+    <div class="nav-actions">
+      <button type="button" class="theme-toggle" id="themeToggle" aria-label="Ganti tema">🌙</button>
+      <button type="button" class="nav-toggle" id="navToggle" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<div class="drawer-backdrop" id="drawerBackdrop"></div>
+<aside class="drawer" id="drawer" aria-label="Menu samping">
+  <div class="drawer-head">
+    <a href="/" class="brand">
+      <img src="<%= typeof brandLogo !== 'undefined' ? brandLogo : '/img/logo.png' %>" alt="<%= typeof brandName !== 'undefined' ? brandName : 'BSS' %> logo" class="logo-img" />
+      <span class="brand-text"><%= typeof brandName !== 'undefined' ? brandName : 'BSS' %></span>
+    </a>
+    <button type="button" class="drawer-close" id="drawerClose" aria-label="Tutup menu">✕</button>
+  </div>
+
+  <nav class="drawer-nav">
+    <a href="/" class="drawer-link <%= currentPath === '/' ? 'active' : '' %>">Beranda</a>
+    <a href="/panduan" class="drawer-link <%= currentPath === '/panduan' ? 'active' : '' %>">Panduan</a>
+    <a href="/struktur" class="drawer-link <%= currentPath === '/struktur' ? 'active' : '' %>">Struktur Tim</a>
+    <a href="/lacak" class="drawer-link <%= currentPath === '/lacak' ? 'active' : '' %>">Lacak Pengajuan</a>
+    <% if (typeof referralCode !== 'undefined' && referralCode) { %>
+    <a href="/ajukan?ref=<%= referralCode %>" class="drawer-link <%= currentPath === '/ajukan' ? 'active' : '' %>">Ajukan Lahan</a>
+    <% } %>
+    <% if (user) { %>
+      <a href="<%= user.role === 'superadmin' ? '/admin' : '/marketing' %>" class="drawer-link">Dashboard</a>
+      <a href="/admin/marketing" class="drawer-link <%= user.role === 'superadmin' ? '' : 'hidden' %>">Marketing</a>
+    <% } else { %>
+      <a href="/login" class="drawer-link">Login</a>
+      <a href="/daftar-marketing<%= (typeof referralCode !== 'undefined' && referralCode) ? '?ref=' + referralCode : '' %>" class="drawer-link">📝 Daftar Marketing</a>
+    <% } %>
+  </nav>
+
+  <div class="drawer-footer">
+    <% if (user) { %>
+      <form action="/logout" method="POST">
+        <button type="submit" class="btn btn-outline btn-block">Logout</button>
+      </form>
+    <% } else { %>
+      <a href="/login" class="btn btn-accent btn-block"><strong>Login</strong></a>
+      <a href="/daftar-marketing" class="btn btn-outline btn-block" style="margin-top:8px;">📝 Daftar Marketing</a>
+    <% } %>
+  </div>
+</aside>

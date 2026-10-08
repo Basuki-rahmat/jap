@@ -1,0 +1,60 @@
+<%- include('../partials/head', { title: 'Verifikasi Email - BSS' }) %>
+<%- include('../partials/navbar') %>
+
+<main>
+  <section class="section">
+    <div class="container">
+      <div class="card text-center" style="max-width:560px;margin:0 auto;padding:36px 28px;">
+        <% if (state === 'ok') { %>
+          <div style="font-size:3rem;line-height:1;">✅</div>
+          <h2 style="margin:14px 0 8px;">Email Terverifikasi!</h2>
+          <p style="color:var(--text-muted);font-size:.92rem;line-height:1.7;">
+            Terima kasih, <strong><%= name %></strong> (<%= email %>).<br />
+            Pendaftaran Anda kini <strong>menunggu persetujuan admin</strong> (biasanya 1&times;24 jam kerja).
+            Kami akan mengabari via email begitu akun aktif.
+          </p>
+          <a href="/panduan" class="btn btn-accent mt-3" style="text-decoration:none;">📘 Baca Panduan Sambil Menunggu</a>
+        <% } else if (state === 'already') { %>
+          <div style="font-size:3rem;line-height:1;">ℹ️</div>
+          <h2 style="margin:14px 0 8px;">Sudah Terverifikasi</h2>
+          <p style="color:var(--text-muted);font-size:.92rem;line-height:1.7;">
+            Halo <strong><%= name %></strong>, email Anda sudah terverifikasi dan menunggu persetujuan admin.
+          </p>
+        <% } else if (state === 'already-active') { %>
+          <div style="font-size:3rem;line-height:1;">🎉</div>
+          <h2 style="margin:14px 0 8px;">Akun Sudah Aktif</h2>
+          <p style="color:var(--text-muted);font-size:.92rem;line-height:1.7;">
+            Halo <strong><%= name %></strong>, akun Anda sudah aktif. Silakan login.
+          </p>
+          <a href="/login" class="btn btn-accent mt-3" style="text-decoration:none;"><strong>Login Sekarang</strong></a>
+        <% } else if (state === 'expired') { %>
+          <div style="font-size:3rem;line-height:1;">⏰</div>
+          <h2 style="margin:14px 0 8px;">Tautan Kedaluwarsa</h2>
+          <p style="color:var(--text-muted);font-size:.92rem;line-height:1.7;">
+            Link verifikasi sudah lewat 24 jam. Klik di bawah untuk menerima link baru.
+          </p>
+          <form action="/daftar-marketing/kirim-ulang" method="POST">
+            <input type="hidden" name="email" value="<%= email %>" />
+            <button type="submit" class="btn btn-accent">🔄 Kirim Link Baru</button>
+          </form>
+        <% } else if (state === 'resent') { %>
+          <div style="font-size:3rem;line-height:1;">📩</div>
+          <h2 style="margin:14px 0 8px;">Link Dikirim Ulang</h2>
+          <p style="color:var(--text-muted);font-size:.92rem;line-height:1.7;">
+            Jika email Anda terdaftar &amp; belum verifikasi, link baru sudah dikirim (berlaku 24 jam).
+            Cek inbox &amp; folder spam.
+          </p>
+        <% } else { %>
+          <div style="font-size:3rem;line-height:1;">❌</div>
+          <h2 style="margin:14px 0 8px;">Tautan Tidak Valid</h2>
+          <p style="color:var(--text-muted);font-size:.92rem;line-height:1.7;">
+            Link verifikasi tidak dikenal / sudah dipakai. Silakan daftar ulang atau hubungi admin.
+          </p>
+          <a href="/daftar-marketing" class="btn btn-accent mt-3" style="text-decoration:none;">📝 Daftar Ulang</a>
+        <% } %>
+      </div>
+    </div>
+  </section>
+</main>
+
+<%- include('../partials/foot') %>

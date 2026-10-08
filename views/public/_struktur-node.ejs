@@ -1,0 +1,33 @@
+<% const lvl = node.role === 'KOORDINATOR' ? 'coord' : (node.role === 'HEAD' ? 'head' : 'mkt'); %>
+<li>
+  <div class="org-node <%= lvl %>">
+    <span class="org-avatar">
+      <% if (node.photo) { %><img src="<%= node.photo %>" alt="<%= node.name %>" loading="lazy" onerror="this.remove()" /><% } %>
+      <b><%= node.initials %></b>
+    </span>
+    <strong class="org-name"><%= node.name %></strong>
+    <span class="org-meta">
+      <span class="org-role"><%= node.role %></span>
+      <span class="org-stat"><%= node.units %> unit</span>
+    </span>
+  </div>
+  <% if ((node.children && node.children.length) || (node.owners && node.owners.length)) { %>
+  <ul>
+    <% (node.children || []).forEach(function (ch) { %>
+      <%- include('./_struktur-node', { node: ch }) %>
+    <% }) %>
+    <% (node.owners || []).forEach(function (o) { %>
+      <li>
+        <div class="org-node owner">
+          <span class="org-avatar"><b>🏠</b></span>
+          <strong class="org-name"><%= o.name %></strong>
+          <span class="org-meta">
+            <span class="org-role">PENYEDIA</span>
+            <span class="org-stat"><% if (o.bss) { %>BSS-<%= o.bss %><% } %><% if (o.bss && o.evcs) { %> • <% } %><% if (o.evcs) { %>EVCS-<%= o.evcs %><% } %></span>
+          </span>
+        </div>
+      </li>
+    <% }) %>
+  </ul>
+  <% } %>
+</li>

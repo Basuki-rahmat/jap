@@ -1,0 +1,158 @@
+<%- include('../partials/head', { title: 'Pengaturan - BSS' }) %>
+<%- include('../partials/dashNavbar') %>
+
+<style>
+  .logo-preview { display: flex; align-items: center; gap: 14px; background: var(--bg-soft); border: 1px solid var(--card-border); border-radius: 12px; padding: 12px 14px; }
+  .logo-preview img { width: 72px; height: 72px; object-fit: contain; background: #fff; border-radius: 10px; border: 1px solid var(--card-border); }
+</style>
+
+<main>
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Pengaturan</span>
+        <h2>Profil Perusahaan</h2>
+        
+      </div>
+
+      <% if (flash && flash.message) { %>
+        <div class="alert alert-<%= flash.type %>"><%= flash.message %></div>
+      <% } %>
+
+      <% var c = typeof company !== 'undefined' ? company : {}; %>
+      <div class="card" style="max-width:640px;margin-inline:auto;">
+        <form action="/admin/settings" method="POST" enctype="multipart/form-data">
+          <div class="form-divider" style="margin-top:0;">Perusahaan</div>
+          <div class="form-group">
+            <label for="company_name">Nama Perusahaan</label>
+            <input class="form-control" type="text" id="company_name" name="company_name" required maxlength="100" value="<%= c.company_name || '' %>" />
+          </div>
+          <div class="grid-2-form">
+            <div class="form-group">
+              <label for="company_email">Alamat Email</label>
+              <input class="form-control" type="email" id="company_email" name="company_email" maxlength="100" placeholder="nama@perusahaan.id" value="<%= c.company_email || '' %>" />
+            </div>
+            <div class="form-group">
+              <label for="company_phone">Nomor Handphone</label>
+              <div class="input-group">
+                <span class="input-group-addon">+62</span>
+                <input class="form-control" type="tel" id="company_phone" name="company_phone" maxlength="30" placeholder="8xx xxxx xxxx" value="<%= String(c.company_phone || '').replace(/^\+?62/, '').trim() %>" />
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="company_address1">Alamat 1</label>
+            <input class="form-control" type="text" id="company_address1" name="company_address1" maxlength="255" value="<%= c.company_address1 || '' %>" />
+          </div>
+          <div class="form-group">
+            <label for="company_address2">Alamat 2</label>
+            <input class="form-control" type="text" id="company_address2" name="company_address2" maxlength="255" value="<%= c.company_address2 || '' %>" />
+          </div>
+          <div class="grid-2-form">
+            <div class="form-group">
+              <label for="company_city">Kota</label>
+              <input class="form-control" type="text" id="company_city" name="company_city" maxlength="100" value="<%= c.company_city || '' %>" />
+            </div>
+            <div class="form-group">
+              <label for="company_province">Propinsi</label>
+              <input class="form-control" type="text" id="company_province" name="company_province" maxlength="100" value="<%= c.company_province || '' %>" />
+            </div>
+          </div>
+          <div class="grid-2-form">
+            <div class="form-group">
+              <label for="company_postal">Kode Pos</label>
+              <input class="form-control" type="text" id="company_postal" name="company_postal" maxlength="20" inputmode="numeric" value="<%= c.company_postal || '' %>" />
+            </div>
+            <div class="form-group">
+              <label for="company_country">Negara</label>
+              <input class="form-control" type="text" id="company_country" name="company_country" maxlength="100" value="<%= c.company_country || '' %>" />
+            </div>
+          </div>
+
+          <div class="form-divider">Logo Perusahaan</div>
+          <div class="form-group">
+            <% if (c.company_logo) { %>
+              <div class="logo-preview" style="margin-bottom:10px;">
+                <img src="<%= c.company_logo %>" alt="Logo perusahaan" />
+                <div>
+                  <div style="font-weight:800;font-size:.85rem;">✓ Logo aktif</div>
+                  <label style="font-size:.8rem;display:flex;align-items:center;gap:6px;margin-top:4px;">
+                    <input type="checkbox" name="remove_logo" value="1" /> Hapus logo saat Simpan
+                  </label>
+                </div>
+              </div>
+            <% } %>
+            <label for="company_logo">Upload logo baru</label>
+            <input class="form-control" type="file" id="company_logo" name="company_logo" accept=".jpg,.jpeg,.png,.webp" />
+            <p class="form-hint">Logo tampil di ID Card anggota.</p>
+          </div>
+
+          <div class="form-divider">Penandatangan Surat Tugas</div>
+          <div class="grid-2-form">
+            <div class="form-group">
+              <label for="signer_name">Nama penandatangan</label>
+              <input class="form-control" type="text" id="signer_name" name="signer_name" maxlength="100" placeholder="Contoh: Nama Direktur Utama" value="<%= c.signer_name || '' %>" />
+            </div>
+            <div class="form-group">
+              <label for="signer_title">Jabatan</label>
+              <input class="form-control" type="text" id="signer_title" name="signer_title" maxlength="100" placeholder="Contoh: Direktur Utama" value="<%= c.signer_title || '' %>" />
+            </div>
+          </div>
+          <div class="form-group">
+            <% if (c.signature_file) { %>
+              <div class="logo-preview" style="margin-bottom:10px;">
+                <img src="<%= c.signature_file %>" alt="Tanda tangan" />
+                <div>
+                  <div style="font-weight:800;font-size:.85rem;">✓ Tanda tangan aktif</div>
+                  <label style="font-size:.8rem;display:flex;align-items:center;gap:6px;margin-top:4px;">
+                    <input type="checkbox" name="remove_signature" value="1" /> Hapus saat Simpan
+                  </label>
+                </div>
+              </div>
+            <% } %>
+            <label for="signature_file">Upload tanda tangan (opsional)</label>
+            <input class="form-control" type="file" id="signature_file" name="signature_file" accept=".jpg,.jpeg,.png,.webp" />
+            <p class="form-hint">Bila kosong, surat hanya memakai QR verifikasi.</p>
+          </div>
+
+          <div class="form-divider">Nama Usaha Singkat</div>
+          <div class="form-group">
+            <label for="business_name">Nama usaha</label>
+            <input class="form-control" type="text" id="business_name" name="business_name"
+              maxlength="100" placeholder="(kosong — tanpa teks JAP)"
+              value="<%= typeof businessName !== 'undefined' ? businessName : '' %>" />
+            <p class="form-hint">ID Card memakai Nama Perusahaan bila diisi.</p>
+          </div>
+            <div class="form-divider">Pengaturan Proposal Vendor</div>
+            <div class="form-group">
+              <label for="proposal_contract_years">Durasi kontrak (tahun)</label>
+              <input class="form-control" type="number" id="proposal_contract_years" name="proposal_contract_years" min="1" max="30" step="1" style="max-width:160px;" value="<%= (typeof proposal !== 'undefined' && proposal) ? proposal.contractYears : '5' %>" />
+              <p class="form-hint">Tampil di proposal sebagai “Kontrak N tahun”.</p>
+            </div>
+            <div class="form-group">
+              <label>Lampiran yang ikut di proposal</label>
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;margin-top:6px;">
+                <% (typeof proposalAttachments !== 'undefined' ? proposalAttachments : []).forEach(function (a) { %>
+                  <label class="head-check" style="font-weight:400;font-size:.85rem;">
+                    <input type="checkbox" name="proposal_attachments" value="<%= a[0] %>" <%= ((typeof proposal !== 'undefined' && proposal && proposal.attachments.indexOf(a[0]) !== -1) || (typeof proposal === 'undefined')) ? 'checked' : '' %> />
+                    <span><%= a[1] %></span>
+                  </label>
+                <% }) %>
+              </div>
+              <p class="form-hint">Satu proposal penyedia memuat semua unitnya (BSS 1–4 + EVCS 1–4); lampiran difilter per pilihan ini.</p>
+            </div>
+            <div class="form-group">
+              <label for="proposal_notes">Catatan kaki proposal</label>
+              <textarea class="form-control" id="proposal_notes" name="proposal_notes" rows="3" maxlength="2000" placeholder="Contoh: Harga sewa & fee mengikuti hasil survei dan persetujuan pusat."><%= (typeof proposal !== 'undefined' && proposal) ? proposal.notes : '' %></textarea>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="submit" class="btn btn-primary">Simpan</button>
+            <a class="btn btn-outline" style="text-decoration:none;" href="/admin/lands">← Kembali ke Daftar Lahan</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+</main>
+
+<%- include('../partials/foot') %>

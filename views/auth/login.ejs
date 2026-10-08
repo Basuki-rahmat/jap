@@ -1,0 +1,60 @@
+<%- include('../partials/head', { title: typeof title !== 'undefined' ? title : 'Login - JAP' }) %>
+<%- include('../partials/navbar') %>
+
+<main>
+  <section class="section">
+    <div class="container">
+      <div class="form-card" style="max-width:420px;">
+        <div class="text-center mb-3">
+          <img src="<%= typeof brandLogo !== 'undefined' ? brandLogo : '/img/logo.png' %>" alt="<%= typeof brandName !== 'undefined' ? brandName : 'BSS' %>" class="login-logo" />
+          <h2>Selamat Datang</h2>
+          <!-- <p style="color:var(--text-muted);font-size:.9rem;">Super Admin &amp; Marketing</p> -->
+        </div>
+
+        <% if (flash && flash.message) { %>
+          <div class="alert alert-<%= flash.type %>"><%= flash.message %></div>
+        <% } %>
+
+        <% if (typeof error !== 'undefined' && error) { %>
+          <div class="alert alert-error"><%= error %></div>
+        <% } %>
+
+        <form action="/login" method="POST">
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input class="form-control" type="email" id="email" name="email" required placeholder="email@domain.com" />
+          </div>
+          <div class="form-group">
+            <label for="password">Password</label>
+            <div style="position:relative;">
+              <input class="form-control" type="password" id="password" name="password" required placeholder="••••••••" style="padding-right:44px;" />
+              <button type="button" id="togglePassword" aria-label="Tampilkan password" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.05rem;padding:6px;">👁️</button>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block"><strong>Login</strong></button>
+        </form>
+        <p class="text-center" style="margin-top:12px;font-size:.86rem;">
+          <a href="/lupa-password">Lupa password?</a>
+        </p>
+        <p class="text-center" style="margin-top:14px;font-size:.86rem;color:var(--text-muted);">
+          Belum punya akun? <a href="/daftar-marketing<%= (typeof referralCode !== 'undefined' && referralCode) ? '?ref=' + referralCode : '' %>"><strong>📝 Daftar jadi Marketing</strong></a>
+        </p>
+        <script>
+          (function () {
+            var btn = document.getElementById('togglePassword');
+            var input = document.getElementById('password');
+            if (!btn || !input) return;
+            btn.addEventListener('click', function () {
+              var show = input.type === 'password';
+              input.type = show ? 'text' : 'password';
+              btn.textContent = show ? '🙈' : '👁️';
+              btn.setAttribute('aria-label', show ? 'Sembunyikan password' : 'Tampilkan password');
+            });
+          })();
+        </script>
+      </div>
+    </div>
+  </section>
+</main>
+
+<%- include('../partials/foot') %>

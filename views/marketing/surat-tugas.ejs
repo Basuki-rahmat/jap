@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Surat Tugas Digital - <%= member.name %></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="<%= typeof brandLogo !== 'undefined' ? brandLogo : '/img/logo.png' %>" />
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        :root {
+            --navy: #0b376b;
+            --navy-2: #0b4385;
+            --gold: #c4931c;
+            --ink: #12345b;
+            --muted: #53657a;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background:
+                radial-gradient(circle at 15% 15%, rgba(230, 181, 56, .14), transparent 30%),
+                radial-gradient(circle at 85% 85%, rgba(0, 70, 145, .10), transparent 32%),
+                linear-gradient(135deg, #f8fafc 0%, #ffffff 50%, #eef4fa 100%);
+            background-attachment: fixed;
+            font-family: "Open Sans", Arial, Helvetica, sans-serif;
+            color: var(--ink);
+            padding: 18px;
+        }
+
+        .page-wrap {
+            width: 100%;
+            max-width: 920px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            border: none;
+            text-decoration: none;
+            padding: 12px 20px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, var(--navy-2), var(--navy));
+            color: white;
+            font-weight: 800;
+            font-size: 14px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow:
+                0 12px 22px rgba(11, 55, 107, 0.35),
+                inset 0 1px 0 rgba(255,255,255,0.25);
+            transition: transform .15s ease, filter .15s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.05);
+        }
+
+        .btn-ghost {
+            background: rgba(255,255,255,.92);
+            color: var(--navy);
+            border: 2px solid var(--navy);
+            box-shadow: 0 8px 18px rgba(0,0,0,.08);
+        }
+
+        .surat {
+            position: relative;
+            background: #ffffff;
+            border-radius: 26px;
+            padding: clamp(22px, 4vw, 40px);
+            box-shadow:
+                0 24px 45px rgba(20, 45, 80, 0.16),
+                0 8px 16px rgba(11, 55, 107, 0.10),
+                inset 0 1px 0 rgba(255, 255, 255, 0.9);
+            border: 1px solid #dce7f2;
+            overflow: hidden;
+        }
+
+        .surat::before {
+            content: "";
+            position: absolute;
+            width: 260px;
+            height: 260px;
+            right: -110px;
+            top: -110px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(11,67,133,.12), rgba(196,147,28,.16));
+        }
+
+        .surat::after {
+            content: "KNAB";
+            position: absolute;
+            left: 50%;
+            top: 52%;
+            transform: translate(-50%, -50%) rotate(-25deg);
+            font-size: 76px;
+            font-weight: 900;
+            letter-spacing: 6px;
+            color: rgba(11, 55, 107, 0.05);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .kop {
+            text-align: center;
+            padding-bottom: 16px;
+            border-bottom: 4px solid var(--navy);
+            margin-bottom: 20px;
+        }
+
+        .logo {
+            width: 96px;
+            max-height: 96px;
+            object-fit: contain;
+            display: block;
+            margin: 0 auto 10px;
+            filter: drop-shadow(0 10px 18px rgba(0,0,0,.16));
+        }
+
+        .company {
+            font-size: clamp(19px, 3.4vw, 24px);
+            font-weight: 900;
+            color: var(--navy);
+            letter-spacing: .5px;
+            text-transform: uppercase;
+        }
+
+        .company-small {
+            margin-top: 5px;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .title-box {
+            text-align: center;
+            margin: 22px 0 18px;
+        }
+
+        .title {
+            display: inline-block;
+            padding: 12px 26px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, var(--navy-2), var(--gold));
+            color: white;
+            font-size: clamp(16px, 2.6vw, 20px);
+            font-weight: 900;
+            letter-spacing: .5px;
+            box-shadow: 0 10px 22px rgba(11,55,107,.28);
+        }
+
+        .nomor {
+            margin-top: 10px;
+            color: var(--muted);
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .section {
+            margin-top: 18px;
+            font-size: 15px;
+            line-height: 1.75;
+        }
+
+        .data-box {
+            background: #f3f7fc;
+            border-radius: 18px;
+            padding: 16px;
+            margin: 16px 0;
+            border-left: 5px solid var(--navy);
+            box-shadow: inset 0 1px 4px rgba(0,0,0,.05);
+        }
+
+        .data-row {
+            display: grid;
+            grid-template-columns: 165px 18px 1fr;
+            gap: 4px;
+            padding: 5px 0;
+            font-size: 15px;
+        }
+
+        .data-row b {
+            color: var(--navy);
+        }
+
+        .point-box {
+            background: #fdf6e7;
+            border-left: 5px solid var(--gold);
+            border-radius: 18px;
+            padding: 16px;
+            margin-top: 16px;
+            box-shadow: inset 0 1px 4px rgba(0,0,0,.04);
+        }
+
+        .point-box ol {
+            margin: 8px 0 0 20px;
+            padding: 0;
+        }
+
+        .point-box li {
+            margin-bottom: 8px;
+            line-height: 1.65;
+        }
+
+        .photo-card {
+            width: 230px;
+            float: right;
+            margin: 8px 0 15px 22px;
+            background: #ffffff;
+            border-radius: 22px;
+            overflow: hidden;
+            box-shadow:
+                0 18px 32px rgba(0,0,0,.18),
+                0 8px 14px rgba(11,55,107,.12),
+                inset 0 1px 0 rgba(255,255,255,.9);
+            border: 1px solid #dce7f2;
+        }
+
+        .photo-head {
+            background: linear-gradient(135deg, var(--navy-2), var(--gold));
+            color: #ffffff;
+            padding: 10px 12px;
+            font-size: 12px;
+            font-weight: 900;
+            text-align: center;
+            letter-spacing: .3px;
+        }
+
+        .photo-card img {
+            width: 100%;
+            height: 260px;
+            display: block;
+            object-fit: cover;
+            object-position: center top;
+            background: #f0f2f5;
+        }
+
+        .photo-empty {
+            width: 100%;
+            height: 260px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: #93aec7;
+            background: #f0f2f5;
+        }
+
+        .photo-info {
+            padding: 12px;
+            text-align: center;
+        }
+
+        .photo-info .n {
+            font-size: 16px;
+            font-weight: 900;
+            color: var(--navy);
+            line-height: 1.3;
+        }
+
+        .photo-info .p {
+            margin-top: 4px;
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .signature-wrap {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 28px;
+        }
+
+        .signature {
+            width: 280px;
+            text-align: center;
+        }
+
+        .signature .place {
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        .ttd-link {
+            display: inline-block;
+            text-decoration: none;
+        }
+
+        .ttd-img {
+            width: 125px;
+            height: 125px;
+            object-fit: contain;
+            border-radius: 18px;
+            background: #ffffff;
+            padding: 6px;
+            border: 1px solid #e4e6eb;
+            box-shadow: 0 12px 24px rgba(0,0,0,.15);
+        }
+
+        .sign-name {
+            margin-top: 10px;
+            font-weight: 900;
+            text-decoration: underline;
+            color: var(--navy);
+        }
+
+        .sign-title {
+            margin-top: 3px;
+            font-size: 13px;
+            color: var(--muted);
+            font-weight: bold;
+        }
+
+        .verify {
+            margin-top: 18px;
+            font-size: 12px;
+            color: var(--muted);
+            text-align: center;
+            background: #f3f7fc;
+            border-radius: 14px;
+            padding: 11px;
+            line-height: 1.6;
+            overflow-wrap: anywhere;
+        }
+
+        .clear {
+            clear: both;
+        }
+
+        @media (max-width: 720px) {
+            body {
+                padding: 10px;
+            }
+
+            .toolbar {
+                justify-content: center;
+            }
+
+            .surat {
+                border-radius: 22px;
+            }
+
+            .data-row {
+                grid-template-columns: 1fr;
+                gap: 0;
+                padding: 8px 0;
+                border-bottom: 1px dashed #d8dadf;
+            }
+
+            .data-row span:nth-child(2) {
+                display: none;
+            }
+
+            .photo-card {
+                float: none;
+                width: 100%;
+                max-width: 260px;
+                margin: 15px auto;
+            }
+
+            .photo-card img,
+            .photo-empty {
+                height: 280px;
+            }
+
+            .signature-wrap {
+                justify-content: center;
+            }
+
+            .signature {
+                width: 100%;
+            }
+
+            .surat::after {
+                font-size: 42px;
+            }
+        }
+
+        @media print {
+            body {
+                background: #ffffff;
+                padding: 0;
+            }
+
+            .toolbar {
+                display: none !important;
+            }
+
+            .page-wrap {
+                max-width: none;
+                margin: 0;
+            }
+
+            .surat {
+                box-shadow: none;
+                border-radius: 0;
+                border: none;
+            }
+
+            .surat,
+            .surat::before,
+            .surat::after,
+            .title,
+            .photo-head {
+                print-color-adjust: exact !important;
+                -webkit-print-color-adjust: exact !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="page-wrap">
+        <div class="toolbar">
+            <a class="btn btn-ghost" href="/marketing">← Dashboard</a>
+            <button class="btn" onclick="window.print()">🖨️ Cetak / Simpan PDF</button>
+        </div>
+
+        <div class="surat">
+            <div class="content">
+
+                <div class="kop">
+                    <img class="logo" src="<%= brandLogo %>" alt="Logo <%= companyName %>" onerror="this.style.display='none'" />
+
+                    <div class="company"><%= companyName %></div>
+                    <div class="company-small">
+                        Surat Tugas Digital Pengembangan Titik Lahan BSS<br />
+                        Battery Swap Station Kendaraan Listrik Seluruh Indonesia
+                    </div>
+                </div>
+
+                <div class="title-box">
+                    <div class="title">SURAT TUGAS DIGITAL</div>
+                    <div class="nomor">Nomor: <%= nomor %></div>
+                </div>
+
+                <div class="section">
+                    Yang bertanda tangan di bawah ini:
+                </div>
+
+                <div class="data-box">
+                    <div class="data-row">
+                        <span>Nama</span>
+                        <span>:</span>
+                        <b><%= signerName || '-' %></b>
+                    </div>
+                    <div class="data-row">
+                        <span>Jabatan</span>
+                        <span>:</span>
+                        <b><%= signerTitle ? signerTitle + ' ' + companyName : '-' %></b>
+                    </div>
+                    <div class="data-row">
+                        <span>Perusahaan</span>
+                        <span>:</span>
+                        <b><%= companyName %></b>
+                    </div>
+                </div>
+
+                <div class="section">
+                    Dengan ini memberikan tugas kepada:
+                </div>
+
+                <div class="photo-card">
+                    <div class="photo-head">PETUGAS LAPANGAN — <%= position %></div>
+
+                    <% if (member.photo_file) { %>
+                        <img src="<%= member.photo_file %>" alt="Foto <%= member.name %>" />
+                    <% } else { %>
+                        <div class="photo-empty">🧑</div>
+                    <% } %>
+
+                    <div class="photo-info">
+                        <div class="n"><%= member.name %></div>
+                        <div class="p"><%= member.whatsapp || '-' %></div>
+                        <div class="p"><%= member.wilayah || '-' %></div>
+                    </div>
+                </div>
+
+                <div class="data-box">
+                    <div class="data-row">
+                        <span>Nama Petugas</span>
+                        <span>:</span>
+                        <b><%= member.name %></b>
+                    </div>
+                    <div class="data-row">
+                        <span>ID Anggota</span>
+                        <span>:</span>
+                        <b><%= memberCode %></b>
+                    </div>
+                    <div class="data-row">
+                        <span>No. WhatsApp</span>
+                        <span>:</span>
+                        <b><%= member.whatsapp || '-' %></b>
+                    </div>
+                    <div class="data-row">
+                        <span>Wilayah Tugas</span>
+                        <span>:</span>
+                        <b><%= member.wilayah || '-' %></b>
+                    </div>
+                    <div class="data-row">
+                        <span>Tanggal Terbit</span>
+                        <span>:</span>
+                        <b><%= member.created_at ? new Date(member.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-' %></b>
+                    </div>
+                </div>
+
+                <div class="section">
+                    Untuk melaksanakan kegiatan pendataan, pencarian, pendekatan awal, dan pengajuan titik lahan strategis
+                    yang memenuhi syarat untuk rencana pemasangan <b>BSS (Battery Swap Station)</b> kendaraan listrik
+                    di wilayah tugas masing-masing dan/atau wilayah lain di seluruh Indonesia sesuai arahan perusahaan.
+                </div>
+
+                <div class="point-box">
+                    <b>Ruang Lingkup Tugas:</b>
+                    <ol>
+                        <li>Mencari titik lokasi/lahan strategis yang berpotensi digunakan untuk pemasangan BSS.</li>
+                        <li>Melakukan komunikasi awal kepada pemilik lahan, pemilik usaha, atau pihak yang berwenang atas lokasi.</li>
+                        <li>Menjelaskan gambaran umum kerja sama sewa lahan untuk kebutuhan infrastruktur BSS.</li>
+                        <li>Mengumpulkan data awal berupa nama pemilik lahan, nomor kontak, alamat lokasi, foto lokasi tampak depan, dan titik koordinat Google Maps.</li>
+                        <li>Mengarahkan pemilik lahan untuk menyiapkan dokumen awal apabila lokasi dinilai layak untuk diajukan.</li>
+                        <li>Menyampaikan seluruh data calon titik lokasi kepada admin/perusahaan untuk proses verifikasi dan survei lanjutan.</li>
+                    </ol>
+                </div>
+
+                <div class="point-box">
+                    <b>Kriteria Umum Lokasi yang Dicari:</b>
+                    <ol>
+                        <li>Memiliki ruang/lahan kosong yang cukup untuk penempatan unit BSS.</li>
+                        <li>Berada di lokasi strategis, mudah terlihat, dan mudah diakses kendaraan.</li>
+                        <li>Dapat berada di area usaha, ruko, minimarket, warung ramai, parkiran, dekat perumahan, kampus, pasar, jalur ojek online, atau jalur pengguna kendaraan listrik.</li>
+                        <li>Memiliki status kepemilikan/pengelolaan lahan yang jelas dan dapat dibuktikan dengan dokumen pendukung.</li>
+                        <li>Tidak mengganggu aktivitas usaha utama, akses jalan, keamanan, maupun ketertiban lingkungan sekitar.</li>
+                    </ol>
+                </div>
+
+                <div class="section">
+                    Surat tugas ini digunakan sebagai identitas penugasan digital untuk keperluan pendekatan awal,
+                    pendataan lokasi, dan pengajuan kerja sama lahan. Petugas tidak diperkenankan meminta pembayaran,
+                    memungut biaya, atau membuat janji di luar ketentuan resmi perusahaan.
+                </div>
+
+                <div class="section">
+                    Demikian surat tugas digital ini dibuat untuk digunakan sebagaimana mestinya. Apabila diperlukan,
+                    keabsahan surat tugas ini dapat diverifikasi melalui QR verifikasi di bawah ini.
+                </div>
+
+                <div class="clear"></div>
+
+                <div class="signature-wrap">
+                    <div class="signature">
+                        <div class="place">
+                            <%= place ? place + ', ' : '' %><%= new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) %><br />
+                            <%= companyName %>
+                        </div>
+
+                        <% if (signatureFile) { %>
+                            <img class="ttd-img" src="<%= signatureFile %>" alt="Tanda tangan digital" />
+                        <% } %>
+                        <% if (qrDataUrl) { %>
+                            <a class="ttd-link" href="<%= verifyUrl %>" target="_blank" rel="noopener" title="Verifikasi digital">
+                                <img class="ttd-img" src="<%= qrDataUrl %>" alt="QR Verifikasi" />
+                            </a>
+                        <% } %>
+
+                        <div class="sign-name"><%= signerName || '-' %></div>
+                        <div class="sign-title"><%= signerTitle || '-' %></div>
+                    </div>
+                </div>
+
+                <div class="verify">
+                    Pindai QR untuk verifikasi keanggotaan:<br />
+                    <b><%= verifyUrl %></b>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,882 @@
+<%- include('../partials/head', { title: 'Daftar Lahan - BSS' }) %>
+<%- include('../partials/dashNavbar') %>
+
+<style>
+  .land-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+  .land-stat { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 12px 14px; }
+  .land-stat .num { font-size: 1.4rem; font-weight: 800; }
+  .land-stat .lbl { font-size: .75rem; color: var(--muted, #888); }
+  .land-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+  /* Toolbar (filter + search) menempel di bawah navbar saat daftar panjang di-scroll */
+  .land-toolbar {
+    position: sticky;
+    top: 72px;
+    z-index: 40;
+    background: var(--bg);
+    padding: 10px 2px;
+    border-radius: 0 0 14px 14px;
+  }
+  .land-toolbar .filter-row { margin: 0; }
+  .land-search { flex: 1; min-width: 200px; }
+  .land-search input { width: 100%; padding: 9px 14px; border-radius: 999px; border: 1px solid var(--card-border); background: var(--card); color: var(--text); font-size: .85rem; }
+  .land-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .land-card { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 10px; }
+  .land-top { display: flex; align-items: flex-start; gap: 10px; }
+  .land-id { font-size: .75rem; font-weight: 800; color: var(--primary); background: var(--primary-soft, rgba(0,0,0,.05)); border-radius: 8px; padding: 3px 9px; white-space: nowrap; }
+  .land-name { font-size: 1rem; font-weight: 800; margin: 0; }
+  .land-meta { font-size: .76rem; color: var(--muted, #888); margin-top: 2px; }
+  .land-top .spacer { flex: 1; }
+  .land-info { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: .83rem; background: var(--bg-soft); border: 1px solid var(--card-border); border-radius: 14px; padding: 10px; }
+  .info-item { display: flex; gap: 10px; align-items: flex-start; background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; padding: 10px 12px; min-width: 0; }
+  .info-item.full { grid-column: 1 / -1; }
+  .info-ic { width: 32px; height: 32px; flex: 0 0 32px; display: flex; align-items: center; justify-content: center; border-radius: 10px; background: var(--primary-soft, rgba(0,0,0,.06)); font-size: 1rem; }
+  .info-tx { min-width: 0; display: flex; flex-direction: column; gap: 3px; flex: 1; }
+  .info-tx .k { color: var(--muted, #888); font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+  .info-tx .v { font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; }
+  .info-tx .v.muted { color: var(--muted, #888); font-weight: 500; }
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: .74rem; font-weight: 800; border-radius: 99px; padding: 3px 10px; white-space: nowrap; }
+  .badge-bss { background: rgba(25,135,84,.14); color: #146c43; border: 1px solid rgba(25,135,84,.3); }
+  .badge-evcs { background: rgba(11,94,215,.12); color: #0b5ed7; border: 1px solid rgba(11,94,215,.3); }
+  .badge-legal { background: var(--primary-soft, rgba(0,0,0,.06)); color: var(--primary); border: 1px solid var(--card-border); }
+  .mini-row { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+  .mini { font-size: .68rem; font-weight: 700; border-radius: 99px; padding: 2px 9px; border: 1px solid var(--card-border); background: var(--bg-soft); color: var(--text); white-space: nowrap; }
+  .mini.ok { background: rgba(25,135,84,.12); color: #146c43; border-color: rgba(25,135,84,.28); }
+  .mini.no { background: rgba(220,53,69,.1); color: #b02a37; border-color: rgba(220,53,69,.25); }
+  .btn-pill { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; font-weight: 700; border-radius: 99px; padding: 6px 13px; text-decoration: none; border: 1px solid transparent; white-space: nowrap; }
+  .btn-wa { background: rgba(25,135,84,.14); color: #146c43; border-color: rgba(25,135,84,.3); }
+  .btn-wa:hover { filter: brightness(.96); }
+  .btn-maps { background: var(--primary); color: #fff; }
+  .btn-maps:hover { filter: brightness(.93); }
+  .land-thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .land-thumbs:empty { display: none; }
+  .land-thumb { border: 1px solid var(--card-border); border-radius: 10px; overflow: hidden; cursor: zoom-in; aspect-ratio: 4/3; background: var(--bg-soft); padding: 0; }
+  .land-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .land-thumb span { display: block; font-size: .68rem; text-align: center; padding: 4px; color: var(--muted, #888); }
+  .land-docs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .land-docs:empty { display: none; }
+  .land-doc { font-size: .74rem; font-weight: 600; border: 1px solid var(--card-border); border-radius: 99px; padding: 5px 11px; color: var(--text); background: var(--bg-soft); cursor: zoom-in; font-family: inherit; }
+  /* =========================================================
+     LAND FOOT — WORKFLOW PENGAJUAN
+     ========================================================= */
+  .land-foot {
+    margin-top: 4px;
+    padding: 14px;
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    background: linear-gradient(180deg, var(--bg-soft), var(--card));
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    align-items: stretch;
+    position: relative;
+  }
+
+  .land-foot::before {
+    content: 'WORKFLOW PENGAJUAN';
+    grid-column: 1 / -1;
+    font-size: .64rem;
+    font-weight: 900;
+    letter-spacing: .09em;
+    color: var(--muted, #888);
+    line-height: 1;
+    margin: 1px 2px 2px;
+  }
+
+  .land-foot .spacer { display: none; }
+  .land-foot .inline-form { margin: 0; }
+
+  .wf-step {
+    min-width: 0;
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 8px;
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    background: var(--card);
+    box-shadow: 0 2px 8px rgba(0,0,0,.035);
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    overflow: hidden;
+  }
+
+  .wf-step:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0,0,0,.07);
+    border-color: var(--primary);
+  }
+
+  .wf-num {
+    width: 25px;
+    height: 25px;
+    flex: 0 0 25px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    font-size: .68rem;
+    font-weight: 900;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 3px 8px rgba(0,0,0,.12);
+  }
+
+  .wf-step > .btn,
+  .wf-step > a,
+  .wf-step > .inline-form {
+    min-width: 0;
+  }
+
+  /* Step 1: perbaikan */
+  .wf-step:nth-of-type(1) {
+    flex-wrap: wrap;
+  }
+
+  .wf-step:nth-of-type(1) > .btn,
+  .wf-step:nth-of-type(1) > a,
+  .wf-step:nth-of-type(1) > .inline-form {
+    flex: 1 1 auto;
+  }
+
+  /* Step 2 & 3: status verifikasi/survei — susun vertikal agar rapi */
+  .stage-flags {
+    min-width: 0;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .stage-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .stage-lbl {
+    flex: 0 0 auto;
+    font-size: .68rem;
+    font-weight: 800;
+    color: var(--text);
+  }
+
+  .stage-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .stage-actions .inline-form {
+    display: inline-flex;
+    flex: 1;
+  }
+
+  .stage-actions .stage-btn {
+    flex: 1;
+  }
+
+  .wf-step .sppl-form {
+    flex: 1 1 100%;
+  }
+
+  .wf-step .sppl-form .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .stage-btn {
+    min-width: 32px;
+    height: 32px;
+    padding: 0 8px !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px !important;
+    font-size: .8rem !important;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .land-foot .mini {
+    font-size: .64rem;
+    font-weight: 800;
+    border-radius: 99px;
+    padding: 3px 7px;
+    white-space: nowrap;
+  }
+
+  /* Step 4 */
+  .wf-step:nth-of-type(4) > a {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  /* Step 5: keputusan (baris penuh agar lega di desktop) */
+  .wf-step:nth-of-type(5) {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .wf-step:nth-of-type(5) .fee-wrap {
+    min-width: 0;
+    width: auto;
+    grid-column: 2;
+    display: grid;
+    grid-template-columns: minmax(110px, 1fr) auto;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .wf-step:nth-of-type(5) .fee-form {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(80px, 1fr) auto;
+    gap: 5px;
+  }
+
+  .fee-input {
+    width: 100% !important;
+    min-width: 0;
+    height: 34px;
+    border-radius: 9px !important;
+    font-size: .74rem !important;
+    font-weight: 700;
+  }
+
+  .approve-btn {
+    height: 34px;
+    padding: 0 13px !important;
+    border-radius: 9px !important;
+    font-size: .72rem !important;
+    font-weight: 900 !important;
+    white-space: nowrap;
+  }
+
+  /* Form harga sewa: lega — input + tombol sejajar, responsif */
+  .harga-val { font-size: 1rem !important; }
+  .harga-form {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    margin-top: 8px;
+  }
+  .harga-form .input-group { margin: 0; }
+  .harga-form .harga-input {
+    height: 38px;
+    font-size: .85rem !important;
+    font-weight: 800;
+    text-align: right;
+  }
+  .harga-form .approve-btn { height: 38px; padding: 0 18px !important; }
+  @media (max-width: 560px) {
+    .harga-form { grid-template-columns: 1fr; }
+    .harga-form .approve-btn { width: 100%; }
+  }
+
+  .reject-btn {
+    height: 34px;
+    padding: 0 12px !important;
+    border-radius: 9px !important;
+    font-size: .72rem !important;
+    font-weight: 800 !important;
+    white-space: nowrap;
+  }
+
+  .fee-rule {
+    grid-column: 1 / -1;
+    font-size: .62rem;
+    color: var(--muted, #888);
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .fee-preview {
+    grid-column: 1 / -1;
+    font-size: .66rem;
+    font-weight: 800;
+    color: var(--success, #198754);
+  }
+
+  .wf-step:nth-of-type(5) > .reject-btn,
+  .wf-step:nth-of-type(5) > .inline-form:last-child {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .land-foot .btn-outline {
+    border-radius: 9px;
+    font-weight: 800;
+    transition: transform .18s ease, box-shadow .18s ease;
+  }
+
+  .land-foot .btn-outline:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0,0,0,.07);
+  }
+
+  /* Non-pending: tombol aksi tetap rapi */
+  .land-foot:not(:has(.wf-step)) {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .land-foot:not(:has(.wf-step))::before {
+    margin-right: auto;
+  }
+
+  /* Tablet */
+  @media (max-width: 1099px) {
+    .land-foot {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .land-foot::before {
+      grid-column: 1 / -1;
+    }
+
+    .wf-step:nth-of-type(5) {
+      grid-column: 1 / -1;
+    }
+  }
+
+  /* Mobile */
+  @media (max-width: 600px) {
+    .land-foot {
+      grid-template-columns: 1fr;
+      padding: 11px;
+      gap: 7px;
+    }
+
+    .land-foot::before {
+      grid-column: 1;
+      margin-bottom: 2px;
+    }
+
+    .wf-step,
+    .wf-step:nth-of-type(5) {
+      grid-column: auto;
+      width: 100%;
+      min-height: 48px;
+    }
+
+    .wf-step:nth-of-type(5) {
+      grid-template-columns: 25px minmax(0, 1fr);
+      align-items: start;
+    }
+
+    .wf-step:nth-of-type(5) > .wf-num {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .wf-step:nth-of-type(5) .fee-wrap {
+      grid-column: 2;
+      grid-row: 1;
+      grid-template-columns: 1fr;
+    }
+
+    .wf-step:nth-of-type(5) .fee-form {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .wf-step:nth-of-type(5) > .inline-form:last-child {
+      grid-column: 2;
+      grid-row: 2;
+      width: 100%;
+    }
+
+    .wf-step:nth-of-type(5) .reject-btn {
+      width: 100%;
+    }
+
+    .stage-flags {
+      width: 100%;
+    }
+  }
+
+  .lightbox { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.88); display: flex; align-items: center; justify-content: center; padding: 18px; }
+  .lightbox[hidden] { display: none; }
+  .lightbox-figure { max-width: min(1100px, 96vw); width: 100%; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .lightbox-stage { width: 100%; max-height: 82vh; overflow: auto; display: flex; align-items: center; justify-content: center; border-radius: 10px; }
+  .lightbox img { max-width: 100%; max-height: 82vh; border-radius: 10px; cursor: zoom-in; transition: transform .15s ease; }
+  .lightbox img.zoomed { cursor: zoom-out; }
+  .lightbox iframe { width: min(1000px, 92vw); height: 82vh; border: none; border-radius: 10px; background: #fff; }
+  .lightbox-cap { color: #fff; font-size: .82rem; font-weight: 600; text-align: center; }
+  .lightbox-hint { color: rgba(255,255,255,.65); font-size: .72rem; text-align: center; }
+  .lb-close { position: absolute; top: 14px; right: 16px; border: none; background: rgba(255,255,255,.15); color: #fff; font-size: 1.2rem; border-radius: 50%; width: 38px; height: 38px; cursor: pointer; }
+  .lb-controls { position: absolute; top: 14px; left: 16px; display: flex; gap: 6px; }
+  .lb-controls button { border: none; background: rgba(255,255,255,.15); color: #fff; font-size: 1rem; font-weight: 800; border-radius: 10px; min-width: 38px; height: 38px; cursor: pointer; padding: 0 10px; }
+  .lb-controls button[hidden] { display: none; }
+  .land-empty { text-align: center; color: var(--text-muted); padding: 30px; background: var(--card); border: 1px dashed var(--card-border); border-radius: var(--radius); grid-column: 1 / -1; }
+  @media (max-width: 900px) { .land-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 560px) {
+    .land-stats { grid-template-columns: repeat(2, 1fr); }
+    .land-info { grid-template-columns: 1fr; }
+  }
+
+</style>
+
+<main>
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Verifikasi</span>
+        <h2>Daftar Pengajuan Lahan</h2>
+        <p>Approve atau tolak pengajuan lahan, fee dicatat otomatis.</p>
+      </div>
+
+      <% if (flash && flash.message) { %>
+        <div class="alert alert-<%= flash.type %>"><%= flash.message %></div>
+      <% } %>
+
+      <%
+        var cPending = 0, cApproved = 0, cRejected = 0;
+        lands.forEach(function (l) {
+          if (l.status === 'pending') cPending++;
+          else if (l.status === 'approved') cApproved++;
+          else if (l.status === 'rejected') cRejected++;
+        });
+      %>
+      <div class="land-stats">
+        <div class="land-stat"><div class="num"><%= lands.length %></div><div class="lbl">Total (filter ini)</div></div>
+        <div class="land-stat"><div class="num"><%= cPending %></div><div class="lbl">⏳ Pending</div></div>
+        <div class="land-stat"><div class="num"><%= cApproved %></div><div class="lbl">✅ Disetujui</div></div>
+        <div class="land-stat"><div class="num"><%= cRejected %></div><div class="lbl">❌ Ditolak</div></div>
+      </div>
+
+      <div class="land-toolbar">
+        <div class="filter-row">
+          <a href="/admin/lands" class="filter-chip <%= !statusFilter ? 'active' : '' %>">Semua</a>
+          <a href="/admin/lands?status=pending" class="filter-chip <%= statusFilter === 'pending' ? 'active' : '' %>">Pending</a>
+          <a href="/admin/lands?status=approved" class="filter-chip <%= statusFilter === 'approved' ? 'active' : '' %>">Disetujui</a>
+          <a href="/admin/lands?status=rejected" class="filter-chip <%= statusFilter === 'rejected' ? 'active' : '' %>">Ditolak</a>
+        </div>
+        <div class="land-search">
+          <input type="search" id="landSearch" placeholder="🔍 Cari nama, alamat, HP, marketing…" />
+        </div>
+      </div>
+
+      <div class="land-grid" id="landGrid">
+        <% if (lands.length === 0) { %>
+          <div class="land-empty">Tidak ada pengajuan lahan pada filter ini.</div>
+        <% } else { %>
+          <% lands.forEach(function (l) { %>
+            <article class="land-card" data-search="<%= ((l.owner_name || '') + ' ' + (l.address || '') + ' ' + (l.location_address || '') + ' ' + (l.phone_number || '') + ' ' + (l.nik || '') + ' ' + (l.ttl || '') + ' ' + (l.surat || '') + ' ' + (l.shop_name || '') + ' ' + (l.city || '') + ' ' + (l.district || '') + ' ' + (l.bank_name || '') + ' ' + (l.account_number || '') + ' ' + (l.marketing_name || '') + ' ' + (l.referral_code || '')).toLowerCase().replace(/"/g, '') %>">
+              <div class="land-top">
+                <span class="land-id">#<%= l.id %></span>
+                <div>
+                  <h3 class="land-name"><%= l.owner_name %></h3>
+                  <div class="land-meta">
+                    <%= l.created_at ? new Date(l.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '' %>
+                    · Marketing: <strong><%= l.marketing_name || '-' %></strong><%= l.referral_code ? ' (' + l.referral_code + ')' : '' %>
+                    <% var os = (typeof ownerSeq !== 'undefined' && ownerSeq[l.id]) || null; %>
+                    <% if (os && os.total > 1) { %>
+                      <span class="mini" title="Slot <%= os.typeCode %>-<%= os.typeSeq %> dari <%= os.typeTotal %> • Unit ke-<%= os.seq %> dari <%= os.total %> untuk pemilik ini">🔌 <%= os.typeCode %>-<%= os.typeSeq %>/<%= os.typeTotal %> · Unit <%= os.seq %>/<%= os.total %></span>
+                    <% } else if (os) { %>
+                      <span class="mini" title="Satu-satunya unit pemilik ini"><%= os.typeCode %>-1/1</span>
+                    <% } %>
+                  </div>
+                </div>
+                <span class="spacer"></span>
+                <span class="status status-<%= l.status %>"><%= l.status === 'approved' ? 'Disetujui' : l.status === 'rejected' ? 'Ditolak' : 'Pending' %></span>
+              </div>
+
+              <div class="land-info">
+                <div class="info-item">
+                  <span class="info-ic">📱</span>
+                  <div class="info-tx">
+                    <span class="k">No. HP</span>
+                    <span class="v"><a class="btn-pill btn-wa" href="https://wa.me/<%= String(l.phone_number).replace(/\D/g, '') %>" target="_blank" rel="noopener">💬 <%= l.phone_number %></a></span>
+                  </div>
+                </div>
+                <div class="info-item">
+                  <span class="info-ic">📐</span>
+                  <div class="info-tx">
+                    <span class="k">Luas Lahan</span>
+                    <span class="v"><%= l.area_size %> m²</span>
+                  </div>
+                </div>
+                <div class="info-item full">
+                  <span class="info-ic">🏠</span>
+                  <div class="info-tx">
+                    <span class="k">Alamat Pemilik</span>
+                    <span class="v"><%= l.address %></span>
+                  </div>
+                </div>
+                <div class="info-item full">
+                  <span class="info-ic">📍</span>
+                  <div class="info-tx">
+                    <span class="k">Alamat Lokasi Lahan</span>
+                    <span class="v"><%= l.location_address || l.address %></span>
+                  </div>
+                </div>
+                <div class="info-item">
+                  <span class="info-ic"><%= l.unit_type === 'evcs_mobil' ? '🔌' : '🔋' %></span>
+                  <div class="info-tx">
+                    <span class="k">Unit</span>
+                    <span class="v"><span class="badge <%= l.unit_type === 'evcs_mobil' ? 'badge-evcs' : 'badge-bss' %>"><%= l.unit_type === 'evcs_mobil' ? '🔌 EVCS Mobil' : '🔋 BSS Motor' %></span></span>
+                  </div>
+                </div>
+                <div class="info-item">
+                  <span class="info-ic">🏪</span>
+                  <div class="info-tx">
+                    <span class="k">Jenis Lokasi</span>
+                    <span class="v"><%= l.location_type || '-' %></span>
+                  </div>
+                </div>
+                <div class="info-item">
+                  <span class="info-ic">📄</span>
+                  <div class="info-tx">
+                    <span class="k">Legalitas</span>
+                    <span class="v"><span class="badge badge-legal"><%= l.legal_doc_type === 'shm' ? 'SHM' : l.legal_doc_type === 'pbb' ? 'PBB' : '-' %></span></span>
+                    <span class="mini-row">
+                      <span class="mini <%= l.floor_ready === 'ya' ? 'ok' : 'no' %>"><%= l.floor_ready === 'ya' ? '✓' : '✕' %> Lantai</span>
+                      <span class="mini <%= l.has_canopy === 'ya' ? 'ok' : 'no' %>"><%= l.has_canopy === 'ya' ? '✓' : '✕' %> Kanopi</span>
+                    </span>
+                  </div>
+                </div>
+                <div class="info-item">
+                  <span class="info-ic">🪪</span>
+                  <div class="info-tx">
+                    <span class="k">NIK / TTL</span>
+                    <span class="v"><%= l.nik || '-' %><%= l.ttl ? ' • ' + l.ttl : '' %></span>
+                  </div>
+                </div>
+                <div class="info-item">
+                  <span class="info-ic">🏪</span>
+                  <div class="info-tx">
+                    <span class="k">Nama Toko</span>
+                    <span class="v"><%= l.shop_name || '-' %></span>
+                  </div>
+                </div>
+                <div class="info-item">
+                  <span class="info-ic">📄</span>
+                  <div class="info-tx">
+                    <span class="k">Surat</span>
+                    <span class="v"><%= l.surat || '-' %></span>
+                  </div>
+                </div>
+                <div class="info-item">
+                  <span class="info-ic">🏙️</span>
+                  <div class="info-tx">
+                    <span class="k">Kota / Kelurahan</span>
+                    <span class="v"><%= l.city || '-' %><%= l.district ? ' • ' + l.district : '' %></span>
+                  </div>
+                </div>
+                <div class="info-item full">
+                  <span class="info-ic">💰</span>
+                  <div class="info-tx">
+                    <span class="k">Harga Sewa /tahun (<%= l.unit_type === 'evcs_mobil' ? 'EVCS' : 'BSS' %>)</span>
+                    <span class="v harga-val"><%= l.harga_unit ? 'Rp ' + Number(l.harga_unit).toLocaleString('id-ID') + ' /thn' : '(belum diisi)' %></span>
+                    <form action="/admin/lands/harga" method="POST" class="inline-form harga-form">
+                      <input type="hidden" name="land_id" value="<%= l.id %>" />
+                      <div class="input-group">
+                        <span class="input-group-addon">Rp</span>
+                        <input class="form-control harga-input" type="text" name="harga_sewa" inputmode="numeric" maxlength="15" placeholder="Ketik nominal/thn (kosongkan = hapus)" value="<%= l.harga_unit || '' %>" />
+                      </div>
+                      <button type="submit" class="btn btn-outline approve-btn">Simpan</button>
+                    </form>
+                    
+                  </div>
+                </div>
+                <div class="info-item">
+                  <span class="info-ic">🏦</span>
+                  <div class="info-tx">
+                    <span class="k">Bank / No. Rek</span>
+                    <span class="v"><%= l.bank_name || '-' %><%= l.account_number ? ' • ' + l.account_number : '' %></span>
+                  </div>
+                </div>
+                <div class="info-item">
+                  <span class="info-ic">🗺️</span>
+                  <div class="info-tx">
+                    <span class="k">Titik Peta</span>
+                    <span class="v"><% if (l.maps_link) { %><a class="btn-pill btn-maps" href="<%= l.maps_link %>" target="_blank" rel="noopener">📍 Buka Maps</a><% } else { %><span class="muted-text">-</span><% } %><%- l.lat_long ? ' <span class="mini">' + l.lat_long + '</span>' : '' %></span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="land-thumbs">
+                <% [['Penempatan 3/4m', l.photo_spot_file], ['Foto 1', l.photo_1_file], ['Foto 2', l.photo_2_file], ['Foto 3', l.photo_3_file], ['Sudut Kanan', l.photo_right_file], ['Sudut Kiri', l.photo_left_file], ['Selfie Pemilik', l.photo_selfie_file], ['Screenshot Koordinat', l.photo_maps_file]].forEach(function (p) { %>
+                  <% if (p[1]) { %>
+                    <% if (/\.pdf$/i.test(p[1])) { %>
+                      <button type="button" class="land-thumb" data-pdf="<%= p[1] %>" data-title="<%= p[0] %> - <%= l.owner_name %>" style="text-decoration:none;"><span style="padding-top:22px;">📄 <%= p[0] %> (PDF)</span></button>
+                    <% } else { %>
+                      <button type="button" class="land-thumb" data-full="<%= p[1] %>" data-title="<%= p[0] %> - <%= l.owner_name %>" title="<%= p[0] %> — klik untuk perbesar"><img src="<%= p[1] %>" alt="<%= p[0] %> - <%= l.owner_name %>" loading="lazy" /><span><%= p[0] %></span></button>
+                    <% } %>
+                  <% } %>
+                <% }) %>
+              </div>
+
+              <div class="land-docs">
+                <% [['KTP', l.ktp_file], ['Legalitas', l.legal_doc_file], ['KK / Nikah', l.family_doc_file], ['Surat Sewa', l.sewa_doc_file], ['Pendukung', l.support_doc_file], ['SPPL otomatis', l.sppl_file]].forEach(function (d) { %>
+                  <% if (d[1]) { %>
+                    <% if (/\.pdf$/i.test(d[1])) { %>
+                      <button type="button" class="land-doc" data-pdf="<%= d[1] %>" data-title="<%= d[0] %> - <%= l.owner_name %>">📄 <%= d[0] %></button>
+                    <% } else { %>
+                      <button type="button" class="land-doc" data-full="<%= d[1] %>" data-title="<%= d[0] %> - <%= l.owner_name %>">📎 <%= d[0] %></button>
+                    <% } %>
+                  <% } %>
+                <% }) %>
+              </div>
+
+              <%
+                var fixUrl = (typeof APP_URL !== 'undefined' ? APP_URL : '') + '/perbaiki/' + (l.edit_token || '');
+                var fixExp = l.edit_expires ? new Date(l.edit_expires).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+                var fixValid = !!(l.edit_token && l.edit_expires && new Date(l.edit_expires) > new Date());
+                var waDigits = String(l.phone_number).replace(/\D/g, '');
+                var waMsg = 'Yth. Bpk/Ibu ' + l.owner_name + ',\nPengajuan lahan BSS (ID #' + l.id + ') perlu perbaikan data.\nSilakan perbaiki & upload ulang via link ini (berlaku s/d ' + fixExp + '):\n' + fixUrl + '\n- Admin BSS';
+                function stageGroup(fld, flbl) {
+                  var fv = l[fld] === 'sudah' ? 'lolos' : (l[fld] || 'belum');
+                  var h = '<span class="stage-flags"><span class="stage-top"><span class="stage-lbl">' + flbl + ':</span>';
+                  h += fv === 'lolos' ? '<span class="mini ok">✓ Lolos</span>' : (fv === 'gagal' ? '<span class="mini no">✕ Gagal</span>' : '<span class="mini">○ Belum</span>');
+                  h += '</span><span class="stage-actions">';
+                  function btn(val, icon, title, conf) {
+                    var cf = conf ? ` data-confirm="${conf}"` : '';
+                    h += `<form action="/admin/lands/stage" method="POST" class="inline-form"${cf}>`
+                      + `<input type="hidden" name="land_id" value="${l.id}" />`
+                      + `<input type="hidden" name="field" value="${fld}" />`
+                      + `<input type="hidden" name="value" value="${val}" />`
+                      + `<button type="submit" class="btn btn-outline stage-btn" title="${title}">${icon}</button></form>`;
+                  }
+                  if (fv !== 'lolos') btn('lolos', '✓', flbl + ' lolos');
+                  if (fv !== 'gagal') btn('gagal', '✕', flbl + ' gagal', 'Tandai ' + flbl + ' lahan #' + l.id + ' GAGAL?');
+                  if (fv !== 'belum') btn('belum', '↺', 'Reset ke belum');
+                  return h + '</span></span>';
+                }
+                function fixButtons() {
+                  if (fixValid) {
+                    return '<button type="button" class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;" data-copylink="' + fixUrl + '" title="Salin link perbaikan">📋 Salin Link</button>'
+                      + '<a class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;text-decoration:none;" href="https://wa.me/' + waDigits + '?text=' + encodeURIComponent(waMsg) + '" target="_blank" rel="noopener" title="Kirim via WhatsApp">💬 Buka WA</a>';
+                  }
+                  return `<form action="/admin/lands/request-fix" method="POST" class="inline-form" data-confirm="Buat link perbaikan untuk lahan #${l.id}? Berlaku 7 hari.">`
+                    + `<input type="hidden" name="land_id" value="${l.id}" />`
+                    + `<button type="submit" class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;">✏️ Minta Perbaikan</button></form>`;
+                }
+              %>
+              <div class="land-foot">
+                <% if (l.status === 'pending') { %>
+                  <span class="wf-step"><span class="wf-num">1</span><%- fixButtons() %></span>
+                  <span class="wf-step"><span class="wf-num">2</span><%- stageGroup('verify_status', 'Verifikasi') %><% if ((l.verify_status || 'belum') === 'lolos') { %><form action="/admin/lands/sppl" method="POST" class="inline-form sppl-form" data-confirm="Terbitkan ulang SPPL lahan #<%= l.id %>?"><input type="hidden" name="land_id" value="<%= l.id %>" /><button type="submit" class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;" title="Terbitkan ulang SPPL (setelah verifikasi lolos)">📄 SPPL</button></form><% } %></span>
+                  <span class="wf-step"><span class="wf-num">3</span><%- stageGroup('survey_status', 'Survei') %></span>
+                  <span class="wf-step"><span class="wf-num">4</span><a class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;text-decoration:none;" href="/admin/lands/<%= l.id %>/proposal" title="Unduh proposal PDF untuk vendor">🖨️ Proposal</a><a class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;text-decoration:none;" href="/admin/lands-owner-proposal?phone=<%= l.phone_number %>" title="Unduh 1 proposal gabungan semua unit penyedia ini (BSS 1-4 + EVCS 1-4)">Penyedia (<%= l.owner_units || 1 %>)</a><% if ((l.verify_status || 'belum') === 'lolos' && !l.sppl_file) { %><form action="/admin/lands/sppl" method="POST" class="inline-form"><input type="hidden" name="land_id" value="<%= l.id %>" /><button type="submit" class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;" title="SPPL belum ada — klik untuk terbitkan">📄 Terbitkan SPPL</button></form><% } %></span>
+                  <span class="wf-step wf-step-decision"><span class="wf-num">5</span>
+                  <%
+                    var ft = l.marketing_fee_type, fv = Number(l.marketing_fee_value || 0);
+                    var sewaAuto = Number(l.harga_unit) || 0;
+                    var feeAuto = null;
+                    var ruleText = '';
+                    if (ft === 'rupiah' && fv > 0) {
+                      ruleText = 'Fee ' + (l.marketing_name || '') + ': Rp ' + fv.toLocaleString('id-ID') + ' (tetap, otomatis)';
+                      feeAuto = fv;
+                    } else if (ft === 'persen' && fv > 0) {
+                      ruleText = 'Fee ' + (l.marketing_name || '') + ': ' + fv + '% × sewa (otomatis)';
+                      if (sewaAuto) feeAuto = Math.round(sewaAuto * (fv / 100));
+                    } else {
+                      ruleText = 'Tanpa aturan fee khusus (fee = nominal sewa)';
+                      if (sewaAuto) feeAuto = sewaAuto;
+                    }
+                    var sewaTxt = sewaAuto ? sewaAuto.toLocaleString('id-ID') : '0';
+                    var feeTxt = feeAuto != null ? feeAuto.toLocaleString('id-ID') : '0';
+                    var confirmApprove = 'Setujui lahan #' + l.id + '? Sewa Rp ' + sewaTxt + '/thn, fee Rp ' + feeTxt + '.';
+                    var previewFee = '→ sewa Rp ' + sewaAuto.toLocaleString('id-ID') + '/thn' + (feeAuto != null ? ', fee Rp ' + feeAuto.toLocaleString('id-ID') : '');
+                  %>
+                  <div class="fee-wrap">
+                    <form action="/admin/lands/approve" method="POST" class="inline-form fee-form" data-confirm="<%= confirmApprove %>">
+                      <input type="hidden" name="land_id" value="<%= l.id %>" />
+                      <% if (sewaAuto) { %>
+                        <button type="submit" class="btn btn-primary approve-btn">Setujui</button>
+                      <% } else { %>
+                        <button type="button" class="btn btn-outline approve-btn" disabled title="Isi Harga Sewa /tahun dulu pada info lahan di atas">Isi harga dulu</button>
+                      <% } %>
+                    </form>
+                    <div class="fee-rule"><%= ruleText %></div>
+                    <% if (sewaAuto) { %>
+                      <div class="fee-preview"><%= previewFee %></div>
+                    <% } else { %>
+                      <div class="fee-preview">⚠️ Harga Sewa /tahun belum diisi — isi dulu pada info lahan di atas.</div>
+                    <% } %>
+                  </div>
+                  <form action="/admin/lands/reject" method="POST" class="inline-form" data-confirm="Tolak pengajuan #<%= l.id %>?">
+                    <input type="hidden" name="land_id" value="<%= l.id %>" />
+                    <button type="submit" class="btn btn-outline reject-btn">Tolak</button>
+                  </form>
+                  </span>
+                <% } else if (l.status === 'rejected') { %>
+                  <%- fixButtons() %>
+                  <a class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;text-decoration:none;" href="/admin/lands/<%= l.id %>/proposal" title="Unduh proposal PDF untuk vendor">🖨️ Proposal</a><a class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;text-decoration:none;" href="/admin/lands-owner-proposal?phone=<%= l.phone_number %>" title="Unduh 1 proposal gabungan semua unit penyedia ini (BSS 1-4 + EVCS 1-4)">Penyedia (<%= l.owner_units || 1 %>)</a>
+                <% } else { %>
+                  <a class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;text-decoration:none;" href="/admin/lands/<%= l.id %>/proposal" title="Unduh proposal PDF untuk vendor">🖨️ Proposal</a><a class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;text-decoration:none;" href="/admin/lands-owner-proposal?phone=<%= l.phone_number %>" title="Unduh 1 proposal gabungan semua unit penyedia ini (BSS 1-4 + EVCS 1-4)">Penyedia (<%= l.owner_units || 1 %>)</a>
+                  <% if ((l.verify_status || 'belum') === 'lolos') { %>
+                    <form action="/admin/lands/sppl" method="POST" class="inline-form" data-confirm="Terbitkan ulang SPPL lahan #<%= l.id %>?"><input type="hidden" name="land_id" value="<%= l.id %>" /><button type="submit" class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;" title="Terbitkan ulang SPPL">📄 SPPL</button></form>
+                  <% } %>
+                <% } %>
+              </div>
+            </article>
+          <% }) %>
+        <% } %>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="lightbox" id="lightbox" hidden>
+  <div class="lb-controls">
+    <button type="button" id="lbZoomIn" aria-label="Perbesar">＋</button>
+    <button type="button" id="lbZoomOut" aria-label="Perkecil">－</button>
+    <button type="button" id="lbZoomReset" aria-label="Reset">⤾</button>
+  </div>
+  <button type="button" class="lb-close" id="lightboxClose" aria-label="Tutup">✕</button>
+  <figure class="lightbox-figure">
+    <div class="lightbox-stage">
+      <img id="lightboxImg" src="" alt="Pratinjau dokumen" hidden />
+      <iframe id="lightboxFrame" src="" title="Pratinjau PDF" hidden></iframe>
+    </div>
+    <figcaption class="lightbox-cap" id="lightboxCap"></figcaption>
+    <div class="lightbox-hint" id="lightboxHint">Klik gambar / tombol ＋－ untuk zoom · scroll mouse untuk zoom · ESC untuk tutup</div>
+  </figure>
+</div>
+
+<script>
+  (function () {
+    // Cari cepat (client-side) + ingat kata kunci agar tak hilang sehabis aksi
+    var input = document.getElementById('landSearch');
+    var cards = Array.prototype.slice.call(document.querySelectorAll('.land-card'));
+    function applySearch() {
+      var q = input.value.trim().toLowerCase();
+      cards.forEach(function (c) {
+        c.style.display = (!q || (c.getAttribute('data-search') || '').indexOf(q) !== -1) ? '' : 'none';
+      });
+    }
+    if (input) {
+      try {
+        var saved = sessionStorage.getItem('jap_land_search') || '';
+        if (saved) input.value = saved;
+      } catch (e) {}
+      applySearch();
+      input.addEventListener('input', function () {
+        try { sessionStorage.setItem('jap_land_search', input.value); } catch (e) {}
+        applySearch();
+      });
+    }
+    // Ingat posisi scroll sebelum aksi (terjadi reload) lalu kembalikan,
+    // sehingga toolbar sticky + kartu yang diedit tetap terlihat.
+    document.querySelectorAll('#landGrid form').forEach(function (fm) {
+      fm.addEventListener('submit', function () {
+        try { sessionStorage.setItem('jap_lands_scroll', String(window.scrollY || 0)); } catch (e) {}
+      });
+    });
+    try {
+      var sy = parseInt(sessionStorage.getItem('jap_lands_scroll') || '', 10);
+      if (isFinite(sy) && sy > 0) {
+        window.scrollTo(0, sy);
+        sessionStorage.removeItem('jap_lands_scroll');
+      }
+    } catch (e) {}
+    // Popup zoom di halaman yang sama (gambar + PDF) untuk KTP / Legalitas / KK-Nikah / SPPL / foto
+    var box = document.getElementById('lightbox');
+    var img = document.getElementById('lightboxImg');
+    var frame = document.getElementById('lightboxFrame');
+    var cap = document.getElementById('lightboxCap');
+    var hint = document.getElementById('lightboxHint');
+    var btnIn = document.getElementById('lbZoomIn');
+    var btnOut = document.getElementById('lbZoomOut');
+    var btnReset = document.getElementById('lbZoomReset');
+    var zoom = 1;
+    function setZoom(z) {
+      zoom = Math.min(4, Math.max(1, z));
+      img.style.transform = zoom > 1 ? 'scale(' + zoom + ')' : '';
+      img.classList.toggle('zoomed', zoom > 1);
+    }
+    function setControls(isImg) {
+      [btnIn, btnOut, btnReset].forEach(function (b) { if (b) b.hidden = !isImg; });
+      if (hint) hint.style.display = isImg ? '' : 'none';
+    }
+    function openDoc(src, title, isPdf) {
+      setZoom(1);
+      if (cap) cap.textContent = title || '';
+      if (isPdf) {
+        img.hidden = true; img.src = '';
+        frame.hidden = false; frame.src = src;
+        setControls(false);
+      } else {
+        frame.hidden = true; frame.src = '';
+        img.hidden = false; img.src = src; img.alt = title || 'Pratinjau dokumen';
+        setControls(true);
+      }
+      box.hidden = false;
+      document.body.style.overflow = 'hidden';
+    }
+    document.querySelectorAll('[data-full]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        openDoc(b.getAttribute('data-full'), b.getAttribute('data-title') || b.textContent.trim(), false);
+      });
+    });
+    document.querySelectorAll('[data-pdf]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        openDoc(b.getAttribute('data-pdf'), b.getAttribute('data-title') || b.textContent.trim(), true);
+      });
+    });
+    img.addEventListener('click', function () { setZoom(zoom > 1 ? 1 : 2); });
+    if (btnIn) btnIn.addEventListener('click', function (e) { e.stopPropagation(); setZoom(zoom + 0.25); });
+    if (btnOut) btnOut.addEventListener('click', function (e) { e.stopPropagation(); setZoom(zoom - 0.25); });
+    if (btnReset) btnReset.addEventListener('click', function (e) { e.stopPropagation(); setZoom(1); });
+    box.querySelector('.lightbox-stage').addEventListener('wheel', function (e) {
+      if (img.hidden) return;
+      e.preventDefault();
+      setZoom(zoom + (e.deltaY < 0 ? 0.15 : -0.15));
+    }, { passive: false });
+    function close() { box.hidden = true; img.src = ''; frame.src = ''; setZoom(1); document.body.style.overflow = ''; }
+    document.getElementById('lightboxClose').addEventListener('click', close);
+    box.addEventListener('click', function (e) { if (e.target === box) close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !box.hidden) close(); });
+  })();
+</script>
+<script>
+  (function () {
+    // Konfirmasi universal via data-confirm (pengganti onsubmit inline)
+    document.querySelectorAll('form[data-confirm]').forEach(function (fm) {
+      fm.addEventListener('submit', function (e) {
+        if (!window.confirm(fm.getAttribute('data-confirm'))) e.preventDefault();
+      });
+    });
+    // Salin link perbaikan ke clipboard
+    document.querySelectorAll('[data-copylink]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var link = b.getAttribute('data-copylink');
+        function done() {
+          var t = b.textContent;
+          b.textContent = '✓ Tersalin';
+          setTimeout(function () { b.textContent = t; }, 1500);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(link).then(done, function () { prompt('Salin link:', link); });
+        } else {
+          prompt('Salin link:', link);
+        }
+      });
+    });
+    // Format ribu otomatis (3.000.000) pada semua input harga sewa; server menyimpan digit murni.
+    document.querySelectorAll('.harga-input').forEach(function (el) {
+      if (el.value) {
+        var init = el.value.replace(/\D/g, '');
+        if (init) el.value = init.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      }
+      el.addEventListener('input', function () {
+        var d = this.value.replace(/\D/g, '').slice(0, 12);
+        this.value = d ? d.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
+      });
+    });
+  })();
+</script>
+
+<%- include('../partials/foot') %>

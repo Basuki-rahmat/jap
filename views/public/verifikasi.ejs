@@ -1,0 +1,33 @@
+<%- include('../partials/head', { title: 'Verifikasi Anggota - BSS' }) %>
+<%- include('../partials/navbar') %>
+
+<main>
+  <section class="section">
+    <div class="container" style="max-width:560px;">
+      <div class="section-head">
+        <span class="eyebrow">Verifikasi ID Card</span>
+        <h2><%= brandName %></h2>
+        <p>Hasil pemindaian QR ID Card anggota.</p>
+      </div>
+
+      <div class="card" style="text-align:center;">
+        <div style="font-size:3rem;">🪪</div>
+        <h3 style="margin:8px 0 2px;"><%= member.name %></h3>
+        <p class="muted-text" style="margin:0 0 12px;"><%= position %></p>
+        <div style="display:inline-block;background:rgba(25,135,84,.12);color:#146c43;border:1px solid rgba(25,135,84,.3);border-radius:99px;padding:4px 14px;font-weight:800;font-size:.8rem;">✓ TERDAFTAR AKTIF</div>
+
+        <div style="display:grid;gap:8px;margin-top:16px;text-align:left;font-size:.88rem;">
+          <div><span class="muted-text">ID Anggota:</span> <strong><%= memberCode %></strong></div>
+          <div><span class="muted-text">No. WhatsApp:</span> <strong><%= member.whatsapp || '-' %></strong></div>
+          <div><span class="muted-text">Wilayah:</span> <strong><%= member.wilayah || '-' %></strong></div>
+          <div><span class="muted-text">Kode Referral:</span> <strong><%= member.referral_code || '-' %></strong></div>
+          <div><span class="muted-text">Terdaftar sejak:</span> <strong><%= member.created_at ? new Date(member.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-' %></strong></div>
+        </div>
+
+        <p class="muted-text" style="font-size:.75rem;margin-top:16px;">Bila data di atas tidak sesuai dengan kartu yang ditunjukkan, abaikan kartu tersebut dan hubungi admin.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<%- include('../partials/foot') %>

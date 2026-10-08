@@ -1,0 +1,71 @@
+<%- include('../partials/head', { title: 'Notifikasi' }) %>
+<%- include('../partials/dashNavbar') %>
+
+<style>
+  .notif-wrap { max-width: 680px; margin-inline: auto; display: grid; gap: 10px; }
+  .notif-item { display: block; background: var(--card); border: 1px solid var(--card-border); border-radius: 14px; padding: 13px 15px; text-decoration: none !important; color: var(--text) !important; transition: transform .15s ease, box-shadow .15s ease; }
+  .notif-item:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+  .notif-item.unread { border-left: 4px solid var(--primary); background: var(--primary-soft); }
+  .notif-item .t { font-weight: 800; font-size: .9rem; }
+  .notif-item .b { font-size: .82rem; color: var(--muted, #888); margin-top: 3px; line-height: 1.55; }
+  .notif-item .d { font-size: .68rem; color: var(--muted, #888); margin-top: 6px; }
+  .notif-empty { text-align: center; color: var(--muted, #888); padding: 34px 16px; background: var(--card); border: 1px dashed var(--card-border); border-radius: 14px; }
+</style>
+
+<main>
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Pesan Masuk</span>
+        <h2>Notifikasi</h2>
+        <p>Pengumuman admin &amp; kabar status pengajuan Anda.</p>
+      </div>
+
+      <div class="notif-wrap">
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <a href="<%= back %>" class="btn btn-outline" style="text-decoration:none;padding:7px 14px;font-size:.78rem;">← Dashboard</a>
+          <% if (items.some(function (n) { return Number(n.is_read) === 0; })) { %>
+            <button type="button" class="btn btn-outline" id="markAll" style="padding:7px 14px;font-size:.78rem;">✓ Tandai semua dibaca</button>
+          <% } %>
+        </div>
+
+        <% if (items.length === 0) { %>
+          <div class="notif-empty">🔕 Belum ada notifikasi.</div>
+        <% } else { %>
+          <% items.forEach(function (n) { %>
+            <a class="notif-item <%= Number(n.is_read) === 0 ? 'unread' : '' %>" href="<%= n.link || '/notifikasi' %>" data-nid="<%= n.id %>">
+              <div class="t"><%= n.title %></div>
+              <% if (n.body) { %><div class="b"><%= n.body %></div><% } %>
+              <div class="d"><%= n.created_at ? new Date(n.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '' %></div>
+            </a>
+          <% }) %>
+        <% } %>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+  (function () {
+    function postRead(payload) {
+      return fetch('/api/notif/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).catch(function () {});
+    }
+    document.querySelectorAll('.notif-item[data-nid]').forEach(function (a) {
+      a.addEventListener('click', function () {
+        postRead({ id: a.getAttribute('data-nid') });
+      });
+    });
+    var all = document.getElementById('markAll');
+    if (all) {
+      all.addEventListener('click', function () {
+        postRead({ all: 1 }).then(function () { window.location.reload(); });
+      });
+    }
+  })();
+</script>
+
+<%- include('../partials/foot') %>

@@ -1,0 +1,63 @@
+<%- include('../partials/head', { title: 'Diagnostik Email - BSS' }) %>
+<%- include('../partials/dashNavbar') %>
+
+<main>
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Produksi</span>
+        <h2>📧 Diagnostik Email</h2>
+        <p>Status SMTP, log pengiriman, dan kirim email tes — untuk memastikan autoresponder pendaftar terkirim.</p>
+      </div>
+
+      <% if (flash && flash.message) { %>
+        <div class="alert alert-<%= flash.type %>"><%= flash.message %></div>
+      <% } %>
+
+      <div class="card mb-3">
+        <div class="card-title-row">
+          <div class="feature-icon">⚙️</div>
+          <h3>Status SMTP</h3>
+        </div>
+        <div class="marketing-meta" style="margin-top:10px;">
+          <div class="meta-item"><span class="meta-label">Terkonfigurasi</span><strong><%= smtp.configured ? '✅ Ya' : '❌ Tidak' %></strong></div>
+          <div class="meta-item"><span class="meta-label">Host</span><code><%= smtp.host %></code></div>
+          <div class="meta-item"><span class="meta-label">Port / Secure</span><code><%= smtp.port %> / <%= smtp.secure %></code></div>
+          <div class="meta-item"><span class="meta-label">User</span><code><%= smtp.user %></code></div>
+          <div class="meta-item"><span class="meta-label">Password</span><code><%= smtp.passSet %></code></div>
+          <div class="meta-item"><span class="meta-label">From</span><code><%= smtp.from %></code></div>
+        </div>
+        <% if (smtp.mailerMissing) { %>
+          <p class="form-hint" style="color:var(--danger, #dc2626);font-weight:700;">⚠️ Modul <code>nodemailer</code> belum terinstall di server — semua email dilewati. Jalankan <code>npm install</code> di folder aplikasi lalu <strong>restart aplikasi</strong>. (Penyebab 500 sebelumnya: <code>Cannot find module 'nodemailer'</code>.)</p>
+        <% } else if (!smtp.configured) { %>
+          <p class="form-hint">Lengkapi <code>SMTP_HOST</code>, <code>SMTP_USER</code>, <code>SMTP_PASS</code> di environment lalu <strong>restart aplikasi</strong>.</p>
+        <% } %>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-title-row">
+          <div class="feature-icon">✉️</div>
+          <h3>Kirim Email Tes</h3>
+        </div>
+        <form action="/admin/mail-test" method="POST" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+          <input class="form-control" type="email" name="to" required maxlength="100" placeholder="tujuan@email.com" style="flex:1;min-width:220px;" />
+          <button type="submit" class="btn btn-accent">Kirim Tes</button>
+        </form>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-title-row">
+          <div class="feature-icon">🧾</div>
+          <h3>Log Pengiriman (100 terakhir)</h3>
+        </div>
+        <% if (!lines.length) { %>
+          <p class="muted-text">Belum ada aktivitas email tercatat.</p>
+        <% } else { %>
+          <div style="background:#0f172a;color:#d1fae5;border-radius:10px;padding:12px 14px;font-family:monospace;font-size:.72rem;line-height:1.7;overflow-x:auto;white-space:pre;margin-top:10px;"><%= lines.join('\n') %></div>
+        <% } %>
+      </div>
+    </div>
+  </section>
+</main>
+
+<%- include('../partials/foot') %>

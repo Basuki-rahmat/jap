@@ -1,0 +1,107 @@
+<%- include('../partials/head', { title: 'Tambah Downline - BSS' }) %>
+<%- include('../partials/dashNavbar') %>
+
+<main>
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow"><%= (typeof isCoordinator !== 'undefined' && isCoordinator) ? 'Koordinator' : 'Head Marketing' %></span>
+        <h2>Tambah Downline</h2>
+        <p><% if (typeof isCoordinator !== 'undefined' && isCoordinator) { %>Koordinator <strong>tanpa batas kuota</strong> — downline langsung di bawah Anda. Centang opsi Head bila downline diangkat sebagai Head Marketing.<% } else { %>Head Marketing <strong>tanpa batas kuota</strong> — downline langsung di bawah Anda.<% } %> Fee downline diatur oleh admin.</p>
+      </div>
+
+      <% if (flash && flash.message) { %>
+        <div class="alert alert-<%= flash.type %>"><%= flash.message %></div>
+      <% } %>
+
+      <div class="card mb-3 mkt-form" style="max-width:640px;margin-inline:auto;">
+        <form action="/marketing/tambah" method="POST">
+          <div class="form-group">
+            <label for="name">Nama Lengkap</label>
+            <input class="form-control" type="text" id="name" name="name" required placeholder="Nama downline" />
+          </div>
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input class="form-control" type="email" id="email" name="email" required placeholder="email@domain.com" />
+          </div>
+          <div class="form-group">
+            <label for="whatsapp">No. WhatsApp</label>
+            <div class="input-group">
+              <span class="input-group-addon">+62</span>
+              <input class="form-control" type="tel" id="whatsapp" name="whatsapp" required placeholder="8xx xxxx xxxx" />
+            </div>
+            <p class="form-hint">Tidak bisa double — 1 nomor untuk 1 akun.</p>
+          </div>
+          <div class="form-group">
+            <label for="nik">No. KTP / NIK (16 digit)</label>
+            <input class="form-control" type="text" id="nik" name="nik" required inputmode="numeric" maxlength="16" pattern="[0-9]{16}" placeholder="16 digit angka" />
+            <p class="form-hint">Tidak bisa double — 1 NIK untuk 1 akun.</p>
+          </div>
+          <div class="form-group">
+            <label for="bank_name">Nama Bank</label>
+            <select class="form-control" id="bank_name" name="bank_name" required>
+              <option value="">Pilih bank…</option>
+              <option value="BCA">BCA</option>
+              <option value="BRI">BRI</option>
+              <option value="Mandiri">Mandiri</option>
+              <option value="BNI">BNI</option>
+              <option value="BTN">BTN</option>
+              <option value="BSI">BSI</option>
+              <option value="CIMB Niaga">CIMB Niaga</option>
+              <option value="Danamon">Danamon</option>
+              <option value="Permata">Permata</option>
+              <option value="Panin">Panin</option>
+              <option value="OCBC">OCBC</option>
+              <option value="Maybank">Maybank</option>
+              <option value="Lainnya">Lainnya (tulis manual)</option>
+            </select>
+          </div>
+          <div class="form-group" id="bankOtherWrap" hidden>
+            <label for="bank_name_other">Nama Bank Lainnya</label>
+            <input class="form-control" type="text" id="bank_name_other" name="bank_name_other" maxlength="100" placeholder="Tulis nama bank" />
+          </div>
+          <div class="form-group">
+            <label for="account_number">No. Rekening</label>
+            <input class="form-control" type="text" id="account_number" name="account_number" required inputmode="numeric" maxlength="20" placeholder="6–20 digit angka" />
+          </div>
+          <div class="form-group">
+            <label for="password">Password Awal (opsional)</label>
+            <input class="form-control" type="text" id="password" name="password" minlength="6" autocomplete="new-password" placeholder="Kosongkan = pakai jap12345" />
+            <p class="form-hint">Minimal 6 karakter. Berikan password ini ke downline untuk login pertama.</p>
+          </div>
+          <% if (typeof isCoordinator !== 'undefined' && isCoordinator) { %>
+          <div class="form-group">
+            <label class="head-check" for="make_head">
+              <input type="checkbox" id="make_head" name="make_head" value="1" checked />
+              <span>Angkat sebagai <strong>Head Marketing</strong> <span class="muted-text">(langsung membawahi marketing)</span></span>
+            </label>
+          </div>
+          <% } %>
+          <button type="submit" class="btn btn-accent"><strong>＋ Tambah Downline</strong></button>
+          <span class="help-note">Password sementara: <code>jap12345</code></span>
+          <div style="margin-top:12px;">
+            <a href="/marketing" class="btn btn-outline" style="text-decoration:none;">← Dashboard</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+  (function () {
+    var sel = document.getElementById('bank_name');
+    var wrap = document.getElementById('bankOtherWrap');
+    var other = document.getElementById('bank_name_other');
+    function toggle() {
+      if (!sel || !wrap) return;
+      var show = sel.value === 'Lainnya';
+      wrap.hidden = !show;
+      if (other) { other.required = show; if (!show) other.value = ''; }
+    }
+    if (sel) sel.addEventListener('change', toggle);
+    toggle();
+  })();
+</script>
+
+<%- include('../partials/foot') %>

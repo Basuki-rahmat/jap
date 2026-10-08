@@ -1,0 +1,180 @@
+<%- include('../partials/head', { title: 'Lacak Pengajuan - BSS' }) %>
+<%- include('../partials/navbar') %>
+
+<style>
+  .track-card { max-width: 640px; margin: 0 auto 16px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); }
+  .track-item { max-width: 640px; margin: 0 auto 12px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 16px 18px; }
+  .track-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .track-id { font-size: .75rem; font-weight: 800; color: var(--primary); }
+  .track-steps { display: grid; grid-template-columns: repeat(4, 1fr); margin: 14px 0 6px; }
+  .track-step { text-align: center; font-size: .7rem; color: var(--muted, #888); position: relative; padding-top: 30px; }
+  .track-step .dot { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: .78rem; font-weight: 800; background: var(--bg-soft); border: 2px solid var(--card-border); color: var(--muted, #888); }
+  .track-step::after { content: ''; position: absolute; top: 13px; left: calc(-50% + 16px); right: calc(50% + 16px); height: 2px; background: var(--card-border); border-radius: 2px; }
+  .track-step:first-child::after { display: none; }
+  .track-step.done { color: var(--text); font-weight: 700; }
+  .track-step.done .dot { background: var(--success, #198754); border-color: var(--success, #198754); color: #fff; }
+  .track-step.done::after { background: var(--success, #198754); }
+  .track-step.cur { color: var(--text); font-weight: 700; }
+  .track-step.cur .dot { background: var(--primary); border-color: var(--primary); color: #fff; animation: tpulse 1.6s infinite; }
+  .track-step.warn { color: var(--text); font-weight: 700; }
+  .track-step.warn .dot { background: var(--warning, #f5a623); border-color: var(--warning, #f5a623); color: #fff; animation: tpulse 1.6s infinite; }
+  .track-step.bad { color: var(--danger, #dc2626); font-weight: 700; }
+  .track-step.bad .dot { background: var(--danger, #dc2626); border-color: var(--danger, #dc2626); color: #fff; }
+  .track-step .sub { display: block; font-size: .62rem; font-weight: 400; color: var(--muted, #888); }
+  @keyframes tpulse { 0% { box-shadow: 0 0 0 0 rgba(0,0,0,.18); } 70% { box-shadow: 0 0 0 8px rgba(0,0,0,0); } 100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); } }
+  .track-info { margin-top: 12px; display: grid; gap: 10px; font-size: .83rem; }
+  .ti-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .ti-item { background: var(--bg-soft); border: 1px solid var(--card-border); border-radius: 14px; padding: 10px 12px; display: flex; gap: 10px; align-items: flex-start; min-width: 0; transition: transform .18s ease, box-shadow .18s ease; }
+  .ti-item:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+  .ti-item.full { grid-column: 1 / -1; }
+  .ti-ic { width: 34px; height: 34px; flex: 0 0 34px; display: flex; align-items: center; justify-content: center; border-radius: 10px; background: var(--card); border: 1px solid var(--card-border); font-size: 1.05rem; }
+  .ti-tx { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .ti-tx .k { color: var(--muted, #888); font-size: .64rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; }
+  .ti-tx .v { font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+  .ti-tx .v.muted { color: var(--muted, #888); font-weight: 500; }
+  .ti-chip { display: inline-flex; align-items: center; gap: 5px; font-size: .72rem; font-weight: 800; border-radius: 99px; padding: 3px 10px; border: 1px solid var(--card-border); background: var(--card); white-space: nowrap; }
+  .ti-banner { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--card-border); background: var(--bg-soft); line-height: 1.45; }
+  .ti-banner .b-ic { width: 38px; height: 38px; flex: 0 0 38px; display: flex; align-items: center; justify-content: center; border-radius: 12px; font-size: 1.2rem; background: var(--card); border: 1px solid var(--card-border); }
+  .ti-banner .b-tx { flex: 1; min-width: 0; font-size: .8rem; }
+  .ti-banner .b-tx strong { display: block; font-size: .82rem; }
+  .ti-banner .b-sub { font-size: .72rem; color: var(--muted, #888); }
+  .ti-sppl { background: linear-gradient(135deg, rgba(25,135,84,.14), rgba(25,135,84,.05)); border-color: rgba(25,135,84,.35); }
+  .ti-fee { background: linear-gradient(135deg, var(--primary-soft), transparent); }
+  .ti-note { font-size: .78rem; }
+  .ti-note.info { background: var(--primary-soft); border-color: var(--card-border); }
+  .ti-note.ok { background: rgba(25,135,84,.1); border-color: rgba(25,135,84,.3); }
+  .ti-note.warn { background: rgba(245,166,35,.12); border-color: rgba(245,166,35,.35); }
+  .ti-note.bad { background: rgba(220,38,38,.08); border-color: rgba(220,38,38,.3); }
+  .btn-sppl { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; background: #15803d; color: #fff !important; font-weight: 800; font-size: .76rem; border-radius: 99px; padding: 8px 14px; text-decoration: none; box-shadow: 0 4px 12px rgba(21,128,61,.3); white-space: nowrap; }
+  .btn-sppl:hover { filter: brightness(.94); color: #fff !important; }
+  .btn-maps-sm { display: inline-flex; align-items: center; gap: 4px; font-size: .72rem; font-weight: 800; color: #fff !important; background: var(--primary); border-radius: 99px; padding: 3px 10px; margin-left: 6px; vertical-align: middle; white-space: nowrap; }
+  @media (max-width: 520px) { .ti-grid { grid-template-columns: 1fr; } .ti-banner { flex-wrap: wrap; } .btn-sppl { width: 100%; justify-content: center; } }
+</style>
+
+<main>
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Untuk Pemilik Lahan</span>
+        <h2>Lacak Pengajuan Lahan</h2>
+        <p>Masukkan nomor WhatsApp yang dipakai saat mengajukan untuk memantau status.</p>
+      </div>
+
+      <div class="track-card">
+        <form action="/lacak" method="GET">
+          <div class="form-group" style="margin-bottom:12px;">
+            <label for="phone">No. WhatsApp</label>
+            <div class="input-group">
+              <span class="input-group-addon">+62</span>
+              <input class="form-control" type="tel" id="phone" name="phone" required placeholder="8xx xxxx xxxx" value="<%= typeof phone !== 'undefined' ? phone : '' %>" />
+            </div>
+          </div>
+          <button type="submit" class="btn btn-accent btn-block"><strong>🔍 Lacak Sekarang</strong></button>
+        </form>
+      </div>
+
+      <% if (typeof error !== 'undefined' && error) { %>
+        <div class="alert alert-error" style="max-width:640px;margin:0 auto 12px;"><%= error %></div>
+      <% } %>
+
+      <% if (typeof searched !== 'undefined' && searched) { %>
+        <% if (lands.length === 0) { %>
+          <div class="track-item" style="text-align:center;color:var(--text-muted);">Tidak ditemukan pengajuan untuk nomor tersebut. Periksa kembali nomor WA Anda.</div>
+        <% } else { %>
+          <% lands.forEach(function (l) { %>
+            <article class="track-item">
+              <div class="track-top">
+                <span class="track-id">#<%= l.id %></span>
+                <strong><%= l.owner_name %></strong>
+                <% if (l.slot) { %><span class="ti-chip" title="Unit ke-<%= l.slot.seq %> dari <%= l.slot.total %> untuk nomor ini"><%= l.slot.typeCode %>-<%= l.slot.typeSeq %>/<%= l.slot.typeTotal %></span><% } %>
+                <span class="status status-<%= l.status %>" style="margin-left:auto;"><%= l.status === 'approved' ? 'Disetujui' : l.status === 'rejected' ? 'Ditolak' : 'Pending' %></span>
+              </div>
+              <div class="track-steps">
+                <%
+                  var ver = l.verify_status || 'belum';
+                  var srv = l.survey_status === 'sudah' ? 'lolos' : (l.survey_status || 'belum');
+                  var s2 = 'todo', s3 = 'todo', s4 = 'todo', s4sub = 'Pending';
+                  var s2sub = 'berkas', s3sub = 'lokasi';
+                  if (ver === 'gagal') { s2 = 'bad'; s2sub = 'tidak lolos'; }
+                  else if (ver === 'lolos') { s2 = 'done'; s2sub = 'lolos'; }
+                  else if (l.status !== 'pending') { s2 = 'done'; }
+                  else { s2 = 'cur'; s2sub = 'sedang berjalan'; }
+                  if (srv === 'gagal') { s3 = 'bad'; s3sub = 'tidak lolos'; }
+                  else if (srv === 'lolos') { s3 = 'done'; s3sub = 'selesai'; }
+                  else if (l.status === 'approved') { s3 = 'done'; }
+                  else if (l.status === 'pending' && ver === 'lolos') { s3 = 'cur'; s3sub = 'dijadwalkan'; }
+                  if (l.status === 'approved') { s4 = 'done'; s4sub = 'Disetujui'; }
+                  else if (l.status === 'rejected') { s4 = 'bad'; s4sub = 'Ditolak'; }
+                  else if (srv === 'lolos' || ver === 'gagal' || srv === 'gagal') { s4 = 'warn'; s4sub = 'Menunggu'; }
+                  function dotIcon(st, n) { return st === 'done' ? '✓' : (st === 'bad' ? '✕' : n); }
+                %>
+                <div class="track-step done"><span class="dot">✓</span>Diajukan<span class="sub">diterima</span></div>
+                <div class="track-step <%= s2 %>"><span class="dot"><%= dotIcon(s2, '2') %></span>Verifikasi<span class="sub"><%= s2sub %></span></div>
+                <div class="track-step <%= s3 %>"><span class="dot"><%= dotIcon(s3, '3') %></span>Survei<span class="sub"><%= s3sub %></span></div>
+                <div class="track-step <%= s4 %>"><span class="dot"><%= dotIcon(s4, '4') %></span>Keputusan<span class="sub"><%= s4sub %></span></div>
+              </div>
+              <div class="track-info">
+                <div class="ti-grid">
+                  <div class="ti-item full">
+                    <span class="ti-ic">🏠</span>
+                    <div class="ti-tx"><span class="k">Alamat Pemilik</span><span class="v"><%= l.address %></span></div>
+                  </div>
+                  <div class="ti-item full">
+                    <span class="ti-ic">📍</span>
+                    <div class="ti-tx">
+                      <span class="k">Alamat Lokasi Lahan</span>
+                      <span class="v"><%= l.location_address || l.address %><% if (l.maps_link) { %><a class="btn-maps-sm" href="<%= l.maps_link %>" target="_blank" rel="noopener">Maps ↗</a><% } %></span>
+                    </div>
+                  </div>
+                  <div class="ti-item">
+                    <span class="ti-ic"><%= l.unit_type === 'evcs_mobil' ? '🔌' : '🔋' %></span>
+                    <div class="ti-tx">
+                      <span class="k">Unit<% if (l.slot) { %> · Slot <%= l.slot.typeCode %>-<%= l.slot.typeSeq %>/<%= l.slot.typeTotal %><% } %></span>
+                      <span class="v"><span class="ti-chip"><%= l.unit_type === 'evcs_mobil' ? '🔌 EVCS Mobil' : '🔋 BSS Motor' %></span></span>
+                      <span class="v muted" style="font-size:.74rem;"><%= l.area_size %> m² · <%= l.location_type || '-' %><% if (l.slot && l.slot.total > 1) { %> · Unit <%= l.slot.seq %>/<%= l.slot.total %><% } %></span>
+                    </div>
+                  </div>
+                  <div class="ti-item">
+                    <span class="ti-ic">📅</span>
+                    <div class="ti-tx">
+                      <span class="k">Diajukan</span>
+                      <span class="v" style="font-size:.76rem;"><%= l.created_at ? new Date(l.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-' %></span>
+                      <% if (l.marketing_name) { %><span class="v muted" style="font-size:.72rem;">via <%= l.marketing_name %></span><% } %>
+                    </div>
+                  </div>
+                </div>
+                <% if (l.sppl_file) { %>
+                  <div class="ti-banner ti-sppl">
+                    <span class="b-ic">📄</span>
+                    <div class="b-tx"><strong>SPPL sudah terbit</strong><span class="b-sub">Diterbitkan otomatis setelah verifikasi lolos</span></div>
+                    <a class="btn-sppl" href="<%= l.sppl_file %>" target="_blank" rel="noopener">⬇ Unduh SPPL</a>
+                  </div>
+                <% } %>
+                <% if (l.status === 'approved') { %>
+                  <div class="ti-banner ti-fee">
+                    <span class="b-ic">💰</span>
+                    <div class="b-tx"><strong>Rp <%= Number(l.fee_amount).toLocaleString('id-ID') %>/tahun</strong><span class="b-sub">Sewa disetujui 🎉</span></div>
+                  </div>
+                <% } else if (l.status === 'rejected') { %>
+                  <div class="ti-banner ti-note bad"><span class="b-ic">❌</span><div class="b-tx">Maaf, pengajuan belum memenuhi kriteria. Hubungi marketing untuk informasi lebih lanjut.</div></div>
+                <% } else if ((l.verify_status || 'belum') === 'gagal') { %>
+                  <div class="ti-banner ti-note warn"><span class="b-ic">✕</span><div class="b-tx"><strong>Berkas belum lolos verifikasi.</strong>Minta link perbaikan ke admin/marketing untuk melengkapi data.</div></div>
+                <% } else if ((l.survey_status === 'sudah' ? 'lolos' : (l.survey_status || 'belum')) === 'gagal') { %>
+                  <div class="ti-banner ti-note bad"><span class="b-ic">✕</span><div class="b-tx"><strong>Survei belum memenuhi kriteria.</strong>Hubungi marketing untuk informasi lebih lanjut.</div></div>
+                <% } else if ((l.survey_status || 'belum') === 'lolos' || l.survey_status === 'sudah') { %>
+                  <div class="ti-banner ti-note ok"><span class="b-ic">✅</span><div class="b-tx"><strong>Survei selesai.</strong>Pengajuan menunggu keputusan akhir.</div></div>
+                <% } else if ((l.verify_status || 'belum') === 'lolos') { %>
+                  <div class="ti-banner ti-note ok"><span class="b-ic">✅</span><div class="b-tx"><strong>Berkas lolos verifikasi.</strong>Tim kami akan menghubungi Anda untuk jadwal survei lokasi.</div></div>
+                <% } else { %>
+                  <div class="ti-banner ti-note info"><span class="b-ic">⏳</span><div class="b-tx"><strong>Berkas sedang diverifikasi.</strong>Estimasi sampai pencairan &gt; 90 hari kerja setelah data diajukan.</div></div>
+                <% } %>
+              </div>
+            </article>
+          <% }) %>
+        <% } %>
+      <% } %>
+    </div>
+  </section>
+</main>
+
+<%- include('../partials/foot') %>
