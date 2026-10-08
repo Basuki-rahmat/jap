@@ -161,6 +161,32 @@ async function main() {
     '`paid_at` DATETIME NULL AFTER `status`',
   ]);
 
+  // API mobile (React Native): refresh token (disimpan sebagai hash) + token FCM per perangkat.
+  await conn.query(
+    `CREATE TABLE IF NOT EXISTS api_tokens (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      token_hash CHAR(64) NOT NULL,
+      device_name VARCHAR(100) NULL,
+      expires_at DATETIME NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_hash (token_hash),
+      KEY user_id (user_id, expires_at)
+    ) ENGINE=InnoDB`
+  );
+  console.log('  = api_tokens siap');
+  await conn.query(
+    `CREATE TABLE IF NOT EXISTS device_tokens (
+      user_id INT NOT NULL,
+      platform ENUM('android','ios') NOT NULL DEFAULT 'android',
+      token VARCHAR(255) NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (user_id, token(191)),
+      KEY user_id (user_id)
+    ) ENGINE=InnoDB`
+  );
+  console.log('  = device_tokens siap');
+
   // Ringkasan data (bukti tidak ada yang hilang)
   for (const t of ['users', 'lands', 'fee_logs', 'settings']) {
     try {

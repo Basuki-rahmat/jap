@@ -64,6 +64,26 @@ const submitLimiter = rateLimit({
 app.use('/login', loginLimiter);
 app.use('/submit-lahan', submitLimiter);
 
+// API mobile (/api/v1, auth Bearer — tanpa cookie):
+// limiter longgar per IP (HP di NAT operator berbagi IP) + ketat khusus auth.
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 600,
+  message: { ok: false, message: 'Terlalu banyak permintaan API. Coba lagi nanti.' },
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+});
+const apiAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  skip: (req) => req.method !== 'POST',
+  message: { ok: false, message: 'Terlalu banyak percobaan login. Coba lagi 15 menit.' },
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+});
+app.use('/api/v1/auth/login', apiAuthLimiter);
+app.use('/api/v1/auth/refresh', apiAuthLimiter);
+
 // Cek kesehatan untuk monitor/uptime (tanpa auth)
 app.get('/healthz', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
 
@@ -253,6 +273,20 @@ app.use((req, res, next) => {
 
 app.use('/', publicRoutes);
 app.use('/', authRoutes);
+
+// API JSON v1 untuk aplikasi mobile: CORS terbuka (*) karena auth memakai
+// header Authorization (tanpa cookie), preflight dijawab langsung.
+// WAJIB di-mount SEBELUM router bercakupan isAuth blanket (notif/admin/
+// marketing) agar request tanpa sesi mendapat 401 JSON, bukan redirect /login.
+app.use('/api/v1', (req, res, next) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.set('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+app.use('/api/v1', apiLimiter, require('./routes/apiV1Routes'));
+
 app.use('/', require('./routes/notifRoutes'));
 app.use('/admin', adminRoutes);
 app.use('/marketing', marketingRoutes);

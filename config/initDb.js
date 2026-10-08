@@ -104,6 +104,32 @@ async function main() {
     throw err;
   }
 
+  // API mobile: refresh token (hash) + token push FCM per perangkat.
+  await conn.query(
+    `CREATE TABLE IF NOT EXISTS api_tokens (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      token_hash CHAR(64) NOT NULL,
+      device_name VARCHAR(100) NULL,
+      expires_at DATETIME NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_hash (token_hash),
+      KEY user_id (user_id, expires_at)
+    ) ENGINE=InnoDB`
+  );
+  console.log('Tabel api_tokens siap.');
+  await conn.query(
+    `CREATE TABLE IF NOT EXISTS device_tokens (
+      user_id INT NOT NULL,
+      platform ENUM('android','ios') NOT NULL DEFAULT 'android',
+      token VARCHAR(255) NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (user_id, token(191)),
+      KEY user_id (user_id)
+    ) ENGINE=InnoDB`
+  );
+  console.log('Tabel device_tokens siap.');
+
   try {
     await conn.query(`ALTER TABLE users ADD COLUMN whatsapp VARCHAR(20) NULL AFTER email`);
     console.log('Kolom users.whatsapp ditambahkan.');
