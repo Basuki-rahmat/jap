@@ -83,6 +83,16 @@ const apiAuthLimiter = rateLimit({
 });
 app.use('/api/v1/auth/login', apiAuthLimiter);
 app.use('/api/v1/auth/refresh', apiAuthLimiter);
+// Pengajuan lahan via API dibatasi seperti form web (anti spam).
+const apiSubmitLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 30,
+  skip: (req) => req.method !== 'POST',
+  message: { ok: false, message: 'Terlalu banyak pengajuan. Coba lagi nanti.' },
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+});
+app.use('/api/v1/lahan', apiSubmitLimiter);
 
 // Cek kesehatan untuk monitor/uptime (tanpa auth)
 app.get('/healthz', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
@@ -171,7 +181,26 @@ app.use('/uploads', async (req, res, next) => {
       const pub = await dbQuery('SELECT id FROM users WHERE photo_file = ? LIMIT 1', [file]);
       if (pub.length) return next();
     } catch (e) {}
-    const user = req.session.user;
+    // Mobile (React Native): berkas dibuka dengan ?token=<access_jwt> atau
+    // header Authorization: Bearer — tanpa cookie sesi.
+    let user = req.session.user;
+    if (!user) {
+      try {
+        const q = String((req.query && req.query.token) || '').replace(/^Bearer\s+/i, '');
+        const h = String(req.get('authorization') || req.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+        const { verifyAccess } = require('./utils/apiAuth');
+        const payload = verifyAccess(q || h);
+        if (payload) {
+          const rows = await dbQuery(
+            'SELECT id, role, is_head, is_locked FROM users WHERE id = ? LIMIT 1',
+            [Number(payload.uid)]
+          );
+          if (rows.length && Number(rows[0].is_locked) !== 1) {
+            user = { id: Number(rows[0].id), role: rows[0].role, is_head: Number(rows[0].is_head || 0) };
+          }
+        }
+      } catch (e) {}
+    }
     if (!user) return res.status(401).send('Login dahulu untuk membuka berkas.');
     if (user.role === 'superadmin') return next();
     const cond = FILE_COLS.map((c) => `${c} = ?`).join(' OR ');

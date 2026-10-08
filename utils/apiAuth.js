@@ -24,6 +24,19 @@ function newRefreshToken() {
   return crypto.randomBytes(48).toString('hex');
 }
 
+// Verifikasi access JWT di luar middleware (mis. akses berkas /uploads via ?token=).
+// Return payload { uid, role } atau null bila tidak valid.
+function verifyAccess(token) {
+  try {
+    const p = jwt.verify(String(token || '').trim(), jwtSecret());
+    const uid = Number(p && p.uid);
+    if (!Number.isInteger(uid) || uid <= 0) return null;
+    return { uid, role: p.role };
+  } catch (e) {
+    return null;
+  }
+}
+
 function hashToken(token) {
   return crypto.createHash('sha256').update(String(token)).digest('hex');
 }
@@ -138,6 +151,7 @@ module.exports = {
   ACCESS_TTL_SEC,
   REFRESH_TTL_DAYS,
   signAccess,
+  verifyAccess,
   storeRefreshToken,
   rotateRefreshToken,
   revokeRefreshToken,
