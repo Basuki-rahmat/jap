@@ -285,12 +285,24 @@ function docImageAbs(webPath) {
 
 // Ukur & saring lampiran: hanya file yang benar-benar ada dan terbaca.
 // File yang tidak ada dilewati diam-diam (tanpa halaman/placeholder).
-function measureDocs(doc, items) {
+// KTP di-crop paksa ke rasio 9:6 landscape (ukuran cetak 9cm x 6cm) agar
+// seragam seperti kartu identitas.
+async function measureDocs(doc, items) {
   const W = doc.page.width - doc.page.margins.left - doc.page.margins.right;
   const out = [];
-  items.forEach(({ title, webPath, docType }) => {
+  for (const { title, webPath, docType } of items) {
     const abs = docImageAbs(webPath);
-    if (!abs) return;
+    if (!abs) continue;
+    // KTP: crop cover ke 3:2 landscape + ukuran tetap 255x170pt (9cm x 6cm).
+    if (docType === 'ktp') {
+      try {
+        const sharp = require('sharp');
+        const buf = await sharp(abs).rotate().resize(900, 600, { fit: 'cover', position: 'centre' }).jpeg({ quality: 88 }).toBuffer();
+        const img = doc.openImage(buf);
+        out.push({ title, img, dw: 255, dh: 170 });
+        continue;
+      } catch (e) { /* jatuh ke jalur normal di bawah */ }
+    }
     try {
       const img = doc.openImage(abs);
       const lim = { ktp: [350, 220], legal: [W - 24, 480], photo: [W - 24, 350] }[docType] || [W - 24, 350];
@@ -302,7 +314,7 @@ function measureDocs(doc, items) {
         dh: Math.max(1, Math.round(img.height * sc)),
       });
     } catch (e) { /* rusak / tak terbaca: lewati */ }
-  });
+  }
   return out;
 }
 
@@ -491,12 +503,15 @@ function generateProposalPdf(land, marketingName, feeMarketing, slot, brandShort
         doc.fillColor(GREEN_DARK).font('Helvetica-Bold').fontSize(11)
           .text(`Detail Calon Penyedia — ${L.owner_name || '-'}`, dataX, ry, { width: dataW });
         ry = doc.y + 6;
-        const slotTxt = slot ? `Slot ${slot.typeCode}-${slot.typeSeq} dari ${slot.typeTotal}` + (slot.total > 1 ? ` (Unit ke-${slot.seq} dari ${slot.total})` : '') : null;
+        // Format jumlah per tipe: "BSS = 2 Slot" (total slot tipe itu milik penyedia ini).
+        const slotCode = slot ? slot.typeCode : (isEvcs ? 'EVCS' : 'BSS');
+        const slotTotal = slot && slot.typeTotal ? slot.typeTotal : 1;
         const rows = [
           ['Nama Pemilik', L.owner_name],
+          ['Nama Toko', L.shop_name],
           ['NIK', L.nik],
           ['No. HP / WA', L.phone_number],
-          ...(slotTxt ? [['Slot Unit', slotTxt]] : []),
+          ['Slot Unit', `${slotCode} = ${slotTotal} Slot`],
           ['Bank / No. Rek', L.bank_name ? `${L.bank_name}${L.account_number ? ' • ' + L.account_number : ''}` : null],
           ['Alamat Pemilik', L.address],
           ['Alamat Lokasi', L.location_address || L.address],
@@ -525,7 +540,7 @@ function generateProposalPdf(land, marketingName, feeMarketing, slot, brandShort
 
       // ===== Lampiran dokumen: seksi hanya dibuat bila minimal satu file tersedia =====
       const lamp = unitLampiran(L, prop.attachments, 1);
-      const lampiran = measureDocs(doc, lamp.items);
+      const lampiran = await measureDocs(doc, lamp.items);
       if (lampiran.length) {
         sectionTitle(doc, 'Lampiran Dokumen');
         lampiran.forEach((d) => renderDocCard(doc, d));
@@ -549,7 +564,11 @@ async function renderOwnerUnit(doc, L, slot, marketingName, prop, lampNo) {
   const slotTxt = slot ? `Slot ${slot.typeCode}-${slot.typeSeq}` : '-';
   sectionTitle(doc, `${unitLabel} — ${slotTxt}`);
   needSpace(doc, 120);
+  const slotCode = slot ? slot.typeCode : (isEvcs ? 'EVCS' : 'BSS');
+  const slotTotal = slot && slot.typeTotal ? slot.typeTotal : 1;
   const rows = [
+    ['Nama Toko', L.shop_name],
+    ['Slot Unit', `${slotCode} = ${slotTotal} Slot`],
     ['Marketing', `${marketingName || '-'}${L.referral_code ? ` (${L.referral_code})` : ''}`],
     ['Alamat Lokasi', L.location_address || L.address],
     ['Jenis Lokasi', L.location_type],
@@ -586,7 +605,7 @@ async function renderOwnerUnit(doc, L, slot, marketingName, prop, lampNo) {
   doc.fillColor(INK);
   // Lampiran unit ini (penomoran berlanjut antar unit)
   const lamp = unitLampiran(L, prop.attachments, lampNo);
-  const docs = measureDocs(doc, lamp.items);
+  const docs = await measureDocs(doc, lamp.items);
   if (docs.length) {
     sectionTitle(doc, 'Lampiran');
     docs.forEach((d) => renderDocCard(doc, d));

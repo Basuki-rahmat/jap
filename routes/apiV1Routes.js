@@ -231,6 +231,7 @@ router.get('/marketing/jaringan', ...isMarketing,
   webHandler(marketingController.network, (d) => ({
     me: d.me,
     tree: d.tree,
+    superiors: d.superiors || [],
     direct_count: d.directCount,
     total_count: d.totalCount,
     max_level: d.maxLevel,

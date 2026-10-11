@@ -37,7 +37,7 @@ module.exports = upload.fields([
   { name: 'photo_left_file', maxCount: 1 },
   { name: 'photo_selfie_file', maxCount: 1 },
   { name: 'photo_maps_file', maxCount: 1 },
-  { name: 'legal_doc_file', maxCount: 1 },
+  { name: 'legal_doc_file', maxCount: 5 },
   { name: 'family_doc_file', maxCount: 1 },
   { name: 'sewa_doc_file', maxCount: 1 },
   { name: 'support_doc_file', maxCount: 1 },

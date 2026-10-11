@@ -60,7 +60,8 @@ async function submitLahan({ body, files, sessionReferralCode }) {
   const accountNumber2 = normRek(body.account_number);
   const nik2 = normNik(body.nik);
   const areaSize2 = normArea(area_size);
-  // Multi-unit: BSS dan/atau EVCS sekaligus — tiap jenis wajib punya slot 1-4 sendiri.
+  // Multi-unit: BSS dan/atau EVCS sekaligus.
+  // BSS wajib slot grid 1-3; EVCS wajib grid 1-4 ATAU manual 1-10 (manual menang).
   // Legalitas otomatis per unit (BSS→PBB, EVCS→SHM).
   const unitList = [...new Set(
     [].concat(body.unit_type || []).map((u) => String(u)).filter((u) => u === 'bss_motor' || u === 'evcs_mobil')
@@ -68,12 +69,24 @@ async function submitLahan({ body, files, sessionReferralCode }) {
   if (!unitList.length) fail('Pilih minimal satu jenis unit: BSS, EVCS, atau keduanya.');
   const slotFor = {};
   for (const u of unitList) {
-    const key = u === 'evcs_mobil' ? 'slot_evcs' : 'slot_bss';
-    const v = String((body && body[key]) || '').trim();
-    if (!/^[1-4]$/.test(v)) {
-      fail(`Pilih Slot 1–4 untuk ${u === 'evcs_mobil' ? 'EVCS' : 'BSS'}.`);
+    if (u === 'evcs_mobil') {
+      const manual = String((body && body.slot_evcs_manual) || '').replace(/\D/g, '').slice(0, 2);
+      if (/^(10|[1-9])$/.test(manual)) {
+        slotFor[u] = Number(manual);
+        continue;
+      }
+      const g = String((body && body.slot_evcs) || '').trim();
+      if (!/^[1-4]$/.test(g)) {
+        fail('Pilih Slot EVCS (grid 1–4) atau isi manual 1–10.');
+      }
+      slotFor[u] = Number(g);
+    } else {
+      const v = String((body && body.slot_bss) || '').trim();
+      if (!/^[1-3]$/.test(v)) {
+        fail('Pilih Slot BSS 1–3.');
+      }
+      slotFor[u] = Number(v);
     }
-    slotFor[u] = Number(v);
   }
   const hargaBssRaw = String((body && body.harga_sewa_bss) || '').trim();
   const hargaEvcsRaw = String((body && body.harga_sewa_evcs) || '').trim();
@@ -87,9 +100,10 @@ async function submitLahan({ body, files, sessionReferralCode }) {
 
   const fileBag = files || {};
   // Semua foto wajib kecuali dokumen pendukung (opsional).
+  // Surat sewa tidak lagi diminta di form — kolom DB dipertahankan (opsional).
   const requiredFiles = ['ktp_file', 'photo_1_file', 'photo_3_file',
     'photo_spot_file', 'photo_right_file', 'photo_left_file', 'photo_selfie_file', 'photo_maps_file',
-    'legal_doc_file', 'family_doc_file', 'sewa_doc_file'];
+    'legal_doc_file', 'family_doc_file'];
   const missingFile = requiredFiles.find((f) => !fileBag[f] || !fileBag[f][0]);
   if (missingFile) {
     fail('Semua berkas wajib diunggah.');
@@ -99,6 +113,23 @@ async function submitLahan({ body, files, sessionReferralCode }) {
     const { compressUploads } = require('./imageCompress');
     await compressUploads(Object.values(fileBag).flat().filter(Boolean), { maxDim: 1600 });
   } catch (e) {}
+
+  // Legalitas multi-halaman (maks 5 gambar) → tumpuk jadi 1 gambar berurutan.
+  // Kolom DB tetap 1 path; 1 berkas (gambar/PDF) disimpan apa adanya.
+  if (fileBag.legal_doc_file && fileBag.legal_doc_file.length > 1) {
+    try {
+      const { mergeLegalPages } = require('./legalMerge');
+      const merged = await mergeLegalPages(fileBag.legal_doc_file);
+      if (merged) {
+        fileBag.legal_doc_file = [{ filename: merged.filename, path: merged.absPath, mimetype: 'image/jpeg' }];
+      }
+    } catch (e) {
+      (fileBag.legal_doc_file || []).forEach((f) => {
+        if (f && f.path) { try { require('fs').unlink(f.path, () => {}); } catch (_) {} }
+      });
+      fail(e.message || 'Gagal menggabung dokumen legalitas.');
+    }
+  }
 
   const rel = (f) => (f && f[0] ? `/uploads/${f[0].filename}` : null);
   const cols = {

@@ -28,6 +28,7 @@ const uploadCompany = multer({
 });
 
 router.get('/', adminController.dashboard);
+router.get('/struktur', adminController.struktur);
 router.get('/marketing', adminController.marketing);
 router.post('/marketing', adminController.createMarketing);
 router.post('/marketing/update', adminController.updateMarketing);

@@ -290,73 +290,126 @@ router.get('/panduan', (req, res) => {
 });
 
 // ---- Struktur tim / flowchart organisasi (live dari database) ----
-// KNAB → Koordinator → Head Marketing → Marketing → Penyedia Lahan.
+// KNAB → Koordinator → Head Marketing → Marketing.
+// HALAMAN DEPAN SENGAJA RINGKAS: tanpa foto, tanpa simpul penyedia.
+// Versi lengkap semua level hanya ada di /admin/struktur (wajib login admin).
+//
+// Tampilan diatur per peran yang login:
+// - superadmin / Koordinator : SELURUH tim (default), bisa ?lihat=jaringan
+// - Head / Marketing         : JARINGAN SENDIRI saja (diri sebagai puncak),
+//                              bisa ?lihat=semua untuk melihat seluruh tim.
 router.get('/struktur', async (req, res) => {
   try {
-    const users = await query(
-      `SELECT id, name, referral_code, parent_id, is_head, is_coordinator, photo_file
-       FROM users WHERE role = 'marketing' AND (is_locked = 0 OR is_locked IS NULL)
-       ORDER BY id ASC`
-    );
-    const lands = await query(
-      'SELECT marketing_id, owner_name, phone_number, unit_type, slot_no FROM lands ORDER BY id ASC'
-    );
-    const byParent = {};
-    users.forEach((u) => {
-      const p = u.parent_id ? Number(u.parent_id) : 0;
-      if (!byParent[p]) byParent[p] = [];
-      byParent[p].push(u);
-    });
-    // Urutan tampil: koordinator → head → marketing.
-    Object.values(byParent).forEach((arr) => arr.sort((a, b) => (
-      Number(b.is_coordinator || 0) - Number(a.is_coordinator || 0)
-      || Number(b.is_head || 0) - Number(a.is_head || 0)
-      || Number(a.id) - Number(b.id)
-    )));
-    const landsByMkt = {};
-    lands.forEach((l) => {
-      if (!l.marketing_id) return;
-      if (!landsByMkt[l.marketing_id]) landsByMkt[l.marketing_id] = [];
-      landsByMkt[l.marketing_id].push(l);
-    });
-    const roleOf = (u) => (Number(u.is_coordinator) === 1 ? 'KOORDINATOR'
-      : (Number(u.is_head) === 1 ? 'HEAD' : 'MARKETING'));
-    const initials = (n) => String(n || '?').trim().split(/\s+/)
-      .map((w) => w[0]).slice(0, 2).join('').toUpperCase();
-    function ownerNodes(units) {
-      const map = {};
-      (units || []).forEach((l) => {
-        const k = String(l.phone_number || l.owner_name);
-        if (!map[k]) map[k] = { name: l.owner_name || '-', phone: l.phone_number || '', bss: 0, evcs: 0 };
-        if (l.unit_type === 'evcs_mobil') map[k].evcs += 1;
-        else map[k].bss += 1;
-      });
-      return Object.values(map);
+    // Menu + halaman ini khusus yang sudah login.
+    if (!req.session.user) return res.redirect('/login');
+    const { buildOrgTree, roleOf } = require('../utils/orgTree');
+    const { tree: fullTree, counts: fullCounts } = await buildOrgTree({ includeOwners: false, includeLocked: false, photoMap: null });
+
+    const su = req.session.user;
+    const myId = Number(su && su.id) || 0;
+    const isSuper = su && su.role === 'superadmin';
+    const isCoord = !isSuper && Number(su.is_coordinator) === 1;
+    const isHead = !isSuper && !isCoord && Number(su.is_head) === 1;
+    const roleLabel = isSuper ? 'SUPERADMIN' : (isCoord ? 'KOORDINATOR' : (isHead ? 'HEAD' : 'MARKETING'));
+
+    // Cari simpul milik sendiri di pohon penuh (DFS, anti-siklus, maks 6 level ikut builder).
+    const findSelf = (roots, id) => {
+      const seen = new Set();
+      const stack = [...(roots || [])];
+      while (stack.length) {
+        const n = stack.pop();
+        if (!n || seen.has(Number(n.id))) continue;
+        seen.add(Number(n.id));
+        if (Number(n.id) === Number(id)) return n;
+        (n.children || []).forEach((c) => stack.push(c));
+      }
+      return null;
+    };
+
+    // Hitung ringkas untuk subtree personal.
+    const countSub = (root) => {
+      let coords = 0, heads = 0, marketing = 0, units = 0;
+      const seen = new Set();
+      const stack = root ? [root] : [];
+      while (stack.length) {
+        const n = stack.pop();
+        if (!n || seen.has(Number(n.id))) continue;
+        seen.add(Number(n.id));
+        if (n.role === 'KOORDINATOR') coords += 1;
+        else if (n.role === 'HEAD') heads += 1;
+        else marketing += 1;
+        units += Number(n.units || 0);
+        (n.children || []).forEach((c) => stack.push(c));
+      }
+      // Akar personal tidak dihitung sebagai bawahan: kurangi 1 sesuai perannya
+      return { coords, heads, marketing, units, owners: fullCounts.owners, members: seen.size };
+    };
+
+    // Rantai atasan untuk mode personal (nama + peran saja, tanpa foto).
+    const buildSuperiors = async () => {
+      try {
+        const rows = await query(
+          `SELECT id, name, parent_id, is_head, is_coordinator FROM users WHERE role = 'marketing' ORDER BY id ASC`
+        );
+        const byId = {};
+        rows.forEach((r) => { byId[Number(r.id)] = r; });
+        const meRow = byId[myId];
+        const chain = [];
+        const seenUp = new Set([myId]);
+        let pid = meRow && meRow.parent_id ? Number(meRow.parent_id) : 0;
+        let guard = 0;
+        while (pid && guard < 20) {
+          guard += 1;
+          if (seenUp.has(pid)) break;
+          seenUp.add(pid);
+          const u = byId[pid];
+          if (!u) break;
+          chain.unshift({ id: Number(u.id), name: u.name, role: roleOf(u) });
+          pid = u.parent_id ? Number(u.parent_id) : 0;
+        }
+        return chain;
+      } catch (e) { return []; }
+    };
+
+    const lihat = String(req.query.lihat || '').toLowerCase();
+    // Default: koordinator/superadmin = semua, head/marketing = jaringan sendiri.
+    const defaultScope = (isSuper || isCoord) ? 'full' : 'personal';
+    let scope = defaultScope;
+    if (lihat === 'semua' || lihat === 'full') scope = 'full';
+    else if (lihat === 'jaringan' || lihat === 'saya' || lihat === 'personal') scope = 'personal';
+
+    let tree = fullTree;
+    let counts = { coords: fullCounts.coords, heads: fullCounts.heads, marketing: fullCounts.marketing, units: fullCounts.units, owners: fullCounts.owners };
+    let superiors = [];
+    let selfFound = true;
+    let personalMembers = 0;
+
+    if (scope === 'personal' && !isSuper) {
+      const selfNode = findSelf(fullTree, myId);
+      if (selfNode) {
+        tree = [selfNode];
+        const c = countSub(selfNode);
+        personalMembers = c.members;
+        counts = { coords: c.coords, heads: c.heads, marketing: c.marketing, units: c.units, owners: fullCounts.owners };
+        superiors = await buildSuperiors();
+      } else {
+        // Akun tak ada di pohon (mis. terkunci / belum punya induk): tampilkan
+        // seluruh tim agar halaman tidak kosong, beri penanda.
+        selfFound = false;
+        scope = 'full';
+      }
     }
-    function build(u, depth, seen) {
-      if (depth > 6 || seen.has(u.id)) return null;
-      seen.add(u.id);
-      const units = landsByMkt[u.id] || [];
-      return {
-        id: u.id, name: u.name, role: roleOf(u), photo: u.photo_file || null,
-        initials: initials(u.name), referral: u.referral_code || '-',
-        units: units.length,
-        children: (byParent[u.id] || []).map((c) => build(c, depth + 1, seen)).filter(Boolean),
-        owners: ownerNodes(units),
-      };
-    }
-    const ids = new Set(users.map((u) => Number(u.id)));
-    const roots = users
-      .filter((u) => !u.parent_id || !ids.has(Number(u.parent_id)))
-      .map((u) => build(u, 0, new Set()))
-      .filter(Boolean);
-    const totalUnits = lands.length;
-    const totalOwners = new Set(lands.map((l) => String(l.phone_number || l.owner_name))).size;
+
     res.render('public/struktur', {
-      title: 'Struktur Tim - BSS', tree: roots,
-      counts: { coords: users.filter((u) => Number(u.is_coordinator) === 1).length,
-        heads: users.filter((u) => Number(u.is_head) === 1).length,
-        marketing: users.length, units: totalUnits, owners: totalOwners },
+      title: 'Struktur Tim - BSS', tree,
+      counts,
+      scope,
+      roleLabel,
+      currentUserId: myId,
+      superiors,
+      selfFound,
+      personalMembers,
+      canSeeAll: true,
     });
   } catch (err) {
     console.error('Struktur error:', err);
@@ -445,12 +498,52 @@ router.get('/lacak', async (req, res) => {
       const slotMap = buildSlotMap(lands.map((r) => ({ id: r.id, phone_number: r.phone_number, unit_type: r.unit_type, slot_no: r.slot_no })));
       lands.forEach((l) => { l.slot = slotMap[l.id] || null; });
     } catch (e) { lands.forEach((l) => { l.slot = null; }); }
+    // URL unduh SPPL bertanda-tangan (pengganti path /uploads/* yang diblokir).
+    try {
+      const { signSppl } = require('../utils/spplToken');
+      lands.forEach((l) => {
+        l.sppl_url = l.sppl_file ? ('/sppl-unduh/' + Number(l.id) + '?sig=' + signSppl(l.id, l.phone_number)) : null;
+      });
+    } catch (e) { lands.forEach((l) => { l.sppl_url = null; }); }
     res.render('public/lacak', { title: 'Lacak Pengajuan - BSS', searched: true, phone: rawPhone, lands });
   } catch (err) {
     console.error('Lacak error:', err);
     res.status(500).render('public/lacak', {
       title: 'Lacak Pengajuan - BSS', searched: true, phone: rawPhone, lands: [], error: 'Gagal mencari. Coba lagi.',
     });
+  }
+});
+
+// Unduh SPPL publik via URL bertanda-tangan (tanpa login).
+// Link dibuat di handler /lacak: /sppl-unduh/<id>?sig=<hmac(id|phone)>.
+// Gagal (id/sig salah, SPPL kosong, file hilang) selalu 404 agar tidak bocor.
+router.get('/sppl-unduh/:id', async (req, res) => {
+  const fail = () => {
+    res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
+    res.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+    res.set('X-Content-Type-Options', 'nosniff');
+    return res.status(404).send('Tidak ditemukan.');
+  };
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return fail();
+    const rows = await query('SELECT id, phone_number, sppl_file FROM lands WHERE id = ? LIMIT 1', [id]);
+    if (!rows.length || !rows[0].sppl_file) return fail();
+    const { verifySppl } = require('../utils/spplToken');
+    if (!verifySppl(id, rows[0].phone_number, req.query.sig)) return fail();
+    const m = String(rows[0].sppl_file).match(/^\/uploads\/([A-Za-z0-9][A-Za-z0-9._-]*\.(jpg|jpeg|png|webp|pdf))$/i);
+    if (!m) return fail();
+    const abs = path.join(__dirname, '..', 'public', 'uploads', m[1]);
+    if (path.dirname(abs) !== path.join(__dirname, '..', 'public', 'uploads')) return fail();
+    fs.stat(abs, (err, st) => {
+      if (err || !st || !st.isFile()) return fail();
+      res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
+      res.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+      res.set('X-Content-Type-Options', 'nosniff');
+      return res.download(abs, 'SPPL-' + id + path.extname(abs).toLowerCase());
+    });
+  } catch (e) {
+    return fail();
   }
 });
 
@@ -555,14 +648,16 @@ router.post('/perbaiki/:token', (req, res, next) => {
         error: ownerErr, withMap: true,
       });
     }
-    // Slot manual 1-4 (fallback ke nilai lama bila tidak dikirim)
+    // Slot mengikuti jenis unit (BSS 1-3, EVCS 1-10; fallback ke nilai lama bila tidak dikirim)
+    const isEvcsFix = String((req.body && req.body.unit_type) || (land && land.unit_type) || '') === 'evcs_mobil';
+    const slotPat = isEvcsFix ? /^(10|[1-9])$/ : /^[1-3]$/;
     const slotRaw = String((req.body && req.body.slot_no) || '').trim();
-    const slotVal = /^[1-4]$/.test(slotRaw) ? Number(slotRaw)
-      : (/^[1-4]$/.test(String(land.slot_no || '')) ? Number(land.slot_no) : null);
+    const slotVal = slotPat.test(slotRaw) ? Number(slotRaw)
+      : (slotPat.test(String(land.slot_no || '')) ? Number(land.slot_no) : null);
     if (!slotVal) {
       return res.status(400).render('public/perbaiki', {
         title: 'Perbaiki Pengajuan - BSS', land, expired: false, fixed: false,
-        error: 'Pilih Slot 1–4 sesuai jenis unit.', withMap: true,
+        error: isEvcsFix ? 'Pilih Slot EVCS 1–10.' : 'Pilih Slot BSS 1–3.', withMap: true,
       });
     }
     const bankName = resolveBankName(req.body);
@@ -602,6 +697,25 @@ router.post('/perbaiki/:token', (req, res, next) => {
       const { compressUploads } = require('../utils/imageCompress');
       await compressUploads(Object.values(files).flat().filter(Boolean), { maxDim: 1600 });
     } catch (e) {}
+    // Legalitas multi-halaman (maks 5 gambar) → tumpuk jadi 1 gambar berurutan.
+    // 1 berkas (gambar/PDF) disimpan apa adanya.
+    if (files.legal_doc_file && files.legal_doc_file.length > 1) {
+      try {
+        const { mergeLegalPages } = require('../utils/legalMerge');
+        const merged = await mergeLegalPages(files.legal_doc_file);
+        if (merged) files.legal_doc_file = [{ filename: merged.filename, path: merged.absPath, mimetype: 'image/jpeg' }];
+      } catch (e) {
+        Object.keys(files).forEach((k) => {
+          (files[k] || []).forEach((f) => {
+            if (f && f.filename) fs.unlink(path.join(__dirname, '..', 'public', 'uploads', f.filename), () => {});
+          });
+        });
+        return res.status(400).render('public/perbaiki', {
+          title: 'Perbaiki Pengajuan - BSS', land, expired: false, fixed: false,
+          error: e.message || 'Gagal menggabung dokumen legalitas.', withMap: true,
+        });
+      }
+    }
     const cols = ['ktp_file', 'photo_1_file', 'photo_2_file', 'photo_3_file',
       'photo_spot_file', 'photo_right_file', 'photo_left_file', 'photo_selfie_file', 'photo_maps_file',
       'legal_doc_file', 'family_doc_file', 'sewa_doc_file', 'support_doc_file'];
@@ -618,7 +732,7 @@ router.post('/perbaiki/:token', (req, res, next) => {
       }
     });
     // Berkas baru wajib terisi (data lama belum punya kolom ini); pendukung tetap opsional.
-    const needLabels = { photo_spot_file: 'Foto Penempatan 3/4m', photo_right_file: 'Foto Sudut Kanan', photo_left_file: 'Foto Sudut Kiri', photo_selfie_file: 'Foto Selfie Pemilik', photo_maps_file: 'Screenshot Koordinat', sewa_doc_file: 'Surat Sewa' };
+    const needLabels = { photo_spot_file: 'Foto Penempatan 3/4m', photo_right_file: 'Foto Sudut Kanan', photo_left_file: 'Foto Sudut Kiri', photo_selfie_file: 'Foto Selfie Pemilik', photo_maps_file: 'Screenshot Koordinat' };
     const missingNew = Object.keys(needLabels).find((c) => !vals[c]);
     if (missingNew) {
       // Hapus upload baru yang terlanjur masuk agar tak yatim

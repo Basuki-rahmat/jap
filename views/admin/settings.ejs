@@ -4,6 +4,11 @@
 <style>
   .logo-preview { display: flex; align-items: center; gap: 14px; background: var(--bg-soft); border: 1px solid var(--card-border); border-radius: 12px; padding: 12px 14px; }
   .logo-preview img { width: 72px; height: 72px; object-fit: contain; background: #fff; border-radius: 10px; border: 1px solid var(--card-border); }
+  .set-tabs { display: flex; gap: 8px; margin: 0 auto 14px; max-width: 860px; }
+  .set-tab { flex: 1; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--card-border); background: var(--card); color: var(--text); font-weight: 800; font-size: .85rem; cursor: pointer; }
+  .set-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .set-pane { display: none; }
+  .set-pane.active { display: block; }
 </style>
 
 <main>
@@ -11,8 +16,8 @@
     <div class="container">
       <div class="section-head">
         <span class="eyebrow">Pengaturan</span>
-        <h2>Profil Perusahaan</h2>
-        
+        <h2>Pengaturan</h2>
+
       </div>
 
       <% if (flash && flash.message) { %>
@@ -20,52 +25,59 @@
       <% } %>
 
       <% var c = typeof company !== 'undefined' ? company : {}; %>
-      <div class="card" style="max-width:640px;margin-inline:auto;">
-        <form action="/admin/settings" method="POST" enctype="multipart/form-data">
+      <% var initTab = (typeof activeTab !== 'undefined' && activeTab === 'fee') ? 'fee' : 'profil'; %>
+      <div class="set-tabs" role="tablist">
+        <button type="button" class="set-tab<%= initTab === 'profil' ? ' active' : '' %>" data-tab="profil" role="tab">🏢 Profil Perusahaan</button>
+        <button type="button" class="set-tab<%= initTab === 'fee' ? ' active' : '' %>" data-tab="fee" role="tab">💰 Fee per Lahan Approved</button>
+      </div>
+      <div class="card" style="max-width:860px;margin-inline:auto;">
+        <form id="settingsForm" action="/admin/settings" method="POST" enctype="multipart/form-data">
+          <input type="hidden" name="active_tab" id="active_tab" value="<%= initTab %>" />
+          <div class="set-pane<%= initTab === 'profil' ? ' active' : '' %>" id="pane-profil">
           <div class="form-divider" style="margin-top:0;">Perusahaan</div>
           <div class="form-group">
             <label for="company_name">Nama Perusahaan</label>
-            <input class="form-control" type="text" id="company_name" name="company_name" required maxlength="100" value="<%= c.company_name || '' %>" />
+            <input class="form-control" type="text" id="company_name" name="company_name" autocomplete="organization" required maxlength="100" value="<%= c.company_name || '' %>" />
           </div>
           <div class="grid-2-form">
             <div class="form-group">
               <label for="company_email">Alamat Email</label>
-              <input class="form-control" type="email" id="company_email" name="company_email" maxlength="100" placeholder="nama@perusahaan.id" value="<%= c.company_email || '' %>" />
+              <input class="form-control" type="email" id="company_email" name="company_email" autocomplete="email" maxlength="100" placeholder="nama@perusahaan.id" value="<%= c.company_email || '' %>" />
             </div>
             <div class="form-group">
               <label for="company_phone">Nomor Handphone</label>
               <div class="input-group">
                 <span class="input-group-addon">+62</span>
-                <input class="form-control" type="tel" id="company_phone" name="company_phone" maxlength="30" placeholder="8xx xxxx xxxx" value="<%= String(c.company_phone || '').replace(/^\+?62/, '').trim() %>" />
+                <input class="form-control" type="tel" id="company_phone" name="company_phone" autocomplete="tel" maxlength="30" placeholder="8xx xxxx xxxx" value="<%= String(c.company_phone || '').replace(/^\+?62/, '').trim() %>" />
               </div>
             </div>
           </div>
           <div class="form-group">
             <label for="company_address1">Alamat 1</label>
-            <input class="form-control" type="text" id="company_address1" name="company_address1" maxlength="255" value="<%= c.company_address1 || '' %>" />
+            <input class="form-control" type="text" id="company_address1" name="company_address1" autocomplete="street-address" maxlength="255" value="<%= c.company_address1 || '' %>" />
           </div>
           <div class="form-group">
             <label for="company_address2">Alamat 2</label>
-            <input class="form-control" type="text" id="company_address2" name="company_address2" maxlength="255" value="<%= c.company_address2 || '' %>" />
+            <input class="form-control" type="text" id="company_address2" name="company_address2" autocomplete="off" maxlength="255" value="<%= c.company_address2 || '' %>" />
           </div>
           <div class="grid-2-form">
             <div class="form-group">
               <label for="company_city">Kota</label>
-              <input class="form-control" type="text" id="company_city" name="company_city" maxlength="100" value="<%= c.company_city || '' %>" />
+              <input class="form-control" type="text" id="company_city" name="company_city" autocomplete="address-level2" maxlength="100" value="<%= c.company_city || '' %>" />
             </div>
             <div class="form-group">
               <label for="company_province">Propinsi</label>
-              <input class="form-control" type="text" id="company_province" name="company_province" maxlength="100" value="<%= c.company_province || '' %>" />
+              <input class="form-control" type="text" id="company_province" name="company_province" autocomplete="address-level1" maxlength="100" value="<%= c.company_province || '' %>" />
             </div>
           </div>
           <div class="grid-2-form">
             <div class="form-group">
               <label for="company_postal">Kode Pos</label>
-              <input class="form-control" type="text" id="company_postal" name="company_postal" maxlength="20" inputmode="numeric" value="<%= c.company_postal || '' %>" />
+              <input class="form-control" type="text" id="company_postal" name="company_postal" autocomplete="postal-code" maxlength="20" inputmode="numeric" value="<%= c.company_postal || '' %>" />
             </div>
             <div class="form-group">
               <label for="company_country">Negara</label>
-              <input class="form-control" type="text" id="company_country" name="company_country" maxlength="100" value="<%= c.company_country || '' %>" />
+              <input class="form-control" type="text" id="company_country" name="company_country" autocomplete="country-name" maxlength="100" value="<%= c.company_country || '' %>" />
             </div>
           </div>
 
@@ -91,11 +103,11 @@
           <div class="grid-2-form">
             <div class="form-group">
               <label for="signer_name">Nama penandatangan</label>
-              <input class="form-control" type="text" id="signer_name" name="signer_name" maxlength="100" placeholder="Contoh: Nama Direktur Utama" value="<%= c.signer_name || '' %>" />
+              <input class="form-control" type="text" id="signer_name" name="signer_name" autocomplete="name" maxlength="100" placeholder="Contoh: Nama Direktur Utama" value="<%= c.signer_name || '' %>" />
             </div>
             <div class="form-group">
               <label for="signer_title">Jabatan</label>
-              <input class="form-control" type="text" id="signer_title" name="signer_title" maxlength="100" placeholder="Contoh: Direktur Utama" value="<%= c.signer_title || '' %>" />
+              <input class="form-control" type="text" id="signer_title" name="signer_title" autocomplete="organization-title" maxlength="100" placeholder="Contoh: Direktur Utama" value="<%= c.signer_title || '' %>" />
             </div>
           </div>
           <div class="form-group">
@@ -146,13 +158,106 @@
               <textarea class="form-control" id="proposal_notes" name="proposal_notes" rows="3" maxlength="2000" placeholder="Contoh: Harga sewa & fee mengikuti hasil survei dan persetujuan pusat."><%= (typeof proposal !== 'undefined' && proposal) ? proposal.notes : '' %></textarea>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button type="submit" class="btn btn-primary">Simpan</button>
-            <a class="btn btn-outline" style="text-decoration:none;" href="/admin/lands">← Kembali ke Daftar Lahan</a>
-          </div>
+              <button type="submit" class="btn btn-primary">Simpan Profil</button>
+            </div>
+          </div><!-- /pane-profil -->
+          <div class="set-pane<%= initTab === 'fee' ? ' active' : '' %>" id="pane-fee">
+            <div class="form-divider" style="margin-top:0;">Fee per Lahan Approved (nilai KOTOR berantai)</div>
+            <% var fm = typeof feeMatrix !== 'undefined' && feeMatrix ? feeMatrix : null; %>
+            <% var fwil = typeof feeWilayah !== 'undefined' && feeWilayah ? feeWilayah : []; %>
+            <p class="form-hint">Koordinator terima nilai Koor → teruskan nilai Head → Head teruskan nilai Marketing. Hak bersih = selisihnya. Berlaku untuk approve berikutnya (tidak retroaktif). Syarat: Koor ≥ Head ≥ Marketing.</p>
+            <% ['bss','evcs'].forEach(function (t) { %>
+              <div class="form-group">
+                <label><%= t === 'bss' ? 'BSS (nilai kontrak 3jt/unit, max 3 unit/titik)' : 'EVCS (nilai kontrak 6jt/unit, max 10 unit/titik)' %></label>
+                <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+                  <thead><tr><th style="text-align:left;padding:6px;border-bottom:1px solid var(--card-border);">Wilayah (kota lahan)</th><th style="padding:6px;border-bottom:1px solid var(--card-border);">Koor terima</th><th style="padding:6px;border-bottom:1px solid var(--card-border);">Head terima</th><th style="padding:6px;border-bottom:1px solid var(--card-border);">Marketing terima</th><th style="padding:6px;border-bottom:1px solid var(--card-border);">Bersih</th></tr></thead>
+                  <tbody>
+                  <% fwil.forEach(function (w) { %>
+                    <% var cell = (fm && fm[t] && fm[t][w[0]]) ? fm[t][w[0]] : { koordinator: 0, head: 0, marketing: 0 }; %>
+                    <% var bk = Math.max(0, (cell.koordinator||0) - (cell.head||0)), bh = Math.max(0, (cell.head||0) - (cell.marketing||0)); %>
+                    <tr>
+                      <td style="padding:6px;border-bottom:1px solid var(--card-border);font-weight:700;"><%= w[1] %></td>
+                      <% ['koordinator','head','marketing'].forEach(function (r) { %>
+                      <td style="padding:4px;border-bottom:1px solid var(--card-border);"><input class="form-control fee-num" type="text" inputmode="numeric" autocomplete="off" name="fee_<%= t %>_<%= w[0] %>_<%= r %>" style="max-width:150px;text-align:right;" value="<%= Number(cell[r]||0).toLocaleString('id-ID') %>" /></td>
+                      <% }) %>
+                      <td style="padding:6px;border-bottom:1px solid var(--card-border);white-space:nowrap;"><%= Number(bk).toLocaleString('id-ID') %> / <%= Number(bh).toLocaleString('id-ID') %> / <%= Number(cell.marketing||0).toLocaleString('id-ID') %></td>
+                    </tr>
+                  <% }) %>
+                  </tbody>
+                </table>
+                </div>
+              </div>
+            <% }) %>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button type="submit" class="btn btn-primary">Simpan Fee</button>
+              <a class="btn btn-outline" style="text-decoration:none;" href="/admin/lands">← Kembali ke Daftar Lahan</a>
+            </div>
+          </div><!-- /pane-fee -->
         </form>
       </div>
     </div>
   </section>
 </main>
+
+<script>
+(function () {
+  // Format ribuan tanpa desimal: hanya digit 0-9, grup 3 digit pakai titik (900000 -> 900.000).
+  function fmtRibuan(s) {
+    var d = String(s == null ? '' : s).replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+    if (!d) return '';
+    return d.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+  document.querySelectorAll('.fee-num').forEach(function (el) {
+    el.addEventListener('input', function () {
+      var pos = el.selectionStart;
+      var beforeLen = el.value.length;
+      el.value = fmtRibuan(el.value);
+      // Jaga posisi kursor tetap wajar setelah pemformatan.
+      try {
+        var diff = el.value.length - beforeLen;
+        el.setSelectionRange(Math.max(0, pos + diff), Math.max(0, pos + diff));
+      } catch (e) {}
+    });
+    el.addEventListener('blur', function () {
+      if (el.value.trim() === '') el.value = '0';
+    });
+  });
+  // Saat submit: kirim digit polos tanpa titik agar server terima angka bulat pasti.
+  var form = document.getElementById('settingsForm');
+  if (form) {
+    form.addEventListener('submit', function () {
+      document.querySelectorAll('.fee-num').forEach(function (el) {
+        var d = String(el.value).replace(/\D/g, '');
+        el.value = d === '' ? '0' : String(parseInt(d, 10));
+      });
+    });
+  }
+  // Ganti tab Profil <-> Fee.
+  var tabs = document.querySelectorAll('.set-tab');
+  var panes = { profil: document.getElementById('pane-profil'), fee: document.getElementById('pane-fee') };
+  var hid = document.getElementById('active_tab');
+  function show(name, push) {
+    tabs.forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-tab') === name); });
+    Object.keys(panes).forEach(function (k) { if (panes[k]) panes[k].classList.toggle('active', k === name); });
+    if (hid) hid.value = name;
+    if (push !== false) {
+      try {
+        var u = new URL(window.location.href);
+        u.searchParams.set('tab', name);
+        window.history.replaceState(null, '', u.toString());
+      } catch (e) {}
+    }
+  }
+  tabs.forEach(function (b) {
+    b.addEventListener('click', function () { show(b.getAttribute('data-tab')); });
+  });
+  // Dukung link langsung /admin/settings?tab=fee
+  try {
+    var q = new URL(window.location.href).searchParams.get('tab');
+    if (q === 'fee' || q === 'profil') show(q, false);
+  } catch (e) {}
+})();
+</script>
 
 <%- include('../partials/foot') %>

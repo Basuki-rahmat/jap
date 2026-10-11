@@ -55,7 +55,7 @@
   .maps-links-row a { font-size: .72rem; font-weight: 800; text-transform: uppercase; }
   .link-alt { color: #ef4444; }
   .link-tutor { display: inline-flex; align-items: center; gap: 6px; background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 5px 10px; border-radius: 8px; text-decoration: none; }
-  /* Pilihan kartu radio: jenis unit BSS | EVCS + slot 1-4 */
+  /* Pilihan kartu radio: jenis unit BSS | EVCS + slot (BSS 1-3, EVCS 1-4 + manual 1-10) */
   .unit-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .unit-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px 8px; border: 2px solid var(--card-border); border-radius: 14px; cursor: pointer; text-align: center; transition: border-color .15s ease, background .15s ease, transform .1s ease; }
   .unit-card:active { transform: scale(.98); }
@@ -65,15 +65,24 @@
   .unit-card:has(input:checked) { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); box-shadow: var(--shadow); }
   .unit-card:has(input:checked) .unit-badge { color: var(--primary); }
   .unit-card:has(input:focus-visible) { outline: 2px solid var(--primary); outline-offset: 2px; }
+  /* Fallback browser lama tanpa :has()/color-mix() — kelas .checked di-toggle dari JS */
+  .unit-card.checked { border-color: var(--primary); background: var(--primary-soft); box-shadow: var(--shadow); }
+  .unit-card.checked .unit-badge { color: var(--primary); }
+  @supports (background: color-mix(in srgb, red, blue)) {
+    .unit-card.checked { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+  }
   .slot-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .slot-col { border: 1px solid var(--card-border); border-radius: 12px; padding: 8px; opacity: .55; transition: opacity .15s ease, border-color .15s ease; }
   .slot-col.active { opacity: 1; border-color: var(--primary); }
+  .slot-col[hidden], .harga-wrap[hidden] { display: none !important; }
   .slot-col-head { font-size: .72rem; font-weight: 800; letter-spacing: 1px; text-align: center; color: var(--text-muted); }
   .slot-col.active .slot-col-head { color: var(--primary); }
   .slot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
   .slot-card { position: relative; display: block; text-align: center; padding: 9px 4px; border: 1.5px solid var(--card-border); border-radius: 10px; font-size: .76rem; font-weight: 700; cursor: pointer; transition: background .12s ease, color .12s ease; }
   .slot-card input { position: absolute; opacity: 0; pointer-events: none; }
   .slot-card:has(input:checked) { background: var(--primary); border-color: var(--primary); color: #fff; }
+  /* Fallback browser lama tanpa :has() */
+  .slot-card.checked { background: var(--primary); border-color: var(--primary); color: #fff; }
   @media (max-width: 560px) {
     .wizard-steps li .ws-label { display: none; }
     .wizard-steps li { justify-content: center; }
@@ -125,12 +134,12 @@
           <div class="form-divider" style="margin-top:0;">Tahap 1 — Data Pemilik</div>
           <div class="form-group">
             <label for="owner_name">Nama Pemilik Lahan</label>
-            <input class="form-control" type="text" id="owner_name" name="owner_name" required placeholder="Nama lengkap pemilik" />
+            <input class="form-control" type="text" id="owner_name" name="owner_name" autocomplete="name" required placeholder="Nama lengkap pemilik" />
           </div>
           <div class="grid-2-form">
             <div class="form-group">
               <label for="nik">No. NIK (16 digit sesuai KTP)</label>
-              <input class="form-control numeric-only" type="text" id="nik" name="nik" required inputmode="numeric" maxlength="16" pattern="[0-9]{16}" placeholder="Contoh: 3174xxxxxxxxxxxx" />
+              <input class="form-control numeric-only" type="text" id="nik" name="nik" autocomplete="off" required inputmode="numeric" maxlength="16" pattern="[0-9]{16}" placeholder="Contoh: 3174xxxxxxxxxxxx" />
             </div>
             <div class="form-group">
               <label for="ttl">Tempat, Tanggal Lahir</label>
@@ -141,7 +150,7 @@
             <label for="phone_number">No. WhatsApp / Telepon</label>
             <div class="input-group">
               <span class="input-group-addon">+62</span>
-              <input class="form-control" type="tel" id="phone_number" name="phone_number" required placeholder="8xx xxxx xxxx" />
+              <input class="form-control" type="tel" id="phone_number" name="phone_number" autocomplete="tel" required placeholder="8xx xxxx xxxx" />
             </div>
           </div>
           <div class="form-group">
@@ -150,7 +159,7 @@
           </div>
           <div class="form-group">
             <label for="address">Alamat Pemilik Lahan</label>
-            <input class="form-control" type="text" id="address" name="address" required placeholder="Alamat lengkap pemilik lahan (boleh beda dengan alamat lokasi)" />
+            <input class="form-control" type="text" id="address" name="address" autocomplete="street-address" required placeholder="Alamat lengkap pemilik lahan (boleh beda dengan alamat lokasi)" />
             <div class="map-action-row">
               <button type="button" class="btn btn-outline" style="padding:8px 14px;font-size:.85rem;" id="btnGpsAddress">📍 Timpa dari GPS</button>
             </div>
@@ -218,22 +227,23 @@
             <label>Slot Unit</label>
             <div class="slot-cols">
               <div class="slot-col" id="slotColBss">
-                <div class="slot-col-head">BSS 1–4</div>
+                <div class="slot-col-head">BSS 1–3</div>
                 <div class="slot-grid" id="slotGridBss"></div>
               </div>
               <div class="slot-col" id="slotColEvcs">
                 <div class="slot-col-head">EVCS 1–4</div>
                 <div class="slot-grid" id="slotGridEvcs"></div>
+                <input class="form-control" type="text" id="slot_evcs_manual" name="slot_evcs_manual" maxlength="2" inputmode="numeric" placeholder="Atau isi manual 5–10" style="margin-top:6px;" />
               </div>
             </div>
             <p class="form-hint" id="slotHint">Pilih slot — jenis unit ikut menyesuaikan kolom yang dipilih.</p>
           </div>
-          <div class="grid-2-form">
-            <div class="form-group">
+          <div class="grid-2-form" id="hargaGrid">
+            <div class="form-group harga-wrap" id="hargaWrapBss">
               <label for="harga_sewa_bss">Harga Sewa BSS (Rp / tahun)</label>
               <input class="form-control numeric-only harga-dual" type="text" id="harga_sewa_bss" name="harga_sewa_bss" maxlength="15" inputmode="numeric" placeholder="Boleh kosong" />
             </div>
-            <div class="form-group">
+            <div class="form-group harga-wrap" id="hargaWrapEvcs">
               <label for="harga_sewa_evcs">Harga Sewa EVCS (Rp / tahun)</label>
               <input class="form-control numeric-only harga-dual" type="text" id="harga_sewa_evcs" name="harga_sewa_evcs" maxlength="15" inputmode="numeric" placeholder="Boleh kosong" />
             </div>
@@ -291,7 +301,7 @@
               <button type="button" class="map-toggle-btn" id="mapLayerSat">🛰️ Satelit</button>
             </div>
             <div class="map-search-wrap">
-              <input type="text" id="mapSearch" class="form-control" placeholder="🔍 Ketik alamat / patokan… mis. Jl. Sudirman Jakarta" autocomplete="off" />
+              <input type="text" id="mapSearch" name="map-search" autocomplete="off" aria-label="Cari lokasi di peta" class="form-control" placeholder="🔍 Ketik alamat / patokan… mis. Jl. Sudirman Jakarta" />
               <div id="mapSuggest" class="map-suggest" hidden></div>
             </div>
             <div id="locationMap" class="loc-map"></div>
@@ -360,7 +370,7 @@
           <div class="form-divider" style="margin-top:0;">Tahap 4 — Berkas Wajib</div>
           <p class="form-hint">Lihat rincian di halaman <a href="/panduan">Panduan</a>. Catatan: berkas tidak bisa disimpan otomatis di browser — jika halaman di-refresh, berkas perlu dipilih ulang.</p>
           <div class="form-group" data-shot-group="ktp_file">
-            <label>Fotokopi KTP Pemilik Lahan *</label>
+            <label for="ktp_file">Fotokopi KTP Pemilik Lahan *</label>
             <div class="pick-row">
               <button type="button" class="btn btn-outline pick-cam" data-target="ktp_file">📷 Kamera</button>
               <button type="button" class="btn btn-outline pick-gal" data-target="ktp_file">🖼️ Galeri / File</button>
@@ -371,7 +381,7 @@
             <div class="file-picked" id="ktp_file_picked"></div>
           </div>
           <div class="form-group" data-shot-group="photo_spot_file">
-            <label>Foto Penempatan Station — Jarak ±3/4 Meter *</label>
+            <label for="photo_spot_file">Foto Penempatan Station — Jarak ±3/4 Meter *</label>
             <div class="pick-row">
               <button type="button" class="btn btn-outline pick-cam" data-target="photo_spot_file">📷 Kamera</button>
               <button type="button" class="btn btn-outline pick-gal" data-target="photo_spot_file">🖼️ Galeri</button>
@@ -382,7 +392,7 @@
             <div class="file-picked" id="photo_spot_file_picked"></div>
           </div>
           <div class="form-group" data-shot-group="photo_1_file">
-            <label>Foto Sebrang Jalan Stations * (watermark GPS)</label>
+            <label for="photo_1_file">Foto Sebrang Jalan Stations * (watermark GPS)</label>
             <div class="pick-row">
               <button type="button" class="btn btn-outline pick-cam" data-target="photo_1_file">📷 Kamera</button>
               <button type="button" class="btn btn-outline pick-gal" data-target="photo_1_file">🖼️ Galeri</button>
@@ -393,7 +403,7 @@
             <div class="file-picked" id="photo_1_file_picked"></div>
           </div>
           <div class="form-group" data-shot-group="photo_3_file">
-            <label>Foto Tersedia Jaringan Listrik * (watermark GPS)</label>
+            <label for="photo_3_file">Foto Tersedia Jaringan Listrik * (watermark GPS)</label>
             <div class="pick-row">
               <button type="button" class="btn btn-outline pick-cam" data-target="photo_3_file">📷 Kamera</button>
               <button type="button" class="btn btn-outline pick-gal" data-target="photo_3_file">🖼️ Galeri</button>
@@ -404,7 +414,7 @@
             <div class="file-picked" id="photo_3_file_picked"></div>
           </div>
           <div class="form-group" data-shot-group="photo_right_file">
-            <label>Foto Sudut Kanan Station * (watermark GPS)</label>
+            <label for="photo_right_file">Foto Sudut Kanan Station * (watermark GPS)</label>
             <div class="pick-row">
               <button type="button" class="btn btn-outline pick-cam" data-target="photo_right_file">📷 Kamera</button>
               <button type="button" class="btn btn-outline pick-gal" data-target="photo_right_file">🖼️ Galeri</button>
@@ -415,7 +425,7 @@
             <div class="file-picked" id="photo_right_file_picked"></div>
           </div>
           <div class="form-group" data-shot-group="photo_left_file">
-            <label>Foto Sudut Kiri Station * (watermark GPS)</label>
+            <label for="photo_left_file">Foto Sudut Kiri Station * (watermark GPS)</label>
             <div class="pick-row">
               <button type="button" class="btn btn-outline pick-cam" data-target="photo_left_file">📷 Kamera</button>
               <button type="button" class="btn btn-outline pick-gal" data-target="photo_left_file">🖼️ Galeri</button>
@@ -426,7 +436,7 @@
             <div class="file-picked" id="photo_left_file_picked"></div>
           </div>
           <div class="form-group" data-shot-group="photo_selfie_file">
-            <label>Foto Selfie Bersama Pemilik * (watermark GPS)</label>
+            <label for="photo_selfie_file">Foto Selfie Bersama Pemilik * (watermark GPS)</label>
             <div class="pick-row">
               <button type="button" class="btn btn-outline pick-cam" data-target="photo_selfie_file">📷 Kamera</button>
               <button type="button" class="btn btn-outline pick-gal" data-target="photo_selfie_file">🖼️ Galeri</button>
@@ -437,7 +447,7 @@
             <div class="file-picked" id="photo_selfie_file_picked"></div>
           </div>
           <div class="form-group" data-shot-group="photo_maps_file">
-            <label>Screenshot Lokasi &amp; Koordinat *</label>
+            <label for="photo_maps_file">Screenshot Lokasi &amp; Koordinat *</label>
             <div class="pick-row">
               <button type="button" class="btn btn-outline pick-cam" data-target="photo_maps_file">📷 Kamera</button>
               <button type="button" class="btn btn-outline pick-gal" data-target="photo_maps_file">🖼️ Galeri</button>
@@ -448,29 +458,19 @@
             <div class="file-picked" id="photo_maps_file_picked"></div>
           </div>
           <div class="form-group" data-shot-group="legal_doc_file">
-            <label>Dokumen Legalitas (SHM / PBB + Bukti Bayar PBB 3 Tahun) *</label>
+            <label for="legal_doc_file">Dokumen Legalitas (SHM / PBB + Bukti Bayar PBB 3 Tahun) *</label>
+            <p class="form-hint">Boleh pilih sampai 5 halaman/gambar — otomatis ditumpuk jadi 1 gambar berurutan. Punya PDF multi-halaman? Unggah 1 file itu saja.</p>
             <div class="pick-row">
               <button type="button" class="btn btn-outline pick-cam" data-target="legal_doc_file">📷 Kamera</button>
               <button type="button" class="btn btn-outline pick-gal" data-target="legal_doc_file">🖼️ Galeri / File</button>
             </div>
-            <input class="pick-real" type="file" id="legal_doc_file" name="legal_doc_file" accept=".jpg,.jpeg,.png,.webp,.pdf" required style="display:none" />
+            <input class="pick-real" type="file" id="legal_doc_file" name="legal_doc_file" accept=".jpg,.jpeg,.png,.webp,.pdf" multiple required style="display:none" />
             <input class="pick-gal-input" type="file" id="legal_doc_file_gal" accept="image/*,.pdf,application/pdf" multiple style="display:none" />
             <div class="shot-grid" id="legal_doc_file_grid"></div>
             <div class="file-picked" id="legal_doc_file_picked"></div>
           </div>
-          <div class="form-group" data-shot-group="sewa_doc_file">
-            <label>Foto Dokumen Surat Sewa *</label>
-            <div class="pick-row">
-              <button type="button" class="btn btn-outline pick-cam" data-target="sewa_doc_file">📷 Kamera</button>
-              <button type="button" class="btn btn-outline pick-gal" data-target="sewa_doc_file">🖼️ Galeri / File</button>
-            </div>
-            <input class="pick-real" type="file" id="sewa_doc_file" name="sewa_doc_file" accept=".jpg,.jpeg,.png,.webp,.pdf" required style="display:none" />
-            <input class="pick-gal-input" type="file" id="sewa_doc_file_gal" accept="image/*,.pdf,application/pdf" multiple style="display:none" />
-            <div class="shot-grid" id="sewa_doc_file_grid"></div>
-            <div class="file-picked" id="sewa_doc_file_picked"></div>
-          </div>
           <div class="form-group" data-shot-group="support_doc_file">
-            <label>Foto Dokumen Pendukung (opsional)</label>
+            <label for="support_doc_file">Foto Dokumen Pendukung (opsional)</label>
             <div class="pick-row">
               <button type="button" class="btn btn-outline pick-cam" data-target="support_doc_file">📷 Kamera</button>
               <button type="button" class="btn btn-outline pick-gal" data-target="support_doc_file">🖼️ Galeri / File</button>
@@ -481,7 +481,7 @@
             <div class="file-picked" id="support_doc_file_picked"></div>
           </div>
           <div class="form-group" data-shot-group="family_doc_file">
-            <label>Foto KK atau Buku Nikah * (tanpa watermark)</label>
+            <label for="family_doc_file">Foto KK atau Buku Nikah * (tanpa watermark)</label>
             <div class="pick-row">
               <button type="button" class="btn btn-outline pick-cam" data-target="family_doc_file">📷 Kamera</button>
               <button type="button" class="btn btn-outline pick-gal" data-target="family_doc_file">🖼️ Galeri / File</button>
@@ -663,22 +663,45 @@
       return list.length ? list[0] : 'bss_motor';
     };
     var unitEl = document.getElementById('unit_type');
-    // Kolom slot aktif mengikuti unit yang dicentang (boleh keduanya)
+    // Kolom slot + harga aktif mengikuti unit yang dicentang (boleh keduanya).
+    // Kolom yang tidak aktif di-hidden agar form ringkas.
     function paintSlotCols() {
       var list = window._japGetUnitTypes();
+      var hasBss = list.indexOf('bss_motor') !== -1;
+      var hasEvcs = list.indexOf('evcs_mobil') !== -1;
+      var showBoth = !list.length;
+      // Sinkron kelas visual .checked (fallback browser lama tanpa :has())
+      Array.prototype.forEach.call(document.querySelectorAll('.unit-card input[name="unit_type"]'), function (inp) {
+        var c = inp.closest ? inp.closest('.unit-card') : null;
+        if (c) c.classList.toggle('checked', !!inp.checked);
+      });
+      Array.prototype.forEach.call(document.querySelectorAll('.slot-card input'), function (inp) {
+        var c = inp.closest ? inp.closest('.slot-card') : null;
+        if (c) c.classList.toggle('checked', !!inp.checked);
+      });
       var cb = document.getElementById('slotColBss');
       var ce = document.getElementById('slotColEvcs');
-      if (cb) cb.classList.toggle('active', list.indexOf('bss_motor') !== -1);
-      if (ce) ce.classList.toggle('active', list.indexOf('evcs_mobil') !== -1);
+      if (cb) {
+        cb.classList.toggle('active', hasBss);
+        cb.hidden = !showBoth && !hasBss;
+      }
+      if (ce) {
+        ce.classList.toggle('active', hasEvcs);
+        ce.hidden = !showBoth && !hasEvcs;
+      }
+      var wb = document.getElementById('hargaWrapBss');
+      var we = document.getElementById('hargaWrapEvcs');
+      if (wb) wb.hidden = !showBoth && !hasBss;
+      if (we) we.hidden = !showBoth && !hasEvcs;
     }
-    // Bangun grid slot sekali (BSS 1-4 | EVCS 1-4); pilihan dipertahankan
+    // Bangun grid slot sekali (BSS 1-3 | EVCS 1-4 + manual 1-10); pilihan dipertahankan
     function buildSlotGrids() {
-      var defs = [['slotGridBss', 'BSS', 'slot_bss', 'bss_motor'], ['slotGridEvcs', 'EVCS', 'slot_evcs', 'evcs_mobil']];
+      var defs = [['slotGridBss', 'BSS', 'slot_bss', 'bss_motor', 3], ['slotGridEvcs', 'EVCS', 'slot_evcs', 'evcs_mobil', 4]];
       defs.forEach(function (d) {
         var grid = document.getElementById(d[0]);
         if (!grid || grid.getAttribute('data-built') === '1') return;
         grid.setAttribute('data-built', '1');
-        for (var i = 1; i <= 4; i++) {
+        for (var i = 1; i <= d[4]; i++) {
           (function (val, fname, uval) {
             var lab = document.createElement('label');
             lab.className = 'slot-card';
@@ -693,6 +716,11 @@
                 ur.checked = true;
                 try { ur.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
               }
+              // Grid EVCS dan input manual saling eksklusif (manual menang bila valid)
+              if (fname === 'slot_evcs') {
+                var man = document.getElementById('slot_evcs_manual');
+                if (man) man.value = '';
+              }
               try { window._japRefreshHarga(); } catch (e) {}
               try { paintSlotCols(); } catch (e) {}
             });
@@ -705,6 +733,34 @@
         }
       });
     }
+    // Slot EVCS efektif: manual 1-10 menang atas grid 1-4; BSS tetap grid 1-3.
+    window._japEvcsSlot = function () {
+      var man = document.getElementById('slot_evcs_manual');
+      var mv = man ? String(man.value || '').replace(/\D/g, '').slice(0, 2) : '';
+      if (/^(10|[1-9])$/.test(mv)) return mv;
+      var g = document.querySelector('input[name="slot_evcs"]:checked');
+      return g ? g.value : '';
+    };
+    // Unit terakhir yang disentuh (acuan default logo watermark bila dua unit dipilih).
+    window._japLastUnit = window._japLastUnit || 'bss';
+    (function bindEvcsManual() {
+      var man = document.getElementById('slot_evcs_manual');
+      if (!man || man.getAttribute('data-bound') === '1') return;
+      man.setAttribute('data-bound', '1');
+      man.addEventListener('input', function () {
+        man.value = String(man.value || '').replace(/\D/g, '').slice(0, 2);
+        if (man.value !== '') {
+          Array.prototype.forEach.call(document.querySelectorAll('input[name="slot_evcs"]'), function (r) { r.checked = false; });
+          // Isi manual = ikut centang EVCS
+          var ur = document.querySelector('input[name="unit_type"][value="evcs_mobil"]');
+          if (ur && !ur.checked) {
+            ur.checked = true;
+            try { ur.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
+          }
+        }
+        try { paintSlotCols(); } catch (e) {}
+      });
+    })();
     // Legalitas + hint mengikuti unit tercentang (server memaksa per unit saat simpan)
     window._japRefreshSlot = function () {
       try { paintSlotCols(); } catch (e) {}
@@ -725,8 +781,9 @@
       if (hint) hint.textContent = !list.length
         ? 'Centang BSS / EVCS lalu pilih slotnya.'
         : (list.length === 2
-          ? 'BSS + EVCS dipilih — pilih Slot BSS dan Slot EVCS (2 unit terkirim sekaligus).'
-          : (onlyEvcs ? 'Jenis EVCS — pilih Slot EVCS 1 sampai 4.' : 'Jenis BSS — pilih Slot BSS 1 sampai 4.'));
+          ? 'BSS + EVCS dipilih — pilih Slot BSS (1–3) dan Slot EVCS (grid 1–4 atau isi manual 1–10).'
+          : (onlyEvcs ? 'Jenis EVCS — pilih grid 1–4 atau isi manual 1–10.' : 'Jenis BSS — pilih Slot BSS 1 sampai 3.'));
+      try { window._japRefreshLogoHint(); } catch (e) {}
     };
     if (unitEl) {
       unitEl.addEventListener('change', function () { try { window._japRefreshHarga(); } catch (e) {} try { window._japRefreshSlot(); } catch (e) {} });
@@ -734,7 +791,16 @@
       try { window._japRefreshSlot(); } catch (e) {}
     }
     Array.prototype.forEach.call(document.querySelectorAll('input[name="unit_type"]'), function (r) {
-      r.addEventListener('change', function () { try { window._japRefreshHarga(); } catch (e) {} try { window._japRefreshSlot(); } catch (e) {} });
+      r.addEventListener('change', function () {
+        // Catat unit terakhir yang disentuh (default logo watermark bila dua unit dipilih)
+        if (r.checked && (r.value === 'bss_motor' || r.value === 'evcs_mobil')) {
+          window._japLastUnit = r.value === 'evcs_mobil' ? 'evcs' : 'bss';
+        } else if (!r.checked) {
+          var rest = window._japGetUnitTypes();
+          if (rest.length === 1) window._japLastUnit = rest[0] === 'evcs_mobil' ? 'evcs' : 'bss';
+        }
+        try { window._japRefreshHarga(); } catch (e) {} try { window._japRefreshSlot(); } catch (e) {}
+      });
     });
     try { buildSlotGrids(); } catch (e) {}
     try { window._japRefreshHarga(); } catch (e) {}
@@ -869,7 +935,7 @@
   (function () {
     var DRAFT_KEY = 'jap_ajukan_draft_v1';
     var STEP_KEY = 'jap_ajukan_step_v1';
-    var TEXT_FIELDS = ['owner_name', 'phone_number', 'address', 'nik', 'ttl', 'surat', 'shop_name', 'city', 'kecamatan', 'district', 'harga_sewa_bss', 'harga_sewa_evcs', 'bank_name', 'bank_name_other', 'account_number', 'location_address', 'area_size', 'location_type', 'floor_ready', 'has_canopy', 'legal_doc_type', 'maps_link', 'lat_long', 'maps_url'];
+    var TEXT_FIELDS = ['owner_name', 'phone_number', 'address', 'nik', 'ttl', 'surat', 'shop_name', 'city', 'kecamatan', 'district', 'harga_sewa_bss', 'harga_sewa_evcs', 'bank_name', 'bank_name_other', 'account_number', 'location_address', 'area_size', 'location_type', 'floor_ready', 'has_canopy', 'legal_doc_type', 'maps_link', 'lat_long', 'maps_url', 'slot_evcs_manual'];
     var form = document.getElementById('ajukanForm');
     if (!form) return;
     var steps = Array.prototype.slice.call(form.querySelectorAll('.wizard-step'));
@@ -919,11 +985,20 @@
             });
           }
           ['slot_bss', 'slot_evcs'].forEach(function (sn) {
-            if (draft[sn] && /^[1-4]$/.test(String(draft[sn]))) {
+            var pat = sn === 'slot_bss' ? /^[1-3]$/ : /^[1-4]$/;
+            if (draft[sn] && pat.test(String(draft[sn]))) {
               var t = form.querySelector('input[name="' + sn + '"][value="' + draft[sn] + '"]');
               if (t) t.checked = true;
             }
           });
+          // Manual EVCS 1-10 menang atas grid saat restore
+          if (draft.slot_evcs_manual && /^(10|[1-9])$/.test(String(draft.slot_evcs_manual).replace(/\D/g, ''))) {
+            var mm = form.querySelector('[name="slot_evcs_manual"]');
+            if (mm) {
+              mm.value = String(draft.slot_evcs_manual).replace(/\D/g, '');
+              Array.prototype.forEach.call(form.querySelectorAll('input[name="slot_evcs"]'), function (r) { r.checked = false; });
+            }
+          }
         } catch (e) {}
         var statusEl = document.getElementById('locStatus');
         var mapsVal = form.querySelector('[name="maps_link"]').value;
@@ -964,13 +1039,15 @@
           draft[name] = ch ? ch.value : '';
         } else if (el) draft[name] = el.value;
       });
-      // Grup multi-pilih: jenis unit (checkbox) + slot per kolom (radio)
+      // Grup multi-pilih: jenis unit (checkbox) + slot per kolom (radio) + manual EVCS
       draft.unit_type = Array.prototype.map.call(
         form.querySelectorAll('input[name="unit_type"]:checked'), function (x) { return x.value; });
       ['slot_bss', 'slot_evcs'].forEach(function (sn) {
         var sc = form.querySelector('input[name="' + sn + '"]:checked');
         draft[sn] = sc ? sc.value : '';
       });
+      var manEl = form.querySelector('[name="slot_evcs_manual"]');
+      draft.slot_evcs_manual = manEl ? manEl.value : '';
       try {
         localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
         localStorage.setItem(STEP_KEY, String(current));
@@ -1026,6 +1103,7 @@
           }
         }
         // Multi-unit: minimal satu jenis tercentang + slot terisi per jenisnya
+        // (BSS: grid 1–3; EVCS: grid 1–4 atau manual 1–10)
         var picked = [];
         Array.prototype.forEach.call(sec.querySelectorAll('input[name="unit_type"]:checked'), function (x) {
           if (x.value === 'bss_motor' || x.value === 'evcs_mobil') picked.push(x.value);
@@ -1036,13 +1114,17 @@
           if (up && up.scrollIntoView) up.scrollIntoView({ behavior: 'smooth', block: 'center' });
           return false;
         }
-        var needSlot = { bss_motor: 'slot_bss', evcs_mobil: 'slot_evcs' };
-        var labelSlot = { bss_motor: 'Slot BSS 1–4', evcs_mobil: 'Slot EVCS 1–4' };
+        var evcsEff = (typeof window._japEvcsSlot === 'function') ? window._japEvcsSlot() : '';
         for (var si = 0; si < picked.length; si++) {
-          var sn = needSlot[picked[si]];
-          if (!sec.querySelector('input[name="' + sn + '"]:checked')) {
-            alert('Pilih ' + labelSlot[picked[si]] + ' untuk unit yang dicentang.');
-            var grid = document.getElementById(picked[si] === 'evcs_mobil' ? 'slotGridEvcs' : 'slotGridBss');
+          var isEv = picked[si] === 'evcs_mobil';
+          var okSlot = isEv
+            ? /^(10|[1-9])$/.test(evcsEff)
+            : !!sec.querySelector('input[name="slot_bss"]:checked');
+          if (!okSlot) {
+            alert(isEv
+              ? 'Pilih Slot EVCS (grid 1–4) atau isi manual 1–10.'
+              : 'Pilih Slot BSS 1–3 untuk unit yang dicentang.');
+            var grid = document.getElementById(isEv ? 'slotGridEvcs' : 'slotGridBss');
             if (grid && grid.scrollIntoView) grid.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return false;
           }
@@ -1201,7 +1283,7 @@
       }
       var step4 = form.querySelector('.wizard-step[data-step="4"]');
       var files = step4.querySelectorAll('input.pick-real[type="file"]');
-      var LABELS = { ktp_file: 'KTP', photo_1_file: 'Foto Sebrang Jalan', photo_3_file: 'Foto Jaringan Listrik', photo_spot_file: 'Foto Penempatan 3/4m', photo_right_file: 'Foto Sudut Kanan', photo_left_file: 'Foto Sudut Kiri', photo_selfie_file: 'Foto Selfie Pemilik', photo_maps_file: 'Screenshot Koordinat', legal_doc_file: 'Dokumen Legalitas', family_doc_file: 'Foto KK / Buku Nikah', sewa_doc_file: 'Surat Sewa', support_doc_file: 'Dokumen Pendukung' };
+      var LABELS = { ktp_file: 'KTP', photo_1_file: 'Foto Sebrang Jalan', photo_3_file: 'Foto Jaringan Listrik', photo_spot_file: 'Foto Penempatan 3/4m', photo_right_file: 'Foto Sudut Kanan', photo_left_file: 'Foto Sudut Kiri', photo_selfie_file: 'Foto Selfie Pemilik', photo_maps_file: 'Screenshot Koordinat', legal_doc_file: 'Dokumen Legalitas', family_doc_file: 'Foto KK / Buku Nikah', support_doc_file: 'Dokumen Pendukung' };
       var OPTIONAL_FILES = { support_doc_file: 1 };
       for (var i = 0; i < files.length; i++) {
         if (OPTIONAL_FILES[files[i].name]) continue;
@@ -1214,12 +1296,15 @@
           alert('Wajib: pilih berkas untuk "' + (LABELS[files[i].name] || files[i].name) + '" — via Kamera atau Galeri, lalu klik salah satu di grid.');
           return;
         }
-        if (files[i].files[0].size > 5 * 1024 * 1024) {
-          e.preventDefault();
-          current = 4;
-          paint();
-          alert('Ukuran berkas melebihi 5 MB: ' + files[i].files[0].name);
-          return;
+        var _fl = files[i].files || [];
+        for (var j = 0; j < _fl.length; j++) {
+          if (_fl[j].size > 5 * 1024 * 1024) {
+            e.preventDefault();
+            current = 4;
+            paint();
+            alert('Ukuran berkas melebihi 5 MB: ' + _fl[j].name);
+            return;
+          }
         }
       }
       // Stash identitas pemilik untuk alur "Ajukan Unit Lain" (dipakai bila ?again=1)

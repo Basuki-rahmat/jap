@@ -48,7 +48,7 @@
           <div class="photo-box">
             <h4>🧑 Foto Diri</h4>
             <% if (me.photo_file) { %>
-              <a href="<%= me.photo_file %>" target="_blank" rel="noopener"><img src="<%= me.photo_file %>" alt="Foto <%= me.name %>" /></a>
+              <a href="<%= fileUrl(me.photo_file) %>" target="_blank" rel="noopener"><img src="<%= fileUrl(me.photo_file) %>" alt="Foto <%= me.name %>" /></a>
             <% } else { %>
               <div class="ph-empty">🧑</div>
             <% } %>
@@ -59,7 +59,7 @@
           <div class="photo-box">
             <h4>🪪 Foto KTP</h4>
             <% if (me.ktp_file) { %>
-              <a href="<%= me.ktp_file %>" target="_blank" rel="noopener"><img src="<%= me.ktp_file %>" alt="KTP <%= me.name %>" /></a>
+              <a href="<%= fileUrl(me.ktp_file) %>" target="_blank" rel="noopener"><img src="<%= fileUrl(me.ktp_file) %>" alt="KTP <%= me.name %>" /></a>
             <% } else { %>
               <div class="ph-empty">🪪</div>
             <% } %>
@@ -73,8 +73,8 @@
       <div class="card" style="margin-bottom:0;">
           <div class="form-divider">Akun</div>
           <div class="form-group">
-            <label>Nama Lengkap</label>
-            <input class="form-control" type="text" value="<%= me.name %>" disabled />
+            <label for="profil_name">Nama Lengkap</label>
+            <input class="form-control" type="text" id="profil_name" autocomplete="off" aria-label="Nama lengkap" value="<%= me.name %>" disabled />
             <p class="form-hint">Nama & email hanya bisa diubah admin.</p>
           </div>
           <div class="grid-2-form">

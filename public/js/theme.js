@@ -29,30 +29,30 @@
       });
     }
 
-    const navToggle = document.querySelector('.nav-toggle');
+    const navToggles = document.querySelectorAll('.nav-toggle');
     const drawer = document.getElementById('drawer');
     const drawerBackdrop = document.getElementById('drawerBackdrop');
     const drawerClose = document.getElementById('drawerClose');
 
     function openDrawer() {
-      if (drawer && drawerBackdrop && navToggle) {
+      if (drawer && drawerBackdrop) {
         drawer.classList.add('open');
         drawerBackdrop.classList.add('show');
-        navToggle.classList.add('open');
+        navToggles.forEach(function (t) { t.classList.add('open'); });
         document.body.style.overflow = 'hidden';
       }
     }
 
     function closeDrawer() {
-      if (drawer && drawerBackdrop && navToggle) {
+      if (drawer && drawerBackdrop) {
         drawer.classList.remove('open');
         drawerBackdrop.classList.remove('show');
-        navToggle.classList.remove('open');
+        navToggles.forEach(function (t) { t.classList.remove('open'); });
         document.body.style.overflow = '';
       }
     }
 
-    if (navToggle) navToggle.addEventListener('click', openDrawer);
+    navToggles.forEach(function (t) { t.addEventListener('click', openDrawer); });
     if (drawerBackdrop) drawerBackdrop.addEventListener('click', closeDrawer);
     if (drawerClose) drawerClose.addEventListener('click', closeDrawer);
     if (drawer) {

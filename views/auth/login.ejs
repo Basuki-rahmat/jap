@@ -22,12 +22,12 @@
         <form action="/login" method="POST">
           <div class="form-group">
             <label for="email">Email</label>
-            <input class="form-control" type="email" id="email" name="email" required placeholder="email@domain.com" />
+            <input class="form-control" type="email" id="email" name="email" autocomplete="email" required placeholder="email@domain.com" />
           </div>
           <div class="form-group">
             <label for="password">Password</label>
             <div style="position:relative;">
-              <input class="form-control" type="password" id="password" name="password" required placeholder="••••••••" style="padding-right:44px;" />
+              <input class="form-control" type="password" id="password" name="password" autocomplete="current-password" required placeholder="••••••••" style="padding-right:44px;" />
               <button type="button" id="togglePassword" aria-label="Tampilkan password" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.05rem;padding:6px;">👁️</button>
             </div>
           </div>

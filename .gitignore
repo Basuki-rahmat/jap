@@ -10,3 +10,7 @@ jap.zip
 dump-*.sql
 insert-tim-awal.sql
 
+knabcoid_knab.sql
+sync-*.sql
+jap_ori.zip
+*.zip

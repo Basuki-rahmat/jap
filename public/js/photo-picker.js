@@ -7,21 +7,35 @@
     function gridEl(id) { return document.getElementById(id + '_grid'); }
     function pickedEl(id) { return document.getElementById(id + '_picked'); }
 
+    // Legalitas boleh multi-halaman (maks 5 gambar → ditumpuk jadi 1 gambar di server).
+    // Field lain tetap 1 berkas terpilih.
+    var MULTI_MAX = 5;
+    function isMultiField(id) { return id === 'legal_doc_file'; }
+    function selectedCount(id) {
+      var n = 0;
+      (store[id] || []).forEach(function (s) { if (s.selected) n++; });
+      return n;
+    }
+
     function syncReal(id) {
       var real = realInput(id);
       var list = store[id] || [];
-      var sel = null;
-      for (var i = 0; i < list.length; i++) { if (list[i].selected) { sel = list[i]; break; } }
+      var sels = [];
+      for (var i = 0; i < list.length; i++) { if (list[i].selected) sels.push(list[i]); }
       try {
         var dt = new DataTransfer();
-        if (sel) dt.items.add(sel.file);
-        real.files = dt.files;
+        sels.forEach(function (s) { dt.items.add(s.file); });
+        if (real) real.files = dt.files;
       } catch (e) { /* browser lama: biarkan */ }
       var info = pickedEl(id);
       if (info) {
-        if (sel) {
+        if (sels.length) {
           info.style.display = 'block';
-          info.textContent = '✓ Akan diupload: ' + sel.file.name + ' (' + Math.round(sel.file.size / 1024) + ' KB)';
+          if (isMultiField(id) && sels.length > 1) {
+            info.textContent = '✓ ' + sels.length + ' halaman akan diupload (ditumpuk jadi 1 gambar berurutan)';
+          } else {
+            info.textContent = '✓ Akan diupload: ' + sels[0].file.name + ' (' + Math.round(sels[0].file.size / 1024) + ' KB)';
+          }
         } else {
           info.style.display = 'none';
           info.textContent = '';
@@ -103,8 +117,17 @@
         });
         cell.appendChild(view);
         cell.addEventListener('click', function () {
-          store[id].forEach(function (s) { s.selected = false; });
-          item.selected = true;
+          if (isMultiField(id)) {
+            // Legalitas: toggle multi-pilih (maks 5 halaman).
+            if (!item.selected && selectedCount(id) >= MULTI_MAX) {
+              toast('Maksimal ' + MULTI_MAX + ' halaman untuk dokumen ini.');
+              return;
+            }
+            item.selected = !item.selected;
+          } else {
+            store[id].forEach(function (s) { s.selected = false; });
+            item.selected = true;
+          }
           syncReal(id);
           renderGrid(id);
         });
@@ -250,8 +273,17 @@
       function pushOne(r) {
         var url = '';
         try { url = r.isPdf ? '' : URL.createObjectURL(r.file); } catch (e) { url = ''; }
-        store[id].forEach(function (s) { s.selected = false; });
-        store[id].push({ file: r.file, url: url, isPdf: r.isPdf, selected: true, hasGps: hasGps });
+        // Kolom Legalitas (multi-halaman): halaman baru langsung terceklis TANPA
+        // meng-uncheck halaman sebelumnya, agar semua halaman ikut terkirim
+        // (tetap dibatasi MULTI_MAX halaman terpilih).
+        var autoSel = true;
+        if (isMultiField(id)) {
+          autoSel = selectedCount(id) < MULTI_MAX;
+          if (!autoSel) toast('Maks ' + MULTI_MAX + ' halaman terpilih — halaman baru belum terceklis, matikan salah satu dulu.');
+        } else {
+          store[id].forEach(function (s) { s.selected = false; });
+        }
+        store[id].push({ file: r.file, url: url, isPdf: r.isPdf, selected: autoSel, hasGps: hasGps });
         added++;
       }
       next();
@@ -276,6 +308,19 @@
         || id === 'photo_3_file' || id === 'photo_right_file' || id === 'photo_left_file';
     }
     function currentUnitKind() {
+      // Sadar multi-unit: bila BSS + EVCS dua-duanya dipilih (dua slot diisi),
+      // default logo mengikuti unit terakhir yang disentuh agar BSS & EVCS
+      // sama-sama bisa aktif — pengguna tetap bebas pilih keduanya manual.
+      try {
+        if (typeof window._japGetUnitTypes === 'function') {
+          var list = window._japGetUnitTypes();
+          var hasB = list.indexOf('bss_motor') !== -1;
+          var hasE = list.indexOf('evcs_mobil') !== -1;
+          if (hasB && hasE) return window._japLastUnit === 'evcs' ? 'evcs' : 'bss';
+          if (hasE) return 'evcs';
+          if (hasB) return 'bss';
+        }
+      } catch (e) {}
       var r = document.querySelector('input[name="unit_type"]:checked');
       var v = r ? r.value : null;
       if (!v) {
@@ -284,6 +329,21 @@
       }
       return v === 'evcs_mobil' ? 'evcs' : 'bss';
     }
+    // Dipanggil halaman form tiap jenis unit berubah: perbarui hint modal logo
+    // (kedua keluarga logo selalu bisa diklik; hint menegaskan mana yang aktif).
+    window._japRefreshLogoHint = function () {
+      try {
+        var hint = document.getElementById('galLogoHint');
+        if (!hint) return;
+        var list = (typeof window._japGetUnitTypes === 'function') ? window._japGetUnitTypes() : [];
+        var both = list.indexOf('bss_motor') !== -1 && list.indexOf('evcs_mobil') !== -1;
+        if (both) {
+          hint.textContent = 'Dua unit dipilih (BSS + EVCS) — logo BSS dan EVCS aktif DUA-DUANYA (boleh dipasang bersamaan di satu foto). Klik ulang sebuah logo untuk mematikannya.';
+        } else {
+          hint.textContent = 'Foto galeri akan dibuka di editor kamera — Anda tetap bisa menggeser & mengubah ukuran logo sebelum disimpan.';
+        }
+      } catch (e) {}
+    };
     function parseCoordsFromLink(str) {
       // Dukung format maps_link: ?q=lat,lng | ?query=lat,lng | "lat,lng" polos
       var s = String(str || '');
@@ -467,8 +527,8 @@
     var isGalleryMode = false;
     var gallerySourceImg = null;
 
-    // State logo unit (posisi relatif stage, ala referensi)
-    var unitKind = 'bss.png'; // none | bss.png | bss1.png | bss12.png | evcs1.png | evcs21.png
+    // State logo unit — MULTI SLOT: BSS & EVCS bisa aktif bersamaan (bukan pilih salah satu)
+    var LOGO_FILES = ['bss.png', 'bss1.png', 'bss12.png', 'evcs1.png', 'evcs21.png'];
     function logoFileFor(kind) {
       if (!kind || kind === 'none') return null;
       if (/\.(png|jpg|jpeg)$/i.test(kind)) return '/img/' + kind;
@@ -476,14 +536,98 @@
       if (kind === 'evcs') return '/img/evcs1.png';
       return '/img/' + kind;
     }
+    // Nama berkas logo -> keluarga (bss | evcs)
     function logoKindFor(src) {
       return String(src || '').toLowerCase().indexOf('evcs') === 0 ? 'evcs' : 'bss';
     }
+    function isLogoFile(f) { return LOGO_FILES.indexOf(String(f || '').toLowerCase()) !== -1; }
     function defaultLogoFile() { return currentUnitKind() === 'evcs' ? 'evcs1.png' : 'bss.png'; }
-    var bssLeftPct = 37.5, bssTopPct = 30, bssScaleFactor = 1.0;
-    var logoImageObj = null;
-    var logoReady = false;
+    // Dua unit dicentang (BSS + EVCS) -> DUA logo langsung aktif; selain itu ikut unit terakhir.
+    function defaultLogoSelection() {
+      try {
+        if (typeof window._japGetUnitTypes === 'function') {
+          var list = window._japGetUnitTypes();
+          var out = [];
+          if (list.indexOf('bss_motor') !== -1) out.push('bss.png');
+          if (list.indexOf('evcs_mobil') !== -1) out.push('evcs1.png');
+          if (out.length) return out;
+        }
+      } catch (e) {}
+      return [defaultLogoFile()];
+    }
+    // Tiap keluarga punya bingkai sendiri: posisi & ukuran sendiri di stage
+    function newLogoSlot(family) {
+      return {
+        family: family, file: null,
+        leftPct: family === 'evcs' ? 68 : 32, topPct: 24, scale: 1.0,
+        img: null, ready: false, el: null, imgEl: null, handleEl: null
+      };
+    }
+    var logoSlots = { bss: newLogoSlot('bss'), evcs: newLogoSlot('evcs') };
+    var focusedSlot = 'bss'; // slot yang diatur slider ukuran & bingkai yang disorot
     var overlayCache = {};
+
+    function activeLogos() {
+      return [logoSlots.bss, logoSlots.evcs].filter(function (s) { return !!s.file; });
+    }
+    // Terima array berkas (baru) atau string berkas tunggal (kompatibel)
+    function toLogoPick(sel) {
+      var arr = Array.isArray(sel) ? sel : String(sel || '').split(',');
+      var pick = { bss: null, evcs: null };
+      arr.forEach(function (f) {
+        var v = String(f || '').trim().toLowerCase();
+        if (!isLogoFile(v)) return;
+        pick[logoKindFor(v)] = v;
+      });
+      return pick;
+    }
+    function setLogoSelection(sel) {
+      var pick = toLogoPick(sel);
+      ['bss', 'evcs'].forEach(function (k) {
+        var slot = logoSlots[k];
+        slot.file = pick[k] || null;
+        if (!slot.file) { slot.img = null; slot.ready = false; }
+      });
+    }
+    // Klik tombol logo: satu berkas per keluarga, BSS + EVCS boleh aktif bersamaan; klik ulang = matikan
+    function toggleLogoFile(file) {
+      var v = String(file || 'none').toLowerCase();
+      if (v === 'none') { setLogoSelection([]); focusedSlot = 'bss'; return; }
+      if (!isLogoFile(v)) return;
+      var fam = logoKindFor(v);
+      var rest = activeLogos().map(function (s) { return s.file; })
+        .filter(function (f) { return logoKindFor(f) !== fam; });
+      if (logoSlots[fam].file !== v) rest.push(v);
+      setLogoSelection(rest);
+      focusedSlot = fam;
+    }
+    function resetLogoPositions() {
+      [['bss', 32], ['evcs', 68]].forEach(function (p) {
+        var s = logoSlots[p[0]];
+        s.scale = 1.0; s.leftPct = p[1]; s.topPct = 24;
+      });
+      focusedSlot = logoSlots.bss.file ? 'bss' : (logoSlots.evcs.file ? 'evcs' : 'bss');
+    }
+    // Bingkai EVCS dibuat sekali dengan menyalin markup BSS (yang sudah ada di EJS)
+    function ensureLogoSlotElements() {
+      if (!stage || !logoBox) return;
+      logoSlots.bss.el = logoBox;
+      logoSlots.bss.imgEl = logoImg;
+      logoSlots.bss.handleEl = logoResize;
+      if (!logoSlots.evcs.el) {
+        var clone = logoBox.cloneNode(true);
+        clone.removeAttribute('id');
+        clone.setAttribute('data-logo-slot', 'evcs');
+        var ci = clone.querySelector('img');
+        var ch = clone.querySelector('.cam-logo-resize');
+        if (ci) { ci.removeAttribute('id'); ci.removeAttribute('src'); }
+        if (ch) ch.removeAttribute('id');
+        stage.appendChild(clone);
+        logoSlots.evcs.el = clone;
+        logoSlots.evcs.imgEl = ci;
+        logoSlots.evcs.handleEl = ch;
+      }
+    }
 
     function setStatus(s) { if (camStatus) camStatus.textContent = s; }
 
@@ -545,23 +689,23 @@
       } catch (e) { cb(null); }
     }
 
-    function ensureLogoImage(cb) {
-      if (unitKind === 'none') { logoReady = false; logoImageObj = null; if (cb) cb(null); return; }
-      loadOverlay(unitKind, function (im) {
+    function ensureLogoImage(slot, cb) {
+      if (!slot || !slot.file) { if (slot) { slot.ready = false; slot.img = null; } if (cb) cb(null); return; }
+      loadOverlay(slot.file, function (im) {
         if (im) {
-          logoImageObj = im; logoReady = true;
-          try { logoImg.src = im.src; } catch (e) {}
+          slot.img = im; slot.ready = true;
+          try { if (slot.imgEl) slot.imgEl.src = im.src; } catch (e) {}
           if (cb) cb(im);
         } else {
-          badgeDataURL(logoKindFor(unitKind), function (url) {
-            if (!url) { logoReady = false; if (cb) cb(null); return; }
+          badgeDataURL(slot.family, function (url) {
+            if (!url) { slot.ready = false; if (cb) cb(null); return; }
             var fim = new Image();
             fim.onload = function () {
-              logoImageObj = fim; logoReady = true;
-              try { logoImg.src = url; } catch (e) {}
+              slot.img = fim; slot.ready = true;
+              try { if (slot.imgEl) slot.imgEl.src = url; } catch (e) {}
               if (cb) cb(fim);
             };
-            fim.onerror = function () { logoReady = false; if (cb) cb(null); };
+            fim.onerror = function () { slot.ready = false; if (cb) cb(null); };
             fim.src = url;
           });
         }
@@ -569,10 +713,11 @@
     }
 
     // Rasio asli gambar logo agar bingkai drag mepet ke objek (tanpa ruang kosong)
-    function logoAspect() {
+    function logoAspectFor(slot) {
       try {
-        var iw = (logoImageObj && (logoImageObj.naturalWidth || logoImageObj.width)) || 0;
-        var ih = (logoImageObj && (logoImageObj.naturalHeight || logoImageObj.height)) || 0;
+        var im = slot && slot.img;
+        var iw = (im && (im.naturalWidth || im.width)) || 0;
+        var ih = (im && (im.naturalHeight || im.height)) || 0;
         if (iw > 0 && ih > 0) {
           var r = ih / iw;
           return Math.min(2.5, Math.max(0.15, r));
@@ -581,58 +726,79 @@
       return 0.42;
     }
     // Satu-satunya acuan geometri bingkai — dipakai pratinjau & render canvas agar identik
-    function logoBoxGeometry(cw, ch) {
+    function logoBoxGeometryFor(slot, cw, ch) {
       var base = Math.min(cw, ch) * 0.25;
-      var w = Math.max(24, base * bssScaleFactor);
-      var h = Math.max(12, Math.round(w * logoAspect()));
-      return { w: w, h: h, x: (bssLeftPct / 100) * cw - w / 2, y: (bssTopPct / 100) * ch - h / 2 };
+      var w = Math.max(24, base * (slot ? slot.scale : 1));
+      var h = Math.max(12, Math.round(w * logoAspectFor(slot)));
+      var lp = slot ? slot.leftPct : 32, tp = slot ? slot.topPct : 24;
+      return { w: w, h: h, x: (lp / 100) * cw - w / 2, y: (tp / 100) * ch - h / 2 };
+    }
+    function updateSlotBox(slot) {
+      if (!slot || !slot.el || !stage) return;
+      var cw = stage.clientWidth || 400, ch = stage.clientHeight || 400;
+      var g = logoBoxGeometryFor(slot, cw, ch);
+      slot.el.style.width = g.w + 'px';
+      slot.el.style.height = g.h + 'px';
+      slot.el.style.left = g.x + 'px';
+      slot.el.style.top = g.y + 'px';
+      slot.el.hidden = !slot.file;
+    }
+    function updateLogoScaleUI() {
+      var slot = logoSlots[focusedSlot] || logoSlots.bss;
+      var ind = document.getElementById('camLogoScaleVal');
+      if (ind) ind.textContent = Math.round(slot.scale * 100) + '%';
+      var slider = document.getElementById('camLogoScale');
+      if (slider && document.activeElement !== slider) slider.value = Math.round(slot.scale * 100);
     }
     function updateLogoBox() {
-      if (!logoBox || !stage) return;
-      var cw = stage.clientWidth || 400, ch = stage.clientHeight || 400;
-      var g = logoBoxGeometry(cw, ch);
-      logoBox.style.width = g.w + 'px';
-      logoBox.style.height = g.h + 'px';
-      logoBox.style.left = g.x + 'px';
-      logoBox.style.top = g.y + 'px';
-      var ind = document.getElementById('camLogoScaleVal');
-      if (ind) ind.textContent = Math.round(bssScaleFactor * 100) + '%';
-      var slider = document.getElementById('camLogoScale');
-      if (slider && document.activeElement !== slider) slider.value = Math.round(bssScaleFactor * 100);
+      if (!stage) return;
+      updateSlotBox(logoSlots.bss);
+      updateSlotBox(logoSlots.evcs);
+      ['bss', 'evcs'].forEach(function (k) {
+        var s = logoSlots[k];
+        if (s.el) s.el.classList.toggle('is-active', k === focusedSlot && !!s.file);
+      });
+      updateLogoScaleUI();
     }
 
     function paintLogoButtons() {
+      var files = activeLogos().map(function (s) { return s.file; });
       document.querySelectorAll('.cam-logo-btns button[data-logo]').forEach(function (b) {
-        b.classList.toggle('active', b.getAttribute('data-logo') === unitKind);
+        var v = String(b.getAttribute('data-logo') || '').toLowerCase();
+        b.classList.toggle('active', v === 'none' ? !files.length : files.indexOf(v) !== -1);
       });
       document.querySelectorAll('.cam-logo-btns button[data-glogo]').forEach(function (b) {
-        b.classList.toggle('active', b.getAttribute('data-glogo') === pendingGalLogo);
+        var v = String(b.getAttribute('data-glogo') || '').toLowerCase();
+        b.classList.toggle('active', v === 'none' ? !pendingGalFiles.length : pendingGalFiles.indexOf(v) !== -1);
       });
     }
 
     function refreshUnitUI() {
-      if (camBssBadge) camBssBadge.hidden = (unitKind === 'none');
-      if (camBssBadge) camBssBadge.textContent = logoKindFor(unitKind) === 'evcs' ? '🔌 EVCS' : '⚡ BSS';
-      if (logoBox) logoBox.hidden = (unitKind === 'none');
+      var act = activeLogos();
+      if (camBssBadge) {
+        camBssBadge.hidden = !act.length;
+        if (act.length > 1) camBssBadge.textContent = '⚡ BSS + 🔌 EVCS';
+        else if (act.length === 1) camBssBadge.textContent = (act[0].family === 'evcs' ? '🔌 EVCS' : '⚡ BSS');
+      }
       if (bssSettings) bssSettings.style.display = '';
       paintLogoButtons();
-      if (unitKind !== 'none') ensureLogoImage(function () { updateLogoBox(); });
-      else updateLogoBox();
+      act.forEach(function (slot) { ensureLogoImage(slot, function () { updateLogoBox(); }); });
+      updateLogoBox();
     }
 
     function resetWatermark() {
-      if (isAutoStickerField(activeField || '')) {
-        unitKind = defaultLogoFile();
-      } else {
-        unitKind = 'none';
-      }
-      bssLeftPct = 37.5; bssTopPct = 30; bssScaleFactor = 1.0;
-      updateLogoBox();
+      setLogoSelection(isAutoStickerField(activeField || '') ? defaultLogoSelection() : []);
+      resetLogoPositions();
       refreshUnitUI();
     }
 
     function openCam(id) {
       activeField = id;
+      // Pastikan overlay lain tertutup agar semua tombol panel watermark bisa disentuh.
+      ['galLogoModal', 'camResultModal', 'edModal', 'shotBox'].forEach(function (oid) {
+        var el = document.getElementById(oid);
+        if (el) el.hidden = true;
+      });
         // Validasi ala referensi: foto lokasi / watermark-GPS wajib ada titik + alamat agar watermark akurat
         if (isAutoStickerField(id) || isGpsOnlyField(id)) {
         var mapsEl = document.getElementById('maps_link');
@@ -684,6 +850,7 @@
         document.addEventListener('touchmove', move, { passive: false });
         document.addEventListener('mouseup', end);
         document.addEventListener('touchend', end);
+        document.addEventListener('touchcancel', end);
       }
       function move(e) {
         if (!dragging) return;
@@ -697,22 +864,27 @@
         document.removeEventListener('touchmove', move);
         document.removeEventListener('mouseup', end);
         document.removeEventListener('touchend', end);
+        document.removeEventListener('touchcancel', end);
       }
       el.addEventListener('mousedown', start);
       el.addEventListener('touchstart', start, { passive: false });
     }
 
-    if (logoBox && stage) {
-      makeDraggable(logoBox, function () {
-        return { x: parseFloat(logoBox.style.left) || 0, y: parseFloat(logoBox.style.top) || 0 };
+    // Tiap bingkai logo (BSS & EVCS) punya drag + pegangan resize sendiri
+    function wireLogoSlot(slot) {
+      if (!slot.el || !stage) return;
+      makeDraggable(slot.el, function () {
+        return { x: parseFloat(slot.el.style.left) || 0, y: parseFloat(slot.el.style.top) || 0 };
       }, function (nx, ny) {
+        focusedSlot = slot.family;
         var cw = stage.clientWidth || 400, ch = stage.clientHeight || 400;
-        var w = parseFloat(logoBox.style.width) || 150, h = parseFloat(logoBox.style.height) || 60;
+        var w = parseFloat(slot.el.style.width) || 150, h = parseFloat(slot.el.style.height) || 60;
         nx = Math.max(-w * 0.3, Math.min(nx, cw - w * 0.7));
         ny = Math.max(-h * 0.3, Math.min(ny, ch - h * 0.7));
-        logoBox.style.left = nx + 'px'; logoBox.style.top = ny + 'px';
-        bssLeftPct = ((nx + w / 2) / cw) * 100; bssTopPct = ((ny + h / 2) / ch) * 100;
-      }, logoResize);
+        slot.el.style.left = nx + 'px'; slot.el.style.top = ny + 'px';
+        slot.leftPct = ((nx + w / 2) / cw) * 100; slot.topPct = ((ny + h / 2) / ch) * 100;
+        updateLogoBox();
+      }, slot.handleEl);
       // Resize via handle
       (function () {
         var resizing = false, rsx = 0, rsy = 0, ow = 0;
@@ -720,13 +892,15 @@
           e.stopPropagation();
           if (e.cancelable) e.preventDefault();
           resizing = true;
+          focusedSlot = slot.family;
           var t = e.type.indexOf('touch') === 0 ? e.touches[0] : e;
           rsx = t.clientX; rsy = t.clientY;
-          ow = parseFloat(logoBox.style.width) || 150;
+          ow = parseFloat(slot.el.style.width) || 150;
           document.addEventListener('mousemove', rmove);
           document.addEventListener('touchmove', rmove, { passive: false });
           document.addEventListener('mouseup', rend);
           document.addEventListener('touchend', rend);
+          document.addEventListener('touchcancel', rend);
         }
         function rmove(e) {
           if (!resizing) return;
@@ -736,7 +910,7 @@
           var cw = stage.clientWidth || 400, ch = stage.clientHeight || 400;
           var base = Math.min(cw, ch) * 0.25;
           var ns = Math.max(24, Math.min(ow + delta, Math.min(cw, ch) * 0.9));
-          bssScaleFactor = ns / base;
+          slot.scale = ns / base;
           updateLogoBox();
         }
         function rend() {
@@ -745,23 +919,29 @@
           document.removeEventListener('touchmove', rmove);
           document.removeEventListener('mouseup', rend);
           document.removeEventListener('touchend', rend);
+          document.removeEventListener('touchcancel', rend);
         }
-        if (logoResize) {
-          logoResize.addEventListener('mousedown', rstart);
-          logoResize.addEventListener('touchstart', rstart, { passive: false });
+        if (slot.handleEl) {
+          slot.handleEl.addEventListener('mousedown', rstart);
+          slot.handleEl.addEventListener('touchstart', rstart, { passive: false });
         }
       })();
     }
+    ensureLogoSlotElements();
+    wireLogoSlot(logoSlots.bss);
+    wireLogoSlot(logoSlots.evcs);
 
     // ---- Panel controls ----
     var logoScaleInput = document.getElementById('camLogoScale');
     if (logoScaleInput) logoScaleInput.addEventListener('input', function () {
-      bssScaleFactor = (parseFloat(logoScaleInput.value) || 100) / 100;
+      var slot = logoSlots[focusedSlot] || logoSlots.bss;
+      slot.scale = (parseFloat(logoScaleInput.value) || 100) / 100;
       updateLogoBox();
     });
+    // Multi-pilih: BSS dan EVCS dapat aktif bersamaan (klik ulang = matikan)
     document.querySelectorAll('.cam-logo-btns button[data-logo]').forEach(function (b) {
       b.addEventListener('click', function () {
-        unitKind = b.getAttribute('data-logo');
+        toggleLogoFile(b.getAttribute('data-logo'));
         refreshUnitUI();
       });
     });
@@ -792,8 +972,8 @@
     if (wmReset) wmReset.addEventListener('click', function () { resetWatermark(); toast('Logo & posisi direset'); });
     var logoResetPos = document.getElementById('camLogoResetPos');
     if (logoResetPos) logoResetPos.addEventListener('click', function () {
-      bssLeftPct = 37.5; bssTopPct = 30; bssScaleFactor = 1.0;
-      updateLogoBox(); toast('Posisi logo direset');
+      resetLogoPositions();
+      updateLogoBox(); toast('Posisi & ukuran logo direset');
     });
 
     // ---- Tombol kamera ----
@@ -814,16 +994,13 @@
 
     // ================= GALERI VIA PREVIEW (ala referensi) =================
     var pendingGalField = null;
-    var pendingGalLogo = 'bss.png';
+    var pendingGalFiles = [];
     var galModal = document.getElementById('galLogoModal');
     function openGalChooser(fieldId) {
       pendingGalField = fieldId;
-      pendingGalLogo = isAutoStickerField(fieldId) ? defaultLogoFile() : 'none';
+      pendingGalFiles = isAutoStickerField(fieldId) ? defaultLogoSelection().slice() : [];
       paintLogoButtons();
-      // sinkron tombol galeri
-      document.querySelectorAll('.cam-logo-btns button[data-glogo]').forEach(function (b) {
-        b.classList.toggle('active', b.getAttribute('data-glogo') === pendingGalLogo);
-      });
+      try { window._japRefreshLogoHint(); } catch (e) {}
       if (galModal) galModal.hidden = false;
       document.body.style.overflow = 'hidden';
     }
@@ -832,12 +1009,19 @@
       if (!modal || modal.hidden) document.body.style.overflow = '';
       pendingGalField = null;
     }
+    // Multi-pilih juga di pemilih logo galeri (BSS + EVCS boleh bersamaan)
     document.querySelectorAll('.cam-logo-btns button[data-glogo]').forEach(function (b) {
       b.addEventListener('click', function () {
-        pendingGalLogo = b.getAttribute('data-glogo');
-        document.querySelectorAll('.cam-logo-btns button[data-glogo]').forEach(function (x) {
-          x.classList.toggle('active', x === b);
-        });
+        var v = String(b.getAttribute('data-glogo') || '').toLowerCase();
+        if (v === 'none') {
+          pendingGalFiles = [];
+        } else if (isLogoFile(v)) {
+          var fam = logoKindFor(v);
+          var rest = pendingGalFiles.filter(function (f) { return logoKindFor(f) !== fam; });
+          if (pendingGalFiles.indexOf(v) === -1) rest.push(v);
+          pendingGalFiles = rest;
+        }
+        paintLogoButtons();
       });
     });
     var galClose = document.getElementById('galLogoClose');
@@ -873,7 +1057,7 @@
           // Jika foto lokasi / GPS-only & hanya 1 gambar -> buka editor preview ala referensi
           // (GPS-only selalu logo 'none': watermark kotak GPS saja, tanpa stiker unit)
           if ((isAutoStickerField(id) || isGpsOnlyField(id)) && picked.length === 1 && /^image\//i.test(picked[0].type || '')) {
-            var logoChoice = isGpsOnlyField(id) ? 'none' : ((id === pendingGalField) ? pendingGalLogo : defaultLogoFile());
+            var logoChoice = isGpsOnlyField(id) ? [] : ((id === pendingGalField) ? pendingGalFiles.slice() : defaultLogoSelection());
           openGalleryPreview(id, picked[0], logoChoice);
           pendingGalField = null;
           if (galModal) galModal.hidden = true;
@@ -886,7 +1070,6 @@
 
     function openGalleryPreview(fieldId, file, logoChoice) {
       activeField = fieldId;
-      unitKind = (/^(none|bss\.png|bss1\.png|bss12\.png|evcs1\.png|evcs21\.png)$/i.test(logoChoice || '')) ? logoChoice : defaultLogoFile();
       isGalleryMode = true;
       stopCam();
       var url = '';
@@ -902,7 +1085,8 @@
         if (wmPanel) wmPanel.hidden = true;
         // default watermark mengikuti owner bila foto lokasi
         resetWatermark();
-        unitKind = logoChoice;
+        if (logoChoice) setLogoSelection(logoChoice);
+        if (logoChoice && logoChoice.length) focusedSlot = logoKindFor(logoChoice[0]);
         refreshUnitUI();
         syncGpsNow('camera');
         setStatus('Atur posisi logo, lalu tekan shutter untuk proses watermark permanen.');
@@ -939,9 +1123,10 @@
       ctx.fillText(kind === 'evcs' ? 'est. 3m x 6m' : 'min. 1m x 1,5m', x + h * 0.28, y + h * 0.74);
       ctx.globalAlpha = 1;
     }
-    function drawLogoOnCanvas(ctx, canvas, imgEl) {
-      var g = logoBoxGeometry(canvas.width, canvas.height);
-      if (!imgEl) { drawBadge(ctx, logoKindFor(unitKind), g.x, g.y, g.w, g.h); return; }
+    function drawLogoOnCanvas(ctx, canvas, slot) {
+      var g = logoBoxGeometryFor(slot, canvas.width, canvas.height);
+      var imgEl = slot.img;
+      if (!imgEl) { drawBadge(ctx, slot.family, g.x, g.y, g.w, g.h); return; }
       try {
         // Rasio boks == rasio gambar (satu acuan), jadi fill tepat tanpa distorsi
         ctx.save();
@@ -949,7 +1134,7 @@
         ctx.drawImage(imgEl, g.x, g.y, g.w, g.h);
         ctx.restore();
       } catch (e) {
-        drawBadge(ctx, logoKindFor(unitKind), g.x, g.y, g.w, g.h);
+        drawBadge(ctx, slot.family, g.x, g.y, g.w, g.h);
       }
     }
     function getWrappedLines(ctx, text, maxWidth) {
@@ -1059,14 +1244,14 @@
         }
         var auto = isAutoStickerField(activeField || '');
         var gpsOnly = isGpsOnlyField(activeField || '');
-        if (unitKind !== 'none' && (auto || isGalleryMode)) {
-          if (logoReady && logoImageObj) drawLogoOnCanvas(ctx, canvasOut, logoImageObj);
-          else {
-            loadOverlay(unitKind, function (im) {
-              if (im) { logoImageObj = im; logoReady = true; }
-            });
-            drawLogoOnCanvas(ctx, canvasOut, logoImageObj);
-          }
+        var stamps = activeLogos();
+        if (stamps.length && (auto || isGalleryMode)) {
+          stamps.forEach(function (slot) {
+            if (!slot.img) {
+              loadOverlay(slot.file, function (im) { if (im) { slot.img = im; slot.ready = true; } });
+            }
+            drawLogoOnCanvas(ctx, canvasOut, slot);
+          });
         }
         if (auto || isGalleryMode || gpsOnly) drawWatermarkFullWidth(ctx, canvasOut);
         pendingHasGps = (auto || isGalleryMode || gpsOnly);
@@ -1406,8 +1591,17 @@
     if (pvPickClose) pvPickClose.addEventListener('click', closePreview);
     if (pvPick) pvPick.addEventListener('click', function () {
       if (pvId === null || pvIdx < 0 || !store[pvId] || !store[pvId][pvIdx]) return;
-      store[pvId].forEach(function (s) { s.selected = false; });
-      store[pvId][pvIdx].selected = true;
+      if (isMultiField(pvId)) {
+        var it = store[pvId][pvIdx];
+        if (!it.selected && selectedCount(pvId) >= MULTI_MAX) {
+          toast('Maksimal ' + MULTI_MAX + ' halaman untuk dokumen ini.');
+          return;
+        }
+        it.selected = !it.selected;
+      } else {
+        store[pvId].forEach(function (s) { s.selected = false; });
+        store[pvId][pvIdx].selected = true;
+      }
       syncReal(pvId);
       renderGrid(pvId);
       closePreview();

@@ -151,13 +151,28 @@ exports.dashboard = async (req, res) => {
   }
 };
 
+// Struktur organisasi LENGKAP semua level (Koordinator → Head → Marketing
+// → Penyedia, termasuk akun terkunci + foto). Khusus admin — halaman depan
+// (/struktur) sengaja hanya menampilkan ringkasannya.
+exports.struktur = async (req, res) => {
+  try {
+    const { buildOrgTree } = require('../utils/orgTree');
+    const { toBerkas } = require('../utils/fileUrl');
+    const { tree, counts } = await buildOrgTree({ includeOwners: true, includeLocked: true, photoMap: toBerkas });
+    res.render('admin/struktur', { title: 'Struktur Tim Lengkap - BSS', tree, counts });
+  } catch (err) {
+    console.error('Admin struktur error:', err);
+    res.status(500).render('public/404', { title: 'Terjadi Kesalahan' });
+  }
+};
+
 exports.marketing = async (req, res) => {
   try {
     // mkt_status ada setelah upgradeDb pendaftaran-marketing; fallback bila belum migrasi.
     let marketers;
     try {
       marketers = await query(
-      `SELECT u.id, u.name, u.email, u.whatsapp, u.nik, u.bank_name, u.account_number, u.photo_file, u.ktp_file, u.fee_type, u.fee_value, u.referral_code, u.downline_quota, u.parent_id, u.is_head, u.is_coordinator, u.is_locked, u.mkt_status, u.created_at,
+      `SELECT u.id, u.name, u.email, u.whatsapp, u.nik, u.bank_name, u.account_number, u.photo_file, u.ktp_file, u.referral_code, u.downline_quota, u.parent_id, u.is_head, u.is_coordinator, u.is_locked, u.mkt_status, u.created_at,
               p.name AS parent_name,
               (SELECT COUNT(*) FROM lands l WHERE l.marketing_id = u.id) AS total_lands,
               (SELECT COUNT(*) FROM lands l WHERE l.marketing_id = u.id AND l.status = 'approved') AS approved_lands,
@@ -173,7 +188,7 @@ exports.marketing = async (req, res) => {
       if (!inner || inner.code !== 'ER_BAD_FIELD_ERROR') throw inner;
       console.error('Admin marketing: kolom mkt_status belum ada — jalankan node config/upgradeDb.js');
       marketers = await query(
-      `SELECT u.id, u.name, u.email, u.whatsapp, u.nik, u.bank_name, u.account_number, u.photo_file, u.ktp_file, u.fee_type, u.fee_value, u.referral_code, u.downline_quota, u.parent_id, u.is_head, u.is_coordinator, u.is_locked, u.created_at,
+      `SELECT u.id, u.name, u.email, u.whatsapp, u.nik, u.bank_name, u.account_number, u.photo_file, u.ktp_file, u.referral_code, u.downline_quota, u.parent_id, u.is_head, u.is_coordinator, u.is_locked, u.created_at,
               p.name AS parent_name,
               (SELECT COUNT(*) FROM lands l WHERE l.marketing_id = u.id) AS total_lands,
               (SELECT COUNT(*) FROM lands l WHERE l.marketing_id = u.id AND l.status = 'approved') AS approved_lands,
@@ -233,16 +248,14 @@ exports.createMarketing = async (req, res) => {
     if (whatsapp.startsWith('0')) whatsapp = '62' + whatsapp.slice(1);
     else if (whatsapp && !whatsapp.startsWith('62')) whatsapp = '62' + whatsapp;
 
-    const feeType = req.body.fee_type === 'persen' ? 'persen' : req.body.fee_type === 'rupiah' ? 'rupiah' : null;
-    const feeValue = feeType ? Math.max(0, Number(req.body.fee_value || 0)) : 0;
+    // Fee per orang tidak dipakai lagi — fee otomatis dari matriks fee_rules
+    // (tipe x wilayah lahan) saat approve. Kolom users.fee_type/fee_value
+    // dipertahankan di skema tapi selalu NULL/0.
+    const feeType = null;
+    const feeValue = 0;
 
     if (!name || !email) {
       flash(req, 'error', 'Nama dan email wajib diisi.');
-      return res.redirect('/admin/marketing');
-    }
-
-    if (feeType && feeValue <= 0) {
-      flash(req, 'error', 'Masukkan nominal/persentase fee yang valid.');
       return res.redirect('/admin/marketing');
     }
 
@@ -332,16 +345,12 @@ exports.updateMarketing = async (req, res) => {
     if (whatsapp.startsWith('0')) whatsapp = '62' + whatsapp.slice(1);
     else if (whatsapp && !whatsapp.startsWith('62')) whatsapp = '62' + whatsapp;
 
-    const feeType = req.body.fee_type === 'persen' ? 'persen' : req.body.fee_type === 'rupiah' ? 'rupiah' : null;
-    const feeValue = feeType ? Math.max(0, Number(req.body.fee_value || 0)) : 0;
+    // Fee per orang tidak dipakai lagi (lihat createMarketing).
+    const feeType = null;
+    const feeValue = 0;
 
     if (!name || !email) {
       flash(req, 'error', 'Nama dan email wajib diisi.');
-      return res.redirect('/admin/marketing');
-    }
-
-    if (feeType && feeValue <= 0) {
-      flash(req, 'error', 'Masukkan nominal/persentase fee yang valid.');
       return res.redirect('/admin/marketing');
     }
 
@@ -697,7 +706,7 @@ exports.lands = async (req, res) => {  try {
     const statusFilter = allowed.includes(req.query.status) ? req.query.status : null;
 
     const lands = await query(
-      `SELECT l.*, u.name marketing_name, u.referral_code, u.fee_type marketing_fee_type, u.fee_value marketing_fee_value,
+      `SELECT l.*, u.name marketing_name, u.referral_code,
         (SELECT COUNT(*) FROM lands s WHERE s.phone_number = l.phone_number) AS owner_units FROM lands l
        LEFT JOIN users u ON u.id = l.marketing_id
        ${statusFilter ? 'WHERE l.status = ?' : ''}
@@ -723,7 +732,35 @@ exports.lands = async (req, res) => {  try {
       ownerSeq = buildSlotMap(allIds);
     } catch (e) { ownerSeq = {}; }
 
-    res.render('admin/lands', { title: 'Daftar Lahan - JAP', lands, statusFilter, businessName, ownerSeq });
+    // Grup 1 card: baris dengan No HP + tanggal pengajuan + titik lat/long yang
+    // SAMA dianggap 1 pengajuan (mis. BSS+EVCS sekaligus) → tampil 1 card berisi
+    // semua unitnya. Beda waktu atau beda titik → card terpisah.
+    // Urutan unit dalam card: EVCS dulu, lalu BSS (id terbaru dulu).
+    const groups = [];
+    const gmap = new Map();
+    lands.forEach((r) => {
+      const d = r.created_at ? new Date(r.created_at) : null;
+      const ymd = d && !isNaN(d.getTime())
+        ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : '';
+      const key = `${r.phone_number || ''}||${r.lat_long || ''}||${ymd}`;
+      let g = gmap.get(key);
+      if (!g) {
+        g = { key, phone: r.phone_number, ymd, units: [] };
+        gmap.set(key, g);
+        groups.push(g);
+      }
+      g.units.push(r);
+    });
+    groups.forEach((gr) => {
+      gr.units.sort((a, b) => ((a.unit_type === 'evcs_mobil' ? 0 : 1) - (b.unit_type === 'evcs_mobil' ? 0 : 1)) || (b.id - a.id));
+    });
+
+    let feeMatrix = null;
+    try {
+      feeMatrix = await require('../utils/feeRules').getFeeMatrix();
+    } catch (e) { feeMatrix = null; }
+
+    res.render('admin/lands', { title: 'Daftar Lahan - JAP', lands, groups, statusFilter, businessName, ownerSeq, feeMatrix });
   } catch (err) {
     console.error('Admin lands error:', err);
     res.status(500).send('Terjadi kesalahan server.');
@@ -734,10 +771,13 @@ exports.settingsPage = async (req, res) => {
   try {
     const { getSetting, getProposalSettings, PROPOSAL_ATTACHMENTS } = require('../utils/settings');
     const { getCompanyProfile } = require('../utils/companyProfile');
+    const { getFeeMatrix, WILAYAH_LIST } = require('../utils/feeRules');
     const businessName = await getSetting('business_name', '');
     const company = await getCompanyProfile();
     const proposal = await getProposalSettings();
-    res.render('admin/settings', { title: 'Pengaturan - JAP', businessName, company, proposal, proposalAttachments: PROPOSAL_ATTACHMENTS });
+    const feeMatrix = await getFeeMatrix();
+    const activeTab = req.query.tab === 'fee' ? 'fee' : 'profil';
+    res.render('admin/settings', { title: 'Pengaturan - JAP', businessName, company, proposal, proposalAttachments: PROPOSAL_ATTACHMENTS, feeMatrix, feeWilayah: WILAYAH_LIST, activeTab });
   } catch (err) {
     console.error('Admin settings error:', err);
     res.status(500).send('Terjadi kesalahan server.');
@@ -761,6 +801,36 @@ exports.saveSettings = async (req, res) => {
       const chosen = picked.map((s) => String(s)).filter((s) => allowed.has(s));
       await setSetting('proposal_attachments', (chosen.length ? chosen : PROPOSAL_ATTACHMENTS.map((a) => a[0])).join(','));
       await setSetting('proposal_notes', String(req.body.proposal_notes || '').trim().slice(0, 2000));
+      // Matriks fee berjenjang (kotor): fee_bss_<wil>_<role>, fee_evcs_<wil>_<role>.
+      // Validasi Koor ≥ Head ≥ Marketing ada di saveFeeMatrix; gagal simpan fee
+      // tidak menggagalkan simpan profil (pesan error khusus).
+      try {
+        const { saveFeeMatrix, WILAYAH_LIST } = require('../utils/feeRules');
+        const matrix = { bss: {}, evcs: {} };
+        // Terima digit polos ("900000") maupun format ribuan ("900.000"):
+        // titik pemisah dibuang, koma desimal dibulatkan ke bawah, minus ditolak.
+        const toInt = (v) => {
+          let s = String(v == null ? '' : v).trim();
+          s = s.replace(/\./g, '').replace(/,/g, '.');
+          const n = Math.floor(Number(s));
+          return Number.isFinite(n) && n >= 0 ? n : 0;
+        };
+        for (const t of ['bss', 'evcs']) {
+          for (const [wk] of WILAYAH_LIST) {
+            matrix[t][wk] = {
+              koordinator: toInt(req.body[`fee_${t}_${wk}_koordinator`]),
+              head: toInt(req.body[`fee_${t}_${wk}_head`]),
+              marketing: toInt(req.body[`fee_${t}_${wk}_marketing`]),
+            };
+          }
+        }
+        // Hanya simpan bila ada satu saja field fee yang dikirim (form settings selalu kirim).
+        const hasFee = Object.keys(req.body).some((k) => /^fee_(bss|evcs)_/.test(k));
+        if (hasFee) await saveFeeMatrix(matrix);
+      } catch (feeErr) {
+        flash(req, 'error', `Pengaturan perusahaan disimpan, tetapi fee gagal disimpan: ${feeErr.message}`);
+        return res.redirect('/admin/settings?tab=fee');
+      }
     // Profil perusahaan (semua opsional kecuali nama).
     // Telepon: input tanpa +62 (ada addon), simpan selalu berformat +62 ....
     const phoneDigits = String(req.body.company_phone || '').trim().replace(/^\+?62/, '').trim().slice(0, 30);
@@ -821,7 +891,7 @@ exports.saveSettings = async (req, res) => {
       eraseImg(oldSign, '/img/signature-');
     }
     flash(req, 'success', 'Pengaturan perusahaan disimpan.');
-    res.redirect('/admin/settings');
+    res.redirect('/admin/settings?tab=' + (String(req.body.active_tab || '') === 'fee' ? 'fee' : 'profil'));
   } catch (err) {
     console.error('Save settings error:', err);
     // Jangan tinggalkan file yatim bila simpan teks gagal setelah upload.
@@ -831,7 +901,7 @@ exports.saveSettings = async (req, res) => {
       });
     } catch (e) {}
     flash(req, 'error', 'Gagal menyimpan pengaturan.');
-    res.redirect('/admin/settings');
+    res.redirect('/admin/settings?tab=' + (String(req.body && req.body.active_tab || '') === 'fee' ? 'fee' : 'profil'));
   }
 };
 
@@ -862,45 +932,79 @@ exports.approveLand = async (req, res) => {
 
     await conn.beginTransaction();
 
-    const [landRows] = await conn.execute('SELECT id, marketing_id, harga_sewa FROM lands WHERE id = ? FOR UPDATE', [landId]);
+    const [landRows] = await conn.execute('SELECT id, marketing_id, harga_sewa, harga_sewa_bss, harga_sewa_evcs, unit_type, city, phone_number, status FROM lands WHERE id = ? FOR UPDATE', [landId]);
     const land = landRows[0];
     if (!land) throw new Error('Lahan tidak ditemukan.');
+    if (land.status === 'approved') throw new Error('Lahan sudah disetujui sebelumnya (fee tidak digandakan).');
 
     // Otomatis: nominal sewa kontrak = Harga Sewa /tahun yang sudah diisi
     // (pengaju atau admin). Tanpa harga, persetujuan ditahan.
-    const nominal = Number(land.harga_sewa) || 0;
+    // Fallback ke kolom per-tipe bila cermin lama (harga_sewa) masih kosong.
+    const typedHarga = land.unit_type === 'evcs_mobil' ? land.harga_sewa_evcs : land.harga_sewa_bss;
+    const nominal = Number(land.harga_sewa) || Number(typedHarga) || 0;
     if (!nominal) throw new Error('Harga Sewa /tahun belum diisi. Isi dulu, lalu setujui.');
 
-    await conn.execute('UPDATE lands SET status = ?, fee_amount = ? WHERE id = ?', ['approved', nominal, landId]);
-
-    // Payout marketing dihitung dari aturan fee miliknya:
-    // rupiah = tetap; persen = % x harga sewa; tanpa aturan = sebesar nominal sewa.
-    let quotaAdded = false;
-    let payoutFee = nominal;
-    if (land.marketing_id) {
-      const marketing = await get(
-        'SELECT fee_type, fee_value FROM users WHERE id = ?',
-        [land.marketing_id]
-      );
-      let marketingFee = nominal;
-      if (marketing && marketing.fee_type === 'rupiah' && marketing.fee_value > 0) {
-        marketingFee = Number(marketing.fee_value);
-      } else if (marketing && marketing.fee_type === 'persen' && marketing.fee_value > 0) {
-        marketingFee = Math.round(nominal * (Number(marketing.fee_value) / 100));
+    // Validasi max unit per titik (1 HP = 1 pemilik): BSS max 3, EVCS max 10.
+    // Nilai kontrak acuan: BSS 3jt/unit, EVCS 6jt/unit (info, tidak diblokir).
+    try {
+      if (land.phone_number) {
+        const [cntRows] = await conn.execute(
+          `SELECT unit_type, COUNT(*) c FROM lands WHERE phone_number = ? AND status != 'rejected' GROUP BY unit_type`,
+          [land.phone_number]
+        );
+        const counts = {};
+        cntRows.forEach((r) => { counts[r.unit_type] = Number(r.c); });
+        const bssCount = counts.bss_motor || 0;
+        const evcsCount = counts.evcs_mobil || 0;
+        if (land.unit_type === 'bss_motor' && bssCount > 3) {
+          throw new Error(`Melebihi max 3 unit BSS per titik untuk HP ini (${bssCount} unit).`);
+        }
+        if (land.unit_type === 'evcs_mobil' && evcsCount > 10) {
+          throw new Error(`Melebihi max 10 unit EVCS per titik untuk HP ini (${evcsCount} unit).`);
+        }
       }
+    } catch (e) {
+      if (/Melebihi max/.test(e.message)) throw e;
+      // Hitung unit gagal (DB tak konsisten) -> lanjut tanpa blokir, catat log.
+      console.error('Validasi max unit dilewati:', e.message);
+    }
 
-      await conn.execute('INSERT INTO fee_logs (marketing_id, land_id, amount) VALUES (?,?,?)', [
-        land.marketing_id,
-        landId,
-        marketingFee,
-      ]);
-      payoutFee = marketingFee;
+    // Fee berjenjang (kotor -> bersih). Cegah dobel: lahan approved tak bisa di-approve ulang.
+    const [dup] = await conn.execute('SELECT id FROM fee_logs WHERE land_id = ? LIMIT 1', [landId]);
+    if (dup.length) throw new Error('Fee lahan ini sudah tercatat (tolak dulu bila ingin koreksi).');
+
+    const feeMod = require('../utils/feeRules');
+    const matrix = await feeMod.getFeeMatrix();
+    const info = feeMod.getGrossFor(matrix, land.city, land.unit_type);
+    const net = feeMod.splitNet(info.gross);
+
+    let quotaAdded = false;
+    let payouts = { rows: [], net, total: 0, topGross: 0 };
+    let feeNote = '';
+    if (land.marketing_id) {
+      const getUserTx = async (id) => {
+        const [rr] = await conn.execute('SELECT id, parent_id, is_head, is_coordinator FROM users WHERE id = ? LIMIT 1', [id]);
+        return rr[0] || null;
+      };
+      const { headId, koorId } = await feeMod.resolveChain(land.marketing_id, getUserTx);
+      payouts = feeMod.buildPayouts({ marketingId: land.marketing_id, headId, koorId, gross: info.gross });
+      // amount = BERSIH (yang diterima), gross_amount = kotor rantai (audit).
+      for (const p of payouts.rows) {
+        await conn.execute(
+          'INSERT INTO fee_logs (marketing_id, fee_role, wilayah, unit_type, land_id, amount, gross_amount) VALUES (?,?,?,?,?,?,?)',
+          [p.userId, p.role, info.wilayah, land.unit_type, landId, p.net, p.gross]
+        );
+      }
+      if (!koorId) feeNote += ' Koordinator tidak ditemukan (rantai belum lengkap).';
+      if (!headId) feeNote += ' Head tidak ditemukan (rantai belum lengkap).';
+      if (info.isFallback) feeNote += ` Kota "${land.city || '-'}" tak dikenal → pakai tarif non-DKI.`;
 
       const [cnt] = await conn.execute(
         `SELECT COUNT(*) total FROM lands WHERE marketing_id = ? AND status = 'approved'`,
         [land.marketing_id]
       );
-      const totalApproved = cnt[0].total;
+      // +1 karena baris ini belum di-update statusnya saat hitung.
+      const totalApproved = Number(cnt[0].total) + 1;
 
       if (totalApproved > 0 && totalApproved % 10 === 0) {
         await conn.execute('UPDATE users SET downline_quota = downline_quota + 1 WHERE id = ?', [
@@ -909,6 +1013,9 @@ exports.approveLand = async (req, res) => {
         quotaAdded = true;
       }
     }
+
+    // lands.fee_amount = kotor tertinggi yang hadir (= keluar perusahaan bila rantai penuh).
+    await conn.execute('UPDATE lands SET status = ?, fee_amount = ?, harga_sewa = ? WHERE id = ?', ['approved', payouts.topGross || 0, nominal, landId]);
 
     await conn.commit();
 
@@ -924,20 +1031,28 @@ exports.approveLand = async (req, res) => {
       spplNote = ' (SPPL otomatis gagal dibuat, gunakan tombol Terbitkan SPPL manual.)';
     }
 
+    const fmt = (n) => Number(n || 0).toLocaleString('id-ID');
     flash(
       req,
       'success',
-      `Lahan #${landId} disetujui. Sewa Rp ${nominal.toLocaleString('id-ID')}/thn → fee marketing Rp ${payoutFee.toLocaleString('id-ID')}.${quotaAdded ? ' Marketing mendapat +1 kuota downline.' : ''}${spplNote}`
+      `Lahan #${landId} disetujui. Sewa Rp ${nominal.toLocaleString('id-ID')}/thn → kotor Rp ${fmt(payouts.topGross)} (bersih: koor Rp ${fmt(payouts.net.koordinator)}, head Rp ${fmt(payouts.net.head)}, marketing Rp ${fmt(payouts.net.marketing)}).${quotaAdded ? ' Marketing mendapat +1 kuota downline.' : ''}${feeNote}${spplNote}`
     );
-    if (land.marketing_id) {
+    const recipientIds = [...new Set(payouts.rows.map((r) => r.userId))];
+    if (recipientIds.length) {
       try {
         const { notify } = require('../utils/notify');
-        notify({
-          senderId: req.session.user.id, userIds: [land.marketing_id],
-          title: `✅ Lahan #${landId} disetujui`,
-          body: `Sewa Rp ${nominal.toLocaleString('id-ID')}/thn → fee Anda Rp ${payoutFee.toLocaleString('id-ID')}.`,
-          link: '/marketing',
-        }).catch(() => {});
+        const bodyByUser = {};
+        payouts.rows.forEach((p) => {
+          bodyByUser[p.userId] = `Sewa Rp ${nominal.toLocaleString('id-ID')}/thn → fee bersih Anda Rp ${fmt(p.net)} (kotor Rp ${fmt(p.gross)}, peran ${p.role}).`;
+        });
+        for (const uid of recipientIds) {
+          notify({
+            senderId: req.session.user.id, userIds: [uid],
+            title: `✅ Lahan #${landId} disetujui`,
+            body: bodyByUser[uid] || `Lahan #${landId} disetujui.`,
+            link: '/marketing',
+          }).catch(() => {});
+        }
       } catch (e) {}
     }
     backToLands(req, res);
@@ -1012,10 +1127,10 @@ exports.proposalPdf = async (req, res) => {
       return backToLands(req, res);
     }
     const land = rows[0];
-    // Fee marketing yang tampil = payout aktual (fee_logs), bukan nominal perolehan.
+    // Fee yang tampil = TOTAL bersih berjenjang (fee_logs), bukan nominal perolehan.
     // Lahan lama yang disetujui sebelum fee_logs ada -> fallback ke fee_amount.
-    const feeRow = await get('SELECT amount FROM fee_logs WHERE land_id = ? ORDER BY id DESC LIMIT 1', [id]);
-    const feeMarketing = feeRow ? Number(feeRow.amount) : Number(land.fee_amount || 0);
+    const feeRow = await get('SELECT COALESCE(SUM(amount),0) total FROM fee_logs WHERE land_id = ?', [id]);
+    const feeMarketing = feeRow && Number(feeRow.total) > 0 ? Number(feeRow.total) : Number(land.fee_amount || 0);
     // Slot unit untuk pemilik ini (BSS-n / EVCS-n).
     let slot = null;
     try {
@@ -1037,29 +1152,46 @@ exports.proposalPdf = async (req, res) => {
   }
 };
 
+// Kumpulkan id lahan dari form: dukung multi-id (land_ids "1,2,3" dari workflow
+// gabungan 1 card) maupun tunggal (land_id lama). Maks 20 id per aksi.
+function parseLandIds(req) {
+  const raw = req.body.land_ids != null && String(req.body.land_ids).trim() !== ''
+    ? String(req.body.land_ids)
+    : String(req.body.land_id != null ? req.body.land_id : '');
+  const ids = [...new Set(
+    raw.split(',').map((s) => Number(String(s).trim())).filter((n) => Number.isInteger(n) && n > 0)
+  )].slice(0, 20);
+  return ids;
+}
+
 exports.requestFix = async (req, res) => {
   try {
-    const landId = Number(req.body.land_id);
-    if (!landId) {
+    const ids = parseLandIds(req);
+    if (!ids.length) {
       flash(req, 'error', 'Pengajuan tidak valid.');
       return backToLands(req, res);
     }
-    const token = require('crypto').randomBytes(32).toString('hex');
-    await query('UPDATE lands SET edit_token = ?, edit_expires = DATE_ADD(NOW(), INTERVAL 7 DAY) WHERE id = ?', [token, landId]);
+    for (const landId of ids) {
+      const token = require('crypto').randomBytes(32).toString('hex');
+      await query('UPDATE lands SET edit_token = ?, edit_expires = DATE_ADD(NOW(), INTERVAL 7 DAY) WHERE id = ?', [token, landId]);
+    }
     // Kabari marketing pemilik agar meneruskan ke penyedia lahan.
     try {
-      const land = await get('SELECT marketing_id FROM lands WHERE id = ?', [landId]);
-      if (land && land.marketing_id) {
+      const mktRows = await query(
+        `SELECT DISTINCT marketing_id AS mid FROM lands WHERE id IN (${ids.map(() => '?').join(',')})`, ids
+      );
+      const mktIds = mktRows.map((r) => r.mid).filter(Boolean);
+      if (mktIds.length) {
         const { notify } = require('../utils/notify');
         notify({
-          senderId: req.session.user.id, userIds: [land.marketing_id],
-          title: `✏️ Lahan #${landId} perlu perbaikan`,
+          senderId: req.session.user.id, userIds: mktIds,
+          title: `✏️ Lahan #${ids.join(', #')} perlu perbaikan`,
           body: 'Admin meminta perbaikan data. Link perbaikan berlaku 7 hari — cek halaman lahan Anda.',
           link: '/marketing',
         }).catch(() => {});
       }
     } catch (e) {}
-    flash(req, 'success', `Link perbaikan lahan #${landId} dibuat (berlaku 7 hari). Klik "Buka WA" untuk mengirim ke pemilik.`);
+    flash(req, 'success', `Link perbaikan lahan #${ids.join(', #')} dibuat (berlaku 7 hari). Klik "Buka WA" untuk mengirim ke pemilik.`);
     backToLands(req, res);
   } catch (err) {
     console.error('Request fix error:', err);
@@ -1070,32 +1202,38 @@ exports.requestFix = async (req, res) => {
 
 exports.stageFlag = async (req, res) => {
   try {
-    const landId = Number(req.body.land_id);
+    const ids = parseLandIds(req);
     const field = String(req.body.field || '');
     const value = String(req.body.value || '');
     // Allowlist kolom & nilai: satu-satunya bagian SQL yang dinamis di file ini.
     // Selain dua kolom ini, query selalu memakai placeholder (?) — aman dari injeksi SQL.
     const okField = field === 'verify_status' || field === 'survey_status';
     const okValue = value === 'belum' || value === 'lolos' || value === 'gagal';
-    if (!landId || !okField || !okValue) {
+    if (!ids.length || !okField || !okValue) {
       flash(req, 'error', 'Data tanda tidak valid.');
       return backToLands(req, res);
     }
-    await query(`UPDATE lands SET ${field} = ? WHERE id = ?`, [value, landId]);
+    await query(`UPDATE lands SET ${field} = ? WHERE id IN (${ids.map(() => '?').join(',')})`, [value, ...ids]);
     const lbl = field === 'verify_status' ? 'Verifikasi' : 'Survei';
     const vLbl = value === 'lolos' ? '✓ lolos' : value === 'gagal' ? '✕ gagal' : 'direset ke belum';
-    // SPPL terbit otomatis tepat setelah verifikasi dinyatakan lolos.
+    // SPPL terbit otomatis tepat setelah verifikasi dinyatakan lolos (per unit).
     let spplNote = '';
     if (field === 'verify_status' && value === 'lolos') {
-      try {
-        const r = await ensureSppl(landId);
-        spplNote = r.created ? ' SPPL otomatis diterbitkan.' : ' SPPL sudah ada sebelumnya.';
-      } catch (spplErr) {
-        console.error('Generate SPPL on verify error:', spplErr);
-        spplNote = ' (SPPL otomatis gagal dibuat, gunakan tombol Terbitkan SPPL manual.)';
+      let created = 0, failed = 0;
+      for (const landId of ids) {
+        try {
+          const r = await ensureSppl(landId);
+          if (r.created) created += 1;
+        } catch (spplErr) {
+          console.error('Generate SPPL on verify error:', spplErr);
+          failed += 1;
+        }
       }
+      spplNote = created
+        ? ` SPPL otomatis diterbitkan (${created} unit).`
+        : (failed ? ' (SPPL otomatis gagal dibuat, gunakan tombol Terbitkan SPPL manual.)' : ' SPPL sudah ada sebelumnya.');
     }
-    flash(req, 'success', `${lbl} lahan #${landId}: ${vLbl}.${spplNote}`);
+    flash(req, 'success', `${lbl} lahan #${ids.join(', #')}: ${vLbl}.${spplNote}`);
     backToLands(req, res);
   } catch (err) {
     console.error('Stage flag error:', err);

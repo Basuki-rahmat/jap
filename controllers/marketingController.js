@@ -159,14 +159,14 @@ exports.network = async (req, res) => {
     if (!userId) return res.redirect('/login');
 
     const me = await get(
-      'SELECT id, name, email, referral_code, downline_quota FROM users WHERE id = ?',
+      'SELECT id, name, email, referral_code, parent_id, is_head, is_coordinator, downline_quota, photo_file FROM users WHERE id = ?',
       [userId]
     );
     if (!me) return res.status(404).send('Akun tidak ditemukan.');
 
     // Ambil semua marketing sekali, susun pohon di JS (skala kecil)
     const all = await query(
-      `SELECT id, name, email, referral_code, parent_id, created_at FROM users WHERE role = 'marketing' ORDER BY id ASC`
+      `SELECT id, name, email, referral_code, parent_id, is_head, is_coordinator, created_at, photo_file FROM users WHERE role = 'marketing' ORDER BY id ASC`
     );
     const byParent = {};
     all.forEach((u) => {
@@ -194,34 +194,128 @@ exports.network = async (req, res) => {
     const totalCount = tree.length;
     const maxLevel = tree.reduce((m, n) => Math.max(m, n.level), 0);
 
-    // Statistik lahan per anggota jaringan dalam 1 query
+    // Rantai atasan: dari puncak (teratas) sampai atasan langsung (depth 1).
+    // Anti-siklus: berhenti bila id berulang / induk tak dikenal.
+    const { roleOf } = require('../utils/orgTree');
+    const byId = {};
+    all.forEach((u) => { byId[Number(u.id)] = u; });
+    const superiors = [];
+    {
+      const seenUp = new Set([Number(userId)]);
+      let pid = me.parent_id ? Number(me.parent_id) : 0;
+      let guardUp = 0;
+      while (pid && guardUp < 20) {
+        guardUp += 1;
+        if (seenUp.has(pid)) break;
+        seenUp.add(pid);
+        const u = byId[pid];
+        if (!u) break;
+        superiors.unshift({ user: u, role: roleOf(u), depth: 0 });
+        pid = u.parent_id ? Number(u.parent_id) : 0;
+      }
+      superiors.forEach((s, i) => { s.depth = superiors.length - i; });
+    }
+
+    // Statistik lahan per anggota jaringan dalam 1 query (termasuk diri sendiri,
+    // lalu dipisah: landStats = downline saja, landStatsAll = semua untuk pohon)
     const ids = tree.map((n) => n.user.id);
     let landStats = {};
-    if (ids.length) {
-      const placeholders = ids.map(() => '?').join(',');
+    let landStatsAll = {};
+    const statIds = [...ids, Number(userId)];
+    if (statIds.length) {
+      const placeholders = statIds.map(() => '?').join(',');
       const rows = await query(
         `SELECT marketing_id,
                 COUNT(*) total,
                 SUM(status = 'approved') approved,
                 SUM(status = 'pending') pending
          FROM lands WHERE marketing_id IN (${placeholders}) GROUP BY marketing_id`,
-        ids
+        statIds
       );
-      rows.forEach((r) => { landStats[r.marketing_id] = r; });
+      rows.forEach((r) => {
+        landStatsAll[r.marketing_id] = Number(r.total || 0);
+        landStatsAll[String(r.marketing_id)] = Number(r.total || 0);
+      });
+      rows.forEach((r) => {
+        if (Number(r.marketing_id) !== Number(userId)) landStats[r.marketing_id] = r;
+      });
     }
     const netLands = Object.values(landStats).reduce((s, r) => s + Number(r.total || 0), 0);
     const netApproved = Object.values(landStats).reduce((s, r) => s + Number(r.approved || 0), 0);
+
+    // Layout struktur pohon berakar pada user yang login (dirinya sebagai root,
+    // bawahannya tersusun bertingkat). Bentuk node disamakan dengan partial
+    // public/_struktur-node agar memakai CSS org-tree yang sama dengan admin.
+    const { initials } = require('../utils/orgTree');
+    // roleOf sudah diimpor di bawah untuk superiors; definisikan ulang aman di sini
+    const roleOfLocal = (u) => (
+      Number(u.is_coordinator) === 1 ? 'KOORDINATOR'
+        : (Number(u.is_head) === 1 ? 'HEAD' : 'MARKETING')
+    );
+    let orgRoot = null;
+    try {
+      const nodeMap = {};
+      all.forEach((u) => {
+        nodeMap[Number(u.id)] = {
+          id: Number(u.id),
+          name: u.name,
+          role: roleOfLocal(u),
+          photo: u.photo_file || null,
+          initials: initials(u.name),
+          referral: u.referral_code || '-',
+          units: landStatsAll[u.id] || landStatsAll[String(u.id)] || 0,
+          locked: false,
+          children: [],
+          owners: [],
+        };
+      });
+      // Pastikan root (saya) selalu ada meski tak ada di `all` (mis. role berubah)
+      if (!nodeMap[Number(userId)]) {
+        nodeMap[Number(userId)] = {
+          id: Number(userId),
+          name: me.name,
+          role: roleOfLocal(me),
+          photo: me.photo_file || null,
+          initials: initials(me.name),
+          referral: me.referral_code || '-',
+          units: landStatsAll[userId] || landStatsAll[String(userId)] || 0,
+          locked: false,
+          children: [],
+          owners: [],
+        };
+      }
+      const kidsByParent = {};
+      all.forEach((u) => {
+        const p = u.parent_id ? Number(u.parent_id) : 0;
+        if (!kidsByParent[p]) kidsByParent[p] = [];
+        kidsByParent[p].push(Number(u.id));
+      });
+      Object.values(kidsByParent).forEach((arr) => arr.sort((a, b) => a - b));
+      const seenOrg = new Set();
+      const buildNested = (uid, depth) => {
+        if (depth > 6 || seenOrg.has(Number(uid))) return null;
+        const nd = nodeMap[Number(uid)];
+        if (!nd) return null;
+        seenOrg.add(Number(uid));
+        const kids = kidsByParent[Number(uid)] || [];
+        nd.children = kids.map((k) => buildNested(k, depth + 1)).filter(Boolean);
+        return nd;
+      };
+      orgRoot = buildNested(Number(userId), 0);
+    } catch (e) { orgRoot = null; }
 
     res.render('marketing/jaringan', {
       title: 'Jaringan Saya - JAP',
       me,
       tree,
+      superiors,
       directCount,
       totalCount,
       maxLevel,
       landStats,
       netLands,
       netApproved,
+      orgRoot,
     });
   } catch (err) {
     console.error('Marketing network error:', err);

@@ -9,6 +9,8 @@
   .hero-steps { display: flex; gap: 8px; list-style: none; padding: 0; margin: 24px 0 0; flex-wrap: wrap; }
   .hero-steps li { display: flex; align-items: center; gap: 8px; font-size: .8rem; font-weight: 600; color: var(--text-muted); background: var(--card); border: 1px solid var(--card-border); border-radius: 999px; padding: 6px 14px 6px 6px; }
   .hero-steps li strong { width: 24px; height: 24px; border-radius: 50%; background: var(--primary); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: .75rem; }
+  /* Kartu fitur yang bisa diklik (bungkus <a>, tampil seperti .card) */
+  a.card { display: block; color: inherit; text-decoration: none; }
   .hero-map { position: relative; transform: none; }
   .hero-map:hover { transform: translateY(-4px); }
   .hero-badge { position: absolute; font-size: .74rem; font-weight: 800; background: var(--card); border: 1px solid var(--card-border); border-radius: 999px; padding: 7px 14px; box-shadow: var(--shadow); animation: heroFloat 4s ease-in-out infinite; }
@@ -44,7 +46,7 @@
         </p>
         <div class="hero-cta">
           <% if (typeof referralCode !== 'undefined' && referralCode) { %>
-          <a href="/ajukan?ref=<%= referralCode %>" class="btn btn-accent"><strong>Mulai dari Sini →</strong></a>
+          <a href="/ajukan?ref=<%= referralCode %>" class="btn btn-accent"><strong>Ajukan Lahan →</strong></a>
           <% } %>
           <a href="/panduan" class="btn btn-outline">Lihat Panduan</a>
         </div>
@@ -76,9 +78,15 @@
       </div>
 
       <div class="grid-3">
+        <% if (typeof user !== 'undefined' && user) { %>
+        <a class="card" href="/ajukan<%= (typeof referralCode !== 'undefined' && referralCode) ? '?ref=' + referralCode : '' %>" title="Ajukan lokasi lahan">
+          <img class="feature-img" src="/img/ajukan-lokasi.png" alt="Ajukan lokasi lahan" loading="lazy" decoding="async" />
+        </a>
+        <% } else { %>
         <div class="card">
           <img class="feature-img" src="/img/ajukan-lokasi.png" alt="Ajukan lokasi lahan" loading="lazy" decoding="async" />
         </div>
+        <% } %>
         <div class="card">
             <img class="feature-img" src="/img/verifikasi-admin.png" alt="verifikasi" loading="lazy" decoding="async" />
           </div>

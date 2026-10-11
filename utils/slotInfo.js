@@ -8,8 +8,9 @@
  * buildSlotMap(rows): rows = [{ id, phone_number, unit_type, slot_no }]
  *   diurut id ASC. Mengembalikan { [id]: { seq, total, typeSeq, typeTotal, typeCode } }
  *   typeCode: 'BSS' | 'EVCS'
- *   Bila slot_no manual (1-4) terisi, ia dipakai sebagai typeSeq
- *   (pilihan pengaju); bila kosong, dipakai nomor urut otomatis.
+ *   Bila slot_no manual (1-10, BSS max 3 / EVCS max 10 di validasi form & server)
+ *   terisi, ia dipakai sebagai typeSeq (pilihan pengaju); bila kosong,
+ *   dipakai nomor urut otomatis.
  */
 
 function typeCodeOf(unitType) {
@@ -37,7 +38,7 @@ function buildSlotMap(rows) {
     seen[ph] = (seen[ph] || 0) + 1;
     typeSeen[k] = (typeSeen[k] || 0) + 1;
     const manual = Number(r.slot_no);
-    const useManual = Number.isInteger(manual) && manual >= 1 && manual <= 4;
+    const useManual = Number.isInteger(manual) && manual >= 1 && manual <= 10;
     map[r.id] = {
       seq: seen[ph],
       total: totals[ph] || 0,
