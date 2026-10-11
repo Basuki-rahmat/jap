@@ -24,9 +24,21 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.set('trust proxy', 1);
 
+// Helper global untuk template (cadangan bila middleware locals terlewat):
+// tersedia di SEMUA render EJS tanpa terkecuali.
+try {
+  app.locals.fileUrl = require('./utils/fileUrl').toBerkas;
+} catch (e) {
+  app.locals.fileUrl = (p) => p;
+}
+
 // Header keamanan. CSP disesuaikan: inline script/style dipakai di views,
 // peta memakai tile OSM/Esri + reverse-geocode Nominatim, font dari Google.
 app.use(helmet({
+  // HSTS hanya di produksi (HTTPS). Di development (http://localhost)
+  // header ini tidak boleh dikirim agar browser tidak mengunci hostname
+  // localhost ke HTTPS (pin HSTS berlaku per-host, semua port!).
+  hsts: isProd ? undefined : false,
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
@@ -168,95 +180,19 @@ if (isProd) {
     'sesi hilang saat restart dan tidak berbagi antar instance. Untuk multi-instance gunakan Redis store.');
 }
 
-// Proteksi file upload: marketing hanya boleh membuka berkas miliknya sendiri.
-// (Tanpa ini, URL /uploads/* bisa ditebak dan dibuka siapa pun.)
-const { query: dbQuery } = require('./models/db');
-const FILE_COLS = ['ktp_file', 'photo_1_file', 'photo_2_file', 'photo_3_file', 'photo_spot_file', 'photo_right_file', 'photo_left_file', 'photo_selfie_file', 'photo_maps_file', 'legal_doc_file', 'family_doc_file', 'sewa_doc_file', 'support_doc_file', 'sppl_file'];
-app.use('/uploads', async (req, res, next) => {
-  try {
-    const file = `/uploads${req.path}`;
-    // Publik: foto profil marketing (avatar di /struktur) boleh dibuka tanpa login.
-    // KTP & seluruh berkas lahan tetap wajib login + cek kepemilikan.
-    try {
-      const pub = await dbQuery('SELECT id FROM users WHERE photo_file = ? LIMIT 1', [file]);
-      if (pub.length) return next();
-    } catch (e) {}
-    // Mobile (React Native): berkas dibuka dengan ?token=<access_jwt> atau
-    // header Authorization: Bearer — tanpa cookie sesi.
-    let user = req.session.user;
-    if (!user) {
-      try {
-        const q = String((req.query && req.query.token) || '').replace(/^Bearer\s+/i, '');
-        const h = String(req.get('authorization') || req.get('Authorization') || '').replace(/^Bearer\s+/i, '');
-        const { verifyAccess } = require('./utils/apiAuth');
-        const payload = verifyAccess(q || h);
-        if (payload) {
-          const rows = await dbQuery(
-            'SELECT id, role, is_head, is_locked FROM users WHERE id = ? LIMIT 1',
-            [Number(payload.uid)]
-          );
-          if (rows.length && Number(rows[0].is_locked) !== 1) {
-            user = { id: Number(rows[0].id), role: rows[0].role, is_head: Number(rows[0].is_head || 0) };
-          }
-        }
-      } catch (e) {}
-    }
-    if (!user) return res.status(401).send('Login dahulu untuk membuka berkas.');
-    if (user.role === 'superadmin') return next();
-    const cond = FILE_COLS.map((c) => `${c} = ?`).join(' OR ');
-    const rows = await dbQuery(
-      `SELECT id FROM lands WHERE marketing_id = ? AND (${cond}) LIMIT 1`,
-      [user.id, ...FILE_COLS.map(() => file)]
-    );
-    if (rows.length) return next();
-    // Head Marketing: boleh membuka berkas referral sendiri + jaringan downline
-    // (semua level) agar bisa memeriksa sebelum meminta perbaikan.
-    if (user.role === 'marketing') {
-      try {
-        const headRow = await dbQuery('SELECT is_head FROM users WHERE id = ? LIMIT 1', [user.id]);
-        if (headRow.length && Number(headRow[0].is_head) === 1) {
-          const allMkt = await dbQuery(`SELECT id, parent_id FROM users WHERE role = 'marketing'`);
-          const byParent = {};
-          allMkt.forEach((u) => {
-            const p = u.parent_id ? Number(u.parent_id) : 0;
-            if (!byParent[p]) byParent[p] = [];
-            byParent[p].push(Number(u.id));
-          });
-          const allowed = new Set([Number(user.id)]);
-          const stack = (byParent[user.id] || []).slice();
-          let guard = 0;
-          while (stack.length && guard < 5000) {
-            guard += 1;
-            const did = stack.pop();
-            if (allowed.has(Number(did))) continue;
-            allowed.add(Number(did));
-            (byParent[did] || []).forEach((k) => stack.push(k));
-          }
-          if (allowed.size > 1) {
-            const ids = Array.from(allowed).filter((v) => v !== Number(user.id));
-            if (ids.length) {
-              const ph = ids.map(() => '?').join(',');
-              const netRows = await dbQuery(
-                `SELECT id FROM lands WHERE marketing_id IN (${ph}) AND (${cond}) LIMIT 1`,
-                [...ids, ...FILE_COLS.map(() => file)]
-              );
-              if (netRows.length) return next();
-            }
-          }
-        }
-      } catch (e) {}
-    }
-    // Foto diri & KTP milik sendiri (profil marketing mandiri)
-    const own = await dbQuery(
-      'SELECT id FROM users WHERE id = ? AND (photo_file = ? OR ktp_file = ?) LIMIT 1',
-      [user.id, file, file]
-    );
-    if (!own.length) return res.status(403).send('Akses ditolak: bukan berkas milik Anda.');
-    return next();
-  } catch (err) {
-    return next(err);
-  }
+// Folder uploads TIDAK terekspos:
+// - URL /uploads/* selalu dijawab 404 (tidak ada listing, tidak ada bocoran
+//   keberadaan berkas), baik anonim maupun login.
+// - Satu-satunya akses berkas adalah GET /berkas/<nama> (wajib login + cek
+//   kepemilikan, header no-store/noindex) — lihat routes/fileRoutes.js.
+// - Template WAJIB memakai helper fileUrl() (res.locals), bukan path mentah.
+app.use('/uploads', (req, res) => {
+  res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
+  res.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  res.set('X-Content-Type-Options', 'nosniff');
+  return res.status(404).send('Tidak ditemukan.');
 });
+app.use('/berkas', require('./routes/fileRoutes'));
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -264,6 +200,12 @@ app.use(async (req, res, next) => {
   res.locals.currentPath = req.path;
   res.locals.user = req.session.user || null;
   res.locals.withMap = false;
+  // Helper URL berkas privat: /uploads/x -> /berkas/x (wajib dipakai template).
+  try {
+    res.locals.fileUrl = require('./utils/fileUrl').toBerkas;
+  } catch (e) {
+    res.locals.fileUrl = (p) => p;
+  }
   // Brand global (logo + nama dari Pengaturan) untuk navbar/footer/favicon.
   try {
     const { getBrand } = require('./utils/companyProfile');
@@ -280,7 +222,8 @@ app.use(async (req, res, next) => {
   if (req.query && req.query.ref) {
     req.session.referralCode = String(req.query.ref).slice(0, 20);
   }
-  res.locals.referralCode = req.session.referralCode || '';
+  res.locals.referralCode = req.session.referralCode
+    || (req.session.user && req.session.user.referral_code) || '';
   next();
 });
 
@@ -314,7 +257,25 @@ app.use('/api/v1', (req, res, next) => {
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
-app.use('/api/v1', apiLimiter, require('./routes/apiV1Routes'));
+app.use('/api/v1', apiLimiter, (req, res, next) => {
+  // Tulis ulang path /uploads/* di respons JSON menjadi /berkas/* agar
+  // aplikasi mobile tidak pernah menerima/menyimpan URL folder uploads.
+  const { toBerkas } = require('./utils/fileUrl');
+  const origJson = res.json.bind(res);
+  const rewrite = (v) => {
+    if (typeof v === 'string') return v.indexOf('/uploads/') >= 0 ? v.split('/uploads/').join('/berkas/') : v;
+    if (Array.isArray(v)) return v.map(rewrite);
+    if (v && typeof v === 'object') {
+      for (const k of Object.keys(v)) v[k] = rewrite(v[k]);
+      return v;
+    }
+    return v;
+  };
+  res.json = (body) => origJson(rewrite(body));
+  // Samakan helper fileUrl untuk pemakaian server-side bila diperlukan.
+  res.locals.fileUrl = toBerkas;
+  next();
+}, require('./routes/apiV1Routes'));
 
 app.use('/', require('./routes/notifRoutes'));
 app.use('/admin', adminRoutes);

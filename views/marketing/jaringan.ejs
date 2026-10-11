@@ -24,6 +24,23 @@
   .net-nums b { display: block; font-size: 1.05rem; line-height: 1.2; }
   .net-nums span { font-size: .6rem; font-weight: 700; color: var(--muted, #888); text-transform: uppercase; letter-spacing: .05em; }
   .net-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: .72rem; color: var(--muted, #888); }
+  .sup-chain { display: grid; gap: 0; }
+  .sup-node { display: flex; gap: 10px; align-items: center; background: var(--bg-soft); border: 1px solid var(--card-border); border-radius: 12px; padding: 10px 12px; min-width: 0; }
+  .sup-node.sup-me { border-color: var(--primary); background: var(--primary-soft); }
+  .sup-arrow { text-align: center; color: var(--muted, #aaa); font-weight: 800; line-height: 1; padding: 3px 0; }
+  /* Layout struktur pohon (pakai CSS org-tree global dari style.css) */
+  .org-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; background: var(--bg-soft); border: 1px solid var(--card-border); border-radius: 14px; padding: 10px 12px; }
+  .org-toolbar .btn { padding: 8px 14px; font-size: .76rem; }
+  .org-toolbar .spacer { flex: 1; }
+  .org-zoom-val { font-size: .78rem; font-weight: 800; min-width: 48px; text-align: center; }
+  .org-hint { font-size: .74rem; color: var(--muted, #888); margin: 0 0 14px; }
+  .org-legend { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 0 0 14px; }
+  .org-tree li.has-kids > .org-node { cursor: pointer; }
+  .org-tree li.has-kids > .org-node:hover { border-color: var(--primary); }
+  .org-tree li.collapsed > ul { display: none; }
+  .org-fold { display: none; position: absolute; right: 8px; bottom: 8px; background: var(--primary); color: #fff; font-size: .62rem; font-weight: 800; border-radius: 99px; padding: 1px 8px; }
+  .org-tree li.collapsed > .org-node .org-fold { display: inline-block; }
+  .org-me-tag { font-size: .6rem; font-weight: 800; letter-spacing: .5px; padding: 2px 10px; border-radius: 999px; background: var(--primary); color: #fff; margin-top: 4px; }
   @media (max-width: 640px) { .net-stats { grid-template-columns: repeat(2, 1fr); } }
 </style>
 
@@ -47,13 +64,98 @@
         <div class="net-stat"><div class="num"><%= netApproved %></div><div class="lbl">✅ Disetujui jaringan</div></div>
       </div>
 
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title-row" style="margin-bottom:12px;">
+          <h3 style="margin:0;">🌳 Layout Struktur</h3>
+          <span class="lvl-badge" style="margin-left:auto;">Saya sebagai puncak</span>
+        </div>
+        <p class="subtext" style="margin:0 0 12px;">Pohon berakar pada akun yang login — <strong><%= me.name %></strong> di paling atas, downline tersusun bertingkat ke bawah.</p>
+        <div class="org-legend">
+          <span class="lg-coord">KOORDINATOR</span>
+          <span class="lg-head">HEAD</span>
+          <span class="lg-mkt">MARKETING</span>
+        </div>
+        <div class="org-toolbar">
+          <button type="button" class="btn btn-outline" id="orgExpand">➕ Buka Semua</button>
+          <button type="button" class="btn btn-outline" id="orgCollapse">➖ Tutup ke Level 1</button>
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-outline" id="orgZoomOut" aria-label="Perkecil">🔍−</button>
+          <span class="org-zoom-val" id="orgZoomVal">100%</span>
+          <button type="button" class="btn btn-outline" id="orgZoomIn" aria-label="Perbesar">🔍＋</button>
+          <button type="button" class="btn btn-outline" id="orgZoomReset" aria-label="Reset zoom">⤾</button>
+        </div>
+        <p class="org-hint">💡 Klik kartu untuk membuka/menutup bawahannya · geser ke samping bila pohon lebar.</p>
+        <% var _org = (typeof orgRoot !== 'undefined' ? orgRoot : null); %>
+        <% var _meLvl = (Number(me.is_coordinator) === 1 ? 'coord' : (Number(me.is_head) === 1 ? 'head' : 'mkt')); %>
+        <% var _meRole = (Number(me.is_coordinator) === 1 ? 'KOORDINATOR' : (Number(me.is_head) === 1 ? 'HEAD' : 'MARKETING')); %>
+        <% var _meUnits = (_org ? _org.units : 0); %>
+        <% var _mePhoto = (_org && _org.photo ? (typeof fileUrl !== 'undefined' ? fileUrl(_org.photo) : _org.photo) : null); %>
+        <% var _meIni = me.name.trim().split(/\s+/).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase(); %>
+        <div class="org-scroll">
+          <ul class="org-tree" id="myOrgTree">
+            <li>
+              <div class="org-node <%= _meLvl %>">
+                <span class="org-avatar"><% if (_mePhoto) { %><img src="<%= _mePhoto %>" alt="<%= me.name %>" loading="lazy" onerror="this.remove()" /><% } %><b><%= _meIni %></b></span>
+                <strong class="org-name"><%= me.name %></strong>
+                <span class="org-meta">
+                  <span class="org-role"><%= _meRole %></span>
+                  <span class="org-stat"><%= _meUnits %> unit</span>
+                </span>
+                <span class="org-me-tag">★ SAYA (LOGIN)</span>
+              </div>
+              <% if (_org && _org.children && _org.children.length) { %>
+              <ul>
+                <% _org.children.forEach(function (node) { %>
+                  <%- include('../public/_struktur-node', { node: node, currentUserId: me.id }) %>
+                <% }) %>
+              </ul>
+              <% } %>
+            </li>
+          </ul>
+        </div>
+        <% if (!_org || !_org.children || !_org.children.length) { %>
+          <p class="empty-cell" style="margin:10px 0 0;">Belum ada downline di bawah Anda — pohon hanya berisi akun Anda.</p>
+        <% } %>
+      </div>
+
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title-row" style="margin-bottom:12px;">
+          <h3 style="margin:0;">🏔️ Rantai Atasan</h3>
+        </div>
+        <% var _sup = (typeof superiors !== 'undefined' ? superiors : []); %>
+        <% if (!_sup.length) { %>
+          <p class="empty-cell" style="margin:0;">Anda berada di puncak — tidak ada atasan di atas Anda.</p>
+        <% } else { %>
+          <div class="sup-chain">
+            <% _sup.forEach(function (s) { %>
+              <div class="sup-node">
+                <span class="net-ava"><%= s.user.name.trim().split(/\s+/).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase() %></span>
+                <div class="net-id">
+                  <strong><%= s.user.name %></strong>
+                  <span class="subtext"><%= s.role %> • <%= s.user.email %></span>
+                </div>
+                <% if (s.depth === 1) { %><span class="lvl-badge">Langsung</span><% } %>
+              </div>
+              <div class="sup-arrow">↓</div>
+            <% }) %>
+            <div class="sup-node sup-me">
+              <span class="net-ava"><%= me.name.trim().split(/\s+/).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase() %></span>
+              <div class="net-id">
+                <strong><%= me.name %> (Saya)</strong>
+                <span class="subtext"><%= me.email %></span>
+              </div>
+            </div>
+          </div>
+        <% } %>
+      </div>
+
       <div class="card">
         <div class="card-title-row" style="margin-bottom:12px;">
           <h3 style="margin:0;">Daftar Marketing (<%= totalCount %>)</h3>
           <a href="/marketing" class="btn btn-outline" style="margin-left:auto;padding:8px 16px;font-size:.75rem;">← Dashboard</a>
         </div>
         <div class="net-search">
-          <input type="search" id="netSearch" placeholder="🔍 Cari nama / email / referral…" />
+          <input type="search" id="netSearch" name="q" autocomplete="off" aria-label="Cari jaringan" placeholder="🔍 Cari nama / email / referral…" />
         </div>
         <% if (tree.length === 0) { %>
           <p class="empty-cell" style="margin:0;">Belum ada marketing di bawah Anda. Minta admin menetapkan Anda sebagai Head saat menambah marketing baru.</p>
@@ -91,14 +193,86 @@
 <script>
   (function () {
     var input = document.getElementById('netSearch');
-    if (!input) return;
-    var rows = Array.prototype.slice.call(document.querySelectorAll('#netBody .net-card'));
-    input.addEventListener('input', function () {
-      var q = input.value.trim().toLowerCase();
-      rows.forEach(function (r) {
-        r.style.display = (!q || (r.getAttribute('data-search') || '').indexOf(q) !== -1) ? '' : 'none';
+    if (input) {
+      var rows = Array.prototype.slice.call(document.querySelectorAll('#netBody .net-card'));
+      input.addEventListener('input', function () {
+        var q = input.value.trim().toLowerCase();
+        rows.forEach(function (r) {
+          r.style.display = (!q || (r.getAttribute('data-search') || '').indexOf(q) !== -1) ? '' : 'none';
+        });
+      });
+    }
+    // Pohon lipat berjenjang + zoom (sama seperti admin/struktur, lingkup #myOrgTree).
+    var tree = document.getElementById('myOrgTree');
+    if (!tree) return;
+    function childUl(li) {
+      var found = null;
+      Array.prototype.forEach.call(li.children, function (ch) {
+        if (ch.tagName === 'UL') found = ch;
+      });
+      return found;
+    }
+    function nodeOf(li) {
+      var found = null;
+      Array.prototype.forEach.call(li.children, function (ch) {
+        if (ch.classList && ch.classList.contains('org-node')) found = ch;
+      });
+      return found;
+    }
+    function hiddenCount(li) {
+      return li.querySelectorAll('ul li').length;
+    }
+    var items = Array.prototype.slice.call(tree.querySelectorAll('li'));
+    items.forEach(function (li) {
+      if (!childUl(li)) return;
+      var node = nodeOf(li);
+      if (!node) return;
+      li.classList.add('has-kids');
+      var chip = document.createElement('span');
+      chip.className = 'org-fold';
+      node.appendChild(chip);
+      var paint = function () {
+        chip.textContent = '+' + hiddenCount(li);
+      };
+      node.addEventListener('click', function () {
+        li.classList.toggle('collapsed');
+        paint();
+      });
+      paint();
+    });
+    function on(id, fn) {
+      var b = document.getElementById(id);
+      if (b) b.addEventListener('click', fn);
+    }
+    on('orgExpand', function () {
+      items.forEach(function (li) { li.classList.remove('collapsed'); });
+    });
+    on('orgCollapse', function () {
+      items.forEach(function (li) {
+        var p = li.parentElement;
+        if (p && p.id === 'myOrgTree') return;
+        if (childUl(li)) li.classList.add('collapsed');
       });
     });
+    var z = 1;
+    var zv = document.getElementById('orgZoomVal');
+    function applyZ() {
+      tree.style.zoom = z;
+      if (zv) zv.textContent = Math.round(z * 100) + '%';
+    }
+    on('orgZoomIn', function () { z = Math.min(1.6, Math.round((z + 0.1) * 100) / 100); applyZ(); });
+    on('orgZoomOut', function () { z = Math.max(0.4, Math.round((z - 0.1) * 100) / 100); applyZ(); });
+    on('orgZoomReset', function () { z = 1; applyZ(); });
+    (function fit() {
+      var sc = tree.closest ? tree.closest('.org-scroll') : null;
+      if (!sc) return;
+      tree.style.zoom = 1;
+      var w = tree.scrollWidth, v = sc.clientWidth;
+      if (w > v && w > 0 && v > 0) {
+        z = Math.max(0.4, Math.floor((v / w) * 100) / 100);
+        applyZ();
+      }
+    })();
   })();
 </script>
 

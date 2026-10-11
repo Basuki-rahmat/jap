@@ -66,6 +66,70 @@ async function main() {
   );
   console.log('  = settings siap');
 
+  // fee_rules: matriks fee berjenjang (tabel khusus, 2 tipe x 5 wilayah = 10 baris).
+  await conn.query(
+    `CREATE TABLE IF NOT EXISTS fee_rules (
+      unit_type ENUM('bss','evcs') NOT NULL,
+      wilayah VARCHAR(30) NOT NULL,
+      koordinator INT NOT NULL DEFAULT 0,
+      head INT NOT NULL DEFAULT 0,
+      marketing INT NOT NULL DEFAULT 0,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (unit_type, wilayah)
+    ) ENGINE=InnoDB`
+  );
+  console.log('  = fee_rules siap');
+
+  // Seed / migrasi fee_rules: bila tabel masih kosong, isi dari settings
+  // lama (fee_matrix_v1) bila ada, sonst pakai default bawaan.
+  try {
+    const [cnt] = await conn.query('SELECT COUNT(*) c FROM `fee_rules`');
+    if (Number(cnt[0].c) === 0) {
+      let seed = null;
+      try {
+        const [srows] = await conn.query('SELECT `value` FROM `settings` WHERE `key` = ? LIMIT 1', ['fee_matrix_v1']);
+        if (srows.length && srows[0].value) seed = JSON.parse(String(srows[0].value));
+      } catch (e) {}
+      const fallback = {
+        bss: {
+          dki_jakarta: { koordinator: 900000, head: 500000, marketing: 300000 },
+          bogor: { koordinator: 700000, head: 450000, marketing: 300000 },
+          depok: { koordinator: 700000, head: 450000, marketing: 300000 },
+          tangerang: { koordinator: 700000, head: 450000, marketing: 300000 },
+          bekasi: { koordinator: 700000, head: 450000, marketing: 300000 },
+        },
+        evcs: {
+          dki_jakarta: { koordinator: 1500000, head: 800000, marketing: 500000 },
+          bogor: { koordinator: 1200000, head: 750000, marketing: 500000 },
+          depok: { koordinator: 1200000, head: 750000, marketing: 500000 },
+          tangerang: { koordinator: 1200000, head: 750000, marketing: 500000 },
+          bekasi: { koordinator: 1200000, head: 750000, marketing: 500000 },
+        },
+      };
+      const src = (seed && typeof seed === 'object') ? seed : fallback;
+      const num = (v, d) => {
+        const n = Math.floor(Number(String(v == null ? '' : v).replace(/\./g, '').replace(/,/g, '.')));
+        return Number.isFinite(n) && n >= 0 ? n : d;
+      };
+      let n = 0;
+      for (const t of ['bss', 'evcs']) {
+        for (const w of ['dki_jakarta', 'bogor', 'depok', 'tangerang', 'bekasi']) {
+          const c = (src[t] && src[t][w]) || fallback[t][w];
+          await conn.query(
+            'INSERT INTO `fee_rules` (unit_type, wilayah, koordinator, head, marketing) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE koordinator=VALUES(koordinator), head=VALUES(head), marketing=VALUES(marketing)',
+            [t, w, num(c.koordinator, fallback[t][w].koordinator), num(c.head, fallback[t][w].head), num(c.marketing, fallback[t][w].marketing)]
+          );
+          n += 1;
+        }
+      }
+      console.log(`  + fee_rules di-seed: ${n} baris${seed ? ' (dari settings fee_matrix_v1)' : ' (default)'}`);
+    } else {
+      console.log(`  = fee_rules sudah ada (${cnt[0].c} baris)`);
+    }
+  } catch (e) {
+    console.log('  ! seed fee_rules dilewati:', e.message);
+  }
+
   // lands
   await addColumns(conn, 'lands', [
     '`location_address` TEXT NULL AFTER `address`',
@@ -127,6 +191,9 @@ async function main() {
     '`ktp_file` VARCHAR(255) NULL AFTER `photo_file`',
     "`fee_type` ENUM('rupiah','persen') NULL AFTER `ktp_file`",
     '`fee_value` DECIMAL(12,2) DEFAULT 0 AFTER `fee_type`',
+    // parent_id dipakai sebagai jangkar AFTER di bawah; pastikan ada dulu
+    // agar upgrade tetap jalan di skema sangat lama yang belum memilikinya.
+    '`parent_id` INT NULL AFTER `referral_code`',
     '`downline_quota` INT DEFAULT 0 AFTER `parent_id`',
     '`is_head` TINYINT(1) DEFAULT 0 AFTER `downline_quota`',
     '`is_coordinator` TINYINT(1) DEFAULT 0 AFTER `is_head`',
@@ -159,6 +226,12 @@ async function main() {
   await addColumns(conn, 'fee_logs', [
     "`status` ENUM('unpaid','paid') NOT NULL DEFAULT 'unpaid' AFTER `amount`",
     '`paid_at` DATETIME NULL AFTER `status`',
+    // Fee berjenjang: peran penerima + jejak aturan (wilayah/tipe/kotor).
+    // amount = HAK BERSIH yang dibayar; gross_amount = nilai kotor rantai untuk audit.
+    "`fee_role` ENUM('marketing','head','koordinator') NULL AFTER `marketing_id`",
+    '`wilayah` VARCHAR(30) NULL AFTER `fee_role`',
+    '`unit_type` VARCHAR(20) NULL AFTER `wilayah`',
+    '`gross_amount` INT NULL AFTER `amount`',
   ]);
 
   // API mobile (React Native): refresh token (disimpan sebagai hash) + token FCM per perangkat.
@@ -188,7 +261,7 @@ async function main() {
   console.log('  = device_tokens siap');
 
   // Ringkasan data (bukti tidak ada yang hilang)
-  for (const t of ['users', 'lands', 'fee_logs', 'settings']) {
+  for (const t of ['users', 'lands', 'fee_logs', 'fee_rules', 'settings']) {
     try {
       const [r] = await conn.query(`SELECT COUNT(*) c FROM \`${t}\``);
       console.log(`  # ${t}: ${r[0].c} baris`);

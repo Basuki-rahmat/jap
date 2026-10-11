@@ -78,18 +78,18 @@
             <div class="form-divider" style="margin-top:0;">Tahap 1 — Data Pemilik</div>
             <div class="form-group">
               <label for="owner_name">Nama Pemilik Lahan</label>
-              <input class="form-control" type="text" id="owner_name" name="owner_name" required value="<%= land.owner_name %>" />
+              <input class="form-control" type="text" id="owner_name" name="owner_name" autocomplete="name" required value="<%= land.owner_name %>" />
             </div>
             <div class="form-group">
               <label for="phone_number">No. WhatsApp / Telepon</label>
               <div class="input-group">
                 <span class="input-group-addon">+62</span>
-                <input class="form-control" type="tel" id="phone_number" name="phone_number" required value="<%= String(land.phone_number).replace(/^62/, '') %>" />
+                <input class="form-control" type="tel" id="phone_number" name="phone_number" autocomplete="tel" required value="<%= String(land.phone_number).replace(/^62/, '') %>" />
               </div>
             </div>
             <div class="form-group">
               <label for="address">Alamat Pemilik Lahan</label>
-              <input class="form-control" type="text" id="address" name="address" required value="<%= land.address %>" placeholder="Alamat pemilik (boleh beda dengan alamat lokasi)" />
+              <input class="form-control" type="text" id="address" name="address" autocomplete="street-address" required value="<%= land.address %>" placeholder="Alamat pemilik (boleh beda dengan alamat lokasi)" />
               <div class="map-action-row">
                 <button type="button" class="btn btn-outline" style="padding:8px 14px;font-size:.85rem;" id="btnGpsAddress">📍 Isi otomatis dari GPS</button>
               </div>
@@ -129,11 +129,11 @@
               <p class="form-hint">Angka saja, gunakan titik untuk desimal (contoh: 250.5).</p>
             </div>
             <div class="grid-2-form">
-              <div class="form-group">
+              <div class="form-group" id="hargaWrapBss">
                 <label for="harga_sewa_bss">Harga Sewa BSS (Rp / thn)</label>
                 <input class="form-control" type="text" id="harga_sewa_bss" name="harga_sewa_bss" maxlength="15" inputmode="numeric" placeholder="Boleh kosong" value="<%= land.harga_sewa_bss != null ? land.harga_sewa_bss : '' %>" />
               </div>
-              <div class="form-group">
+              <div class="form-group" id="hargaWrapEvcs">
                 <label for="harga_sewa_evcs">Harga Sewa EVCS (Rp / thn)</label>
                 <input class="form-control" type="text" id="harga_sewa_evcs" name="harga_sewa_evcs" maxlength="15" inputmode="numeric" placeholder="Boleh kosong" value="<%= land.harga_sewa_evcs != null ? land.harga_sewa_evcs : '' %>" />
               </div>
@@ -159,7 +159,7 @@
                 <select class="form-control" id="slot_no" name="slot_no" required>
                   <option value="">Pilih slot…</option>
                 </select>
-                <p class="form-hint" id="slotHint">Pilih nomor slot 1–4 sesuai jenis unit.</p>
+                <p class="form-hint" id="slotHint">Pilih nomor slot sesuai jenis unit (BSS 1–3, EVCS 1–10).</p>
               </div>
             <div class="form-group">
               <label for="location_type">Jenis Lokasi</label>
@@ -204,14 +204,14 @@
           <section class="wizard-step" data-step="3">
             <div class="form-divider" style="margin-top:0;">Tahap 3 — Titik Lokasi</div>
             <div class="form-group">
-              <label>Titik Koordinat Google Maps 📍</label>
+              <label for="mapSearch">Titik Koordinat Google Maps 📍</label>
               <p class="form-hint">Titik saat ini sudah terpasang. Ketik alamat pada kolom pencarian, gunakan GPS, atau klik/geser pin bila perlu diubah.</p>
               <div class="map-toggle-row">
                 <button type="button" class="map-toggle-btn active" id="mapLayerOSM">🗺️ Peta</button>
                 <button type="button" class="map-toggle-btn" id="mapLayerSat">🛰️ Satelit</button>
               </div>
               <div class="map-search-wrap">
-                <input type="text" id="mapSearch" class="form-control" placeholder="🔍 Ketik alamat / patokan…" autocomplete="off" />
+                <input type="text" id="mapSearch" name="map-search" autocomplete="off" aria-label="Cari lokasi di peta" class="form-control" placeholder="🔍 Ketik alamat / patokan…" />
                 <div id="mapSuggest" class="map-suggest" hidden></div>
               </div>
               <div id="locationMap" class="loc-map"></div>
@@ -248,16 +248,16 @@
               ['photo_maps_file', 'Screenshot Lokasi & Koordinat'],
               ['legal_doc_file', 'Dokumen Legalitas (SHM / PBB + Bukti Bayar PBB 3 Tahun)'],
               ['family_doc_file', 'Foto KK atau Buku Nikah'],
-              ['sewa_doc_file', 'Foto Dokumen Surat Sewa'],
               ['support_doc_file', 'Foto Dokumen Pendukung (opsional)'],
             ].forEach(function (f) { %>
               <div class="form-group" data-shot-group="<%= f[0] %>" data-has="<%= land[f[0]] ? '1' : '' %>">
-                <label><%= f[1] %></label>
+                <label for="<%= f[0] %>"><%= f[1] %></label>
                 <div class="pick-row">
                   <button type="button" class="btn btn-outline pick-cam" data-target="<%= f[0] %>">📷 Kamera</button>
                   <button type="button" class="btn btn-outline pick-gal" data-target="<%= f[0] %>">🖼️ Galeri<%= f[0].indexOf('photo_') === 0 ? '' : ' / File' %></button>
                 </div>
-                <input class="pick-real" type="file" id="<%= f[0] %>" name="<%= f[0] %>" accept="<%= f[0].indexOf('photo_') === 0 ? 'image/*' : '.jpg,.jpeg,.png,.webp,.pdf' %>" style="display:none" />
+                <input class="pick-real" type="file" id="<%= f[0] %>" name="<%= f[0] %>" accept="<%= f[0].indexOf('photo_') === 0 ? 'image/*' : '.jpg,.jpeg,.png,.webp,.pdf' %>" <%= f[0] === 'legal_doc_file' ? 'multiple' : '' %> style="display:none" />
+                <% if (f[0] === 'legal_doc_file') { %><p class="form-hint">Boleh pilih sampai 5 halaman/gambar — otomatis ditumpuk jadi 1 gambar berurutan.</p><% } %>
                 <input class="pick-gal-input" type="file" id="<%= f[0] %>_gal" accept="<%= f[0].indexOf('photo_') === 0 ? 'image/*' : 'image/*,.pdf,application/pdf' %>" multiple style="display:none" />
                 <% if (land[f[0]]) { %><div class="file-now">✓ File saat ini sudah ada — biarkan grid kosong bila tidak diganti.</div><% } else { %><div class="file-now" style="color:var(--warning, #f5a623);">⚠ Belum ada file — wajib ambil via Kamera/Galeri lalu pilih di grid.</div><% } %>
                 <div class="shot-grid" id="<%= f[0] %>_grid"></div>
@@ -398,33 +398,45 @@
             }
             var bankSel = document.getElementById('bank_name');
             if (bankSel) bankSel.addEventListener('change', toggleBankOther);
-            // Slot 1-4 mengikuti jenis unit + legalitas otomatis (BSS→PBB, EVCS→SHM)
-            var savedSlot = '<%= land.slot_no || '' %>';
+            // Slot mengikuti jenis unit (BSS 1-3, EVCS 1-10) + legalitas otomatis (BSS→PBB, EVCS→SHM)
+            var savedSlot = "<%= land.slot_no || '' %>";
             function refreshSlotLegal() {
               var unit = document.getElementById('unit_type');
               var sel = document.getElementById('slot_no');
               if (!unit || !sel) return;
               var isEvcs = unit.value === 'evcs_mobil';
               var code = isEvcs ? 'EVCS' : 'BSS';
+              var max = isEvcs ? 10 : 3;
               var cur = sel.value || savedSlot;
               sel.innerHTML = '<option value="">Pilih slot…</option>';
-              for (var i = 1; i <= 4; i++) {
+              for (var i = 1; i <= max; i++) {
                 var op = document.createElement('option');
                 op.value = String(i);
                 op.textContent = 'Slot ' + code + ' ' + i;
                 sel.appendChild(op);
               }
-              if (/^[1-4]$/.test(cur)) sel.value = cur;
+              if (isEvcs ? /^(10|[1-9])$/.test(cur) : /^[1-3]$/.test(cur)) sel.value = cur;
               var hint = document.getElementById('slotHint');
-              if (hint) hint.textContent = 'Jenis ' + code + ' — pilih Slot ' + code + ' 1 sampai 4 untuk unit ini.';
+              if (hint) hint.textContent = 'Jenis ' + code + ' — pilih Slot ' + code + ' 1 sampai ' + max + ' untuk unit ini.';
               var leg = document.getElementById('legal_doc_type');
               if (leg) leg.value = isEvcs ? 'shm' : 'pbb';
               var legNote = document.getElementById('legalAutoNote');
               if (legNote) legNote.textContent = isEvcs ? 'Otomatis: EVCS wajib SHM.' : 'Otomatis: BSS memakai PBB (3 tahun terakhir + bukti bayar).';
             }
+            // Harga per tipe: tampilkan hanya milik jenis unit terpilih
+            function refreshHargaVis() {
+              var unit = document.getElementById('unit_type');
+              var wb = document.getElementById('hargaWrapBss');
+              var we = document.getElementById('hargaWrapEvcs');
+              if (!unit || (!wb && !we)) return;
+              var isEvcs = unit.value === 'evcs_mobil';
+              if (wb) wb.hidden = isEvcs;
+              if (we) we.hidden = !isEvcs;
+            }
             var unitSel = document.getElementById('unit_type');
-            if (unitSel) unitSel.addEventListener('change', refreshSlotLegal);
+            if (unitSel) unitSel.addEventListener('change', function () { refreshSlotLegal(); refreshHargaVis(); });
             try { refreshSlotLegal(); } catch (e) {}
+            try { refreshHargaVis(); } catch (e) {}
             toggleBankOther();
 
             // GPS tahap 1: isi alamat otomatis dari GPS (paksa minta izin lokasi).
@@ -463,7 +475,7 @@
                   return;
                 }
               }
-                var LABELS = { ktp_file: 'KTP', photo_1_file: 'Foto Sebrang Jalan', photo_3_file: 'Foto Jaringan Listrik', photo_spot_file: 'Foto Penempatan 3/4m', photo_right_file: 'Foto Sudut Kanan', photo_left_file: 'Foto Sudut Kiri', photo_selfie_file: 'Foto Selfie Pemilik', photo_maps_file: 'Screenshot Koordinat', legal_doc_file: 'Dokumen Legalitas', family_doc_file: 'Foto KK / Buku Nikah', sewa_doc_file: 'Surat Sewa' };
+                var LABELS = { ktp_file: 'KTP', photo_1_file: 'Foto Sebrang Jalan', photo_3_file: 'Foto Jaringan Listrik', photo_spot_file: 'Foto Penempatan 3/4m', photo_right_file: 'Foto Sudut Kanan', photo_left_file: 'Foto Sudut Kiri', photo_selfie_file: 'Foto Selfie Pemilik', photo_maps_file: 'Screenshot Koordinat', legal_doc_file: 'Dokumen Legalitas', family_doc_file: 'Foto KK / Buku Nikah' };
               var groups = form.querySelectorAll('[data-shot-group]');
                 for (var i = 0; i < groups.length; i++) {
                   var real = groups[i].querySelector('.pick-real');
@@ -478,12 +490,17 @@
                   alert('Wajib: pilih berkas untuk "' + (LABELS[real.name] || real.name) + '" — via Kamera atau Galeri, lalu klik salah satu di grid.');
                   return;
                 }
-                if (hasNew && real.files[0].size > 5 * 1024 * 1024) {
-                  e.preventDefault();
-                  current = 4;
-                  paint();
-                  alert('Ukuran berkas melebihi 5 MB: ' + real.files[0].name);
-                  return;
+                if (hasNew) {
+                  var _pfl = real.files || [];
+                  for (var k = 0; k < _pfl.length; k++) {
+                    if (_pfl[k].size > 5 * 1024 * 1024) {
+                      e.preventDefault();
+                      current = 4;
+                      paint();
+                      alert('Ukuran berkas melebihi 5 MB: ' + _pfl[k].name);
+                      return;
+                    }
+                  }
                 }
               }
             });

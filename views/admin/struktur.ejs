@@ -1,0 +1,166 @@
+<%- include('../partials/head', { title: 'Struktur Tim Lengkap - BSS' }) %>
+<%- include('../partials/dashNavbar') %>
+
+<style>
+  .org-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; background: var(--card); border: 1px solid var(--card-border); border-radius: 14px; padding: 10px 12px; }
+  .org-toolbar .btn { padding: 8px 14px; font-size: .76rem; }
+  .org-toolbar .spacer { flex: 1; }
+  .org-zoom-val { font-size: .78rem; font-weight: 800; min-width: 48px; text-align: center; }
+  .org-hint { font-size: .74rem; color: var(--text-muted); margin: 0 0 14px; }
+  .org-tree li.has-kids > .org-node { cursor: pointer; }
+  .org-tree li.has-kids > .org-node:hover { border-color: var(--primary); }
+  .org-tree li.collapsed > ul { display: none; }
+  .org-fold { display: none; position: absolute; right: 8px; bottom: 8px; background: var(--primary); color: #fff; font-size: .62rem; font-weight: 800; border-radius: 99px; padding: 1px 8px; }
+  .org-tree li.collapsed > .org-node .org-fold { display: inline-block; }
+</style>
+
+<main>
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Super Admin · Semua Level</span>
+        <h2>Struktur Tim Lengkap</h2>
+        <p>KNAB → Koordinator → Head Marketing → Marketing → Penyedia Lahan, termasuk akun terkunci (🔒).</p>
+      </div>
+
+      <% if (typeof flash !== 'undefined' && flash && flash.message) { %>
+        <div class="alert alert-<%= flash.type %>"><%= flash.message %></div>
+      <% } %>
+
+      <div class="org-counts">
+        <div class="org-count"><b><%= counts.coords %></b><span>Koordinator</span></div>
+        <div class="org-count"><b><%= counts.heads %></b><span>Head</span></div>
+        <div class="org-count"><b><%= counts.marketing %></b><span>Marketing</span></div>
+        <div class="org-count"><b><%= counts.owners %></b><span>Penyedia</span></div>
+        <div class="org-count"><b><%= counts.units %></b><span>Unit</span></div>
+      </div>
+
+      <div class="org-legend">
+        <span class="lg-knab">KNAB</span>
+        <span class="lg-coord">KOORDINATOR</span>
+        <span class="lg-head">HEAD</span>
+        <span class="lg-mkt">MARKETING</span>
+        <span class="lg-owner">PENYEDIA</span>
+      </div>
+
+      <div class="org-toolbar">
+        <button type="button" class="btn btn-outline" id="orgExpand">➕ Buka Semua</button>
+        <button type="button" class="btn btn-outline" id="orgCollapse">➖ Tutup ke Level 1</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-outline" id="orgZoomOut" aria-label="Perkecil">🔍−</button>
+        <span class="org-zoom-val" id="orgZoomVal">100%</span>
+        <button type="button" class="btn btn-outline" id="orgZoomIn" aria-label="Perbesar">🔍＋</button>
+        <button type="button" class="btn btn-outline" id="orgZoomReset" aria-label="Reset zoom">⤾</button>
+      </div>
+      <p class="org-hint">💡 Klik kartu untuk membuka/menutup bawahannya · geser ke samping bila pohon lebar.</p>
+
+      <div class="org-scroll">
+        <ul class="org-tree">
+          <li>
+            <div class="org-node knab">
+              <span class="org-avatar org-avatar-logo"><img src="<%= typeof brandLogo !== 'undefined' ? brandLogo : '/img/logo.png' %>" alt="Logo" loading="lazy" onerror="this.remove()" /><b>KN</b></span>
+              <strong class="org-name"><%= typeof brandFullName !== 'undefined' ? brandFullName : 'KNAB' %></strong>
+              <span class="org-meta">
+                <span class="org-role">PUSAT</span>
+                <span class="org-stat">Sewa Lahan BSS × V-Green</span>
+              </span>
+            </div>
+            <% if (tree && tree.length) { %>
+            <ul>
+              <% tree.forEach(function (node) { %>
+                <%- include('../public/_struktur-node', { node: node }) %>
+              <% }) %>
+            </ul>
+            <% } %>
+          </li>
+        </ul>
+      </div>
+
+      <% if (!tree || !tree.length) { %>
+        <p class="text-center" style="color:var(--text-muted);">Belum ada data tim untuk ditampilkan.</p>
+      <% } %>
+    </div>
+  </section>
+</main>
+
+<script>
+  // Pohon lipat berjenjang + zoom (murni DOM, tanpa tag EJS di dalam script).
+  (function () {
+    var tree = document.querySelector('.org-tree');
+    if (!tree) return;
+    function childUl(li) {
+      var found = null;
+      Array.prototype.forEach.call(li.children, function (ch) {
+        if (ch.tagName === 'UL') found = ch;
+      });
+      return found;
+    }
+    function nodeOf(li) {
+      var found = null;
+      Array.prototype.forEach.call(li.children, function (ch) {
+        if (ch.classList && ch.classList.contains('org-node')) found = ch;
+      });
+      return found;
+    }
+    function hiddenCount(li) {
+      var n = 0;
+      var stacks = li.querySelectorAll('ul li');
+      for (var i = 0; i < stacks.length; i++) n++;
+      return n;
+    }
+    var items = Array.prototype.slice.call(tree.querySelectorAll('li'));
+    items.forEach(function (li) {
+      if (!childUl(li)) return;
+      var node = nodeOf(li);
+      if (!node) return;
+      li.classList.add('has-kids');
+      var chip = document.createElement('span');
+      chip.className = 'org-fold';
+      node.appendChild(chip);
+      var paint = function () {
+        chip.textContent = '+' + hiddenCount(li);
+      };
+      node.addEventListener('click', function () {
+        li.classList.toggle('collapsed');
+        paint();
+      });
+      paint();
+    });
+    function on(id, fn) {
+      var b = document.getElementById(id);
+      if (b) b.addEventListener('click', fn);
+    }
+    on('orgExpand', function () {
+      items.forEach(function (li) { li.classList.remove('collapsed'); });
+    });
+    on('orgCollapse', function () {
+      items.forEach(function (li) {
+        var p = li.parentElement;
+        if (p && p.classList && p.classList.contains('org-tree')) return;
+        if (childUl(li)) li.classList.add('collapsed');
+      });
+    });
+    var z = 1;
+    var zv = document.getElementById('orgZoomVal');
+    function applyZ() {
+      tree.style.zoom = z;
+      if (zv) zv.textContent = Math.round(z * 100) + '%';
+    }
+    on('orgZoomIn', function () { z = Math.min(1.6, Math.round((z + 0.1) * 100) / 100); applyZ(); });
+    on('orgZoomOut', function () { z = Math.max(0.4, Math.round((z - 0.1) * 100) / 100); applyZ(); });
+    on('orgZoomReset', function () { z = 1; applyZ(); });
+    // Muat awal: kecilkan otomatis bila pohon lebih lebar dari layar.
+    (function fit() {
+      var sc = tree.closest ? tree.closest('.org-scroll') : null;
+      if (!sc) return;
+      tree.style.zoom = 1;
+      var w = tree.scrollWidth, v = sc.clientWidth;
+      if (w > v && w > 0 && v > 0) {
+        z = Math.max(0.4, Math.floor((v / w) * 100) / 100);
+        applyZ();
+      }
+    })();
+  })();
+</script>
+
+<%- include('../partials/foot') %>

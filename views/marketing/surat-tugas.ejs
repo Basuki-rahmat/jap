@@ -485,7 +485,7 @@
                     <div class="photo-head">PETUGAS LAPANGAN — <%= position %></div>
 
                     <% if (member.photo_file) { %>
-                        <img src="<%= member.photo_file %>" alt="Foto <%= member.name %>" />
+                        <img src="<%= fileUrl(member.photo_file) %>" alt="Foto <%= member.name %>" />
                     <% } else { %>
                         <div class="photo-empty">🧑</div>
                     <% } %>

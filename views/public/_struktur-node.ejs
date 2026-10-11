@@ -1,20 +1,24 @@
 <% const lvl = node.role === 'KOORDINATOR' ? 'coord' : (node.role === 'HEAD' ? 'head' : 'mkt'); %>
+<% const _meId = (typeof currentUserId !== 'undefined' ? Number(currentUserId) : 0); %>
+<% const _isMe = _meId && Number(node.id) === _meId; %>
 <li>
-  <div class="org-node <%= lvl %>">
+  <div class="org-node <%= lvl %><%= _isMe ? ' is-me' : '' %>">
     <span class="org-avatar">
-      <% if (node.photo) { %><img src="<%= node.photo %>" alt="<%= node.name %>" loading="lazy" onerror="this.remove()" /><% } %>
+      <% var _ph = (typeof fileUrl !== 'undefined' ? fileUrl(node.photo) : node.photo); %>
+      <% if (_ph) { %><img src="<%= _ph %>" alt="<%= node.name %>" loading="lazy" onerror="this.remove()" /><% } %>
       <b><%= node.initials %></b>
     </span>
-    <strong class="org-name"><%= node.name %></strong>
+    <strong class="org-name"><%= node.name %><% if (node.locked) { %> 🔒<% } %></strong>
     <span class="org-meta">
       <span class="org-role"><%= node.role %></span>
       <span class="org-stat"><%= node.units %> unit</span>
     </span>
+    <% if (_isMe) { %><span class="org-me-tag">★ ANDA</span><% } %>
   </div>
   <% if ((node.children && node.children.length) || (node.owners && node.owners.length)) { %>
   <ul>
     <% (node.children || []).forEach(function (ch) { %>
-      <%- include('./_struktur-node', { node: ch }) %>
+      <%- include('./_struktur-node', { node: ch, currentUserId: _meId }) %>
     <% }) %>
     <% (node.owners || []).forEach(function (o) { %>
       <li>

@@ -15,7 +15,7 @@
         <div id="camStage" class="cam-stage">
           <video id="camVideo" playsinline autoplay muted></video>
           <img id="camGalPreview" class="cam-gal-preview" alt="Pratinjau galeri" hidden />
-          <div id="camLogoBox" class="cam-logo-box" hidden>
+          <div id="camLogoBox" class="cam-logo-box" data-logo-slot="bss" hidden>
             <img id="camLogoImg" alt="Logo unit" draggable="false" />
             <div id="camLogoResize" class="cam-logo-resize" title="Seret untuk ubah ukuran">⤢</div>
           </div>
@@ -42,7 +42,7 @@
           </div>
           <div class="cam-wm-pane" data-wmpane="logo" hidden>
             <div id="camBssSettings" class="cam-bss-settings">
-              <span class="cam-wm-label">⚡ Logo unit (BSS / EVCS) — geser & cubit di layar</span>
+              <span class="cam-wm-label">⚡ Logo unit — BSS dan/atau EVCS (boleh dua-duanya aktif)</span>
               <div class="cam-logo-btns">
                 <button type="button" data-logo="none">Tanpa</button>
                 <button type="button" data-logo="bss.png" class="active">BSS Miring</button>
@@ -52,13 +52,13 @@
                 <button type="button" data-logo="evcs21.png">EVCS 2</button>
               </div>
               <div class="cam-wm-row">
-                <span>Ukuran logo <b id="camLogoScaleVal">100%</b></span>
+                <span>Ukuran logo tersorot <b id="camLogoScaleVal">100%</b></span>
               </div>
               <input type="range" id="camLogoScale" min="20" max="250" step="1" value="100" />
               <button type="button" id="camLogoResetPos" class="btn btn-outline" style="width:100%;margin-top:2px;">↺ Reset posisi & ukuran logo</button>
             </div>
           </div>
-          <p class="form-hint" style="padding:0;">Seret logo langsung di layar untuk atur posisi.</p>
+          <p class="form-hint" style="padding:0;">BSS & EVCS bisa dipasang bersamaan — tiap logo punya bingkai sendiri, seret/ubah ukurannya langsung di layar. Klik ulang tombol logo untuk mematikannya.</p>
         </div>
 
         <!-- Tombol aksi -->
@@ -75,7 +75,7 @@
         <div class="cam-box">
           <div class="cam-head"><strong>🖼️ Pilih watermark logo</strong><button type="button" id="galLogoClose" aria-label="Tutup">✕</button></div>
           <div style="padding:0 14px 14px;display:grid;gap:8px;">
-            <p class="form-hint" style="padding:0;">Foto galeri akan dibuka di editor kamera — Anda tetap bisa menggeser & mengubah ukuran logo sebelum disimpan.</p>
+            <p class="form-hint" id="galLogoHint" style="padding:0;">Foto galeri akan dibuka di editor kamera — Anda tetap bisa menggeser & mengubah ukuran logo sebelum disimpan.</p>
             <div class="cam-logo-btns">
               <button type="button" data-glogo="none">Tanpa logo</button>
               <button type="button" data-glogo="bss.png" class="active">⚡ BSS 1</button>

@@ -96,10 +96,10 @@
       <div class="card referral-card mb-3">
         <div class="card-title-row">
           <div class="feature-icon">🔗</div>
-          <h3 style="margin:0;">Link Referral Saya</h3>
+          <h3 style="margin:0;">Link Input Lahan</h3>
         </div>
         <div class="copy-row mt-2">
-          <input class="copy-input" id="referralLink" readonly value="<%= referralLink %>" />
+          <input class="copy-input" id="referralLink" autocomplete="off" aria-label="Link input lahan saya" readonly value="<%= referralLink %>" />
           <button type="button" class="btn btn-accent btn-copy" data-copy="<%= referralLink %>">📋 Salin Link</button>
         </div>
         <%- include('../partials/shareButtons', { shareUrl: referralLink, shareText: 'Sewa lahan kecil Anda untuk BSS/V-Green — ajukan di sini:' }) %>
@@ -109,7 +109,7 @@
             <h3 style="margin:0;">Link Rekrut Marketing</h3>
           </div>
           <div class="copy-row mt-2">
-            <input class="copy-input" id="rekrutLink" readonly value="<%= typeof rekrutLink !== 'undefined' ? rekrutLink : '' %>" />
+            <input class="copy-input" id="rekrutLink" autocomplete="off" aria-label="Link rekrut downline" readonly value="<%= typeof rekrutLink !== 'undefined' ? rekrutLink : '' %>" />
             <button type="button" class="btn btn-outline btn-copy" data-copy="<%= typeof rekrutLink !== 'undefined' ? rekrutLink : '' %>">Salin Link</button>
           <%- include('../partials/shareButtons', { shareUrl: (typeof rekrutLink !== 'undefined' ? rekrutLink : ''), shareText: 'Gabung jadi Marketing Sewa Lahan BSS/V-Green — daftar di sini:' }) %>
           </div>
@@ -187,7 +187,7 @@
         <div class="mkt-head">
           <h3>🗂️ Daftar Pengajuan Lahan Saya</h3>
           <span class="mkt-count" id="mktCount"><%= lands.length %> pengajuan</span>
-          <span class="mkt-search"><input type="search" id="mktSearch" placeholder="🔍 Cari nama, alamat, HP, slot…" autocomplete="off" /></span>
+          <span class="mkt-search"><input type="search" id="mktSearch" name="q" autocomplete="off" aria-label="Cari pengajuan" placeholder="🔍 Cari nama, alamat, HP, slot…" /></span>
           <span class="mkt-legend"><span class="lg-ok"><i></i>Disetujui</span><span class="lg-pend"><i></i>Pending</span><span class="lg-no"><i></i>Ditolak</span></span>
         </div>
         <div class="table-wrap">
@@ -232,7 +232,7 @@
                     <td data-label="Luas" class="c-num"><%= l.area_size %> m²</td>
                     <td data-label="Status"><span class="status status-<%= l.status %>"><%= stLbl %></span></td>
                     <td data-label="Fee" class="c-fee"><span class="fee-val">Rp <%= Number(l.fee_amount).toLocaleString('id-ID') %></span></td>
-                    <td data-label="SPPL"><% if (l.sppl_file) { %><a class="sppl-btn" href="<%= l.sppl_file %>" target="_blank" rel="noopener">📄 SPPL</a><% } else { %><span class="sppl-empty">-</span><% } %></td>
+                    <td data-label="SPPL"><% if (l.sppl_file) { %><a class="sppl-btn" href="<%= fileUrl(l.sppl_file) %>" target="_blank" rel="noopener">📄 SPPL</a><% } else { %><span class="sppl-empty">-</span><% } %></td>
                     <% if (typeof isHead !== 'undefined' && isHead) { %>
                     <td data-label="Perbaikan">
                       <% if (l.status === 'approved') { %><span class="sppl-empty" title="Sudah disetujui — terkunci">🔒</span><% } else if (fixValid) { %>

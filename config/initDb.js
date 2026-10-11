@@ -53,8 +53,12 @@ async function main() {
     `CREATE TABLE IF NOT EXISTS fee_logs (
       id INT PRIMARY KEY AUTO_INCREMENT,
       marketing_id INT NOT NULL,
+      fee_role ENUM('marketing','head','koordinator') NULL,
+      wilayah VARCHAR(30) NULL,
+      unit_type VARCHAR(20) NULL,
       land_id INT NOT NULL,
       amount DECIMAL(12,2) NOT NULL,
+      gross_amount INT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (marketing_id) REFERENCES users(id),
       FOREIGN KEY (land_id) REFERENCES lands(id)
@@ -64,6 +68,19 @@ async function main() {
       \`key\` VARCHAR(100) PRIMARY KEY,
       \`value\` TEXT NULL,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB`,
+
+    // Matriks fee berjenjang per lahan approved (nilai KOTOR berantai).
+    // 1 baris = 1 kombinasi tipe × wilayah (2 × 5 = 10 baris).
+    // Koor terima `koordinator`, teruskan `head`; head teruskan `marketing`.
+    `CREATE TABLE IF NOT EXISTS fee_rules (
+      unit_type ENUM('bss','evcs') NOT NULL,
+      wilayah VARCHAR(30) NOT NULL,
+      koordinator INT NOT NULL DEFAULT 0,
+      head INT NOT NULL DEFAULT 0,
+      marketing INT NOT NULL DEFAULT 0,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (unit_type, wilayah)
     ) ENGINE=InnoDB`,
   ];
 

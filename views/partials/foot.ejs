@@ -11,7 +11,7 @@
       <h4>Menu</h4>
       <a href="/">Beranda</a>
       <a href="/panduan">Panduan</a>
-      <a href="/struktur">Struktur Tim</a>
+      <% if (typeof user !== 'undefined' && user) { %><a href="/struktur">Struktur Tim</a><% } %>
       <a href="/lacak">Lacak Pengajuan</a>
       <a href="/daftar-marketing">Daftar Marketing</a>
       <a href="/login">Login</a>
@@ -114,7 +114,11 @@
     .footer-brand { grid-column: 1 / -1; }
   }
   @media (max-width: 480px) {
-    .footer-inner { grid-template-columns: 1fr; gap: 20px; }
+    .footer-inner { grid-template-columns: 1fr 1fr; gap: 14px; padding-top: 26px; padding-bottom: 20px; }
+    .footer-brand { grid-column: 1 / -1; }
+    .footer-brand p { font-size: .78rem; line-height: 1.6; }
+    .footer-col h4 { font-size: .68rem; margin-bottom: 8px; padding-bottom: 6px; }
+    .footer-col a { font-size: .78rem; padding: 4px 0; }
     .footer-bottom { flex-direction: column; text-align: center; }
   }
 </style>

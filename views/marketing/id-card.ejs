@@ -558,7 +558,7 @@
 
                         <div class="photo-wrap">
                             <% if (member.photo_file) { %>
-                                <div class="photo-inner" style="background-image:url('<%= member.photo_file %>');"></div>
+                                <div class="photo-inner" style="background-image:url('<%= fileUrl(member.photo_file) %>');"></div>
                             <% } else { %>
                                 <div class="photo-inner">FOTO<br/>BELUM ADA</div>
                             <% } %>

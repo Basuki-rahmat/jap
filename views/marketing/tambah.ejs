@@ -18,23 +18,23 @@
         <form action="/marketing/tambah" method="POST">
           <div class="form-group">
             <label for="name">Nama Lengkap</label>
-            <input class="form-control" type="text" id="name" name="name" required placeholder="Nama downline" />
+            <input class="form-control" type="text" id="name" name="name" autocomplete="name" required placeholder="Nama downline" />
           </div>
           <div class="form-group">
             <label for="email">Email</label>
-            <input class="form-control" type="email" id="email" name="email" required placeholder="email@domain.com" />
+            <input class="form-control" type="email" id="email" name="email" autocomplete="email" required placeholder="email@domain.com" />
           </div>
           <div class="form-group">
             <label for="whatsapp">No. WhatsApp</label>
             <div class="input-group">
               <span class="input-group-addon">+62</span>
-              <input class="form-control" type="tel" id="whatsapp" name="whatsapp" required placeholder="8xx xxxx xxxx" />
+              <input class="form-control" type="tel" id="whatsapp" name="whatsapp" autocomplete="tel" required placeholder="8xx xxxx xxxx" />
             </div>
             <p class="form-hint">Tidak bisa double — 1 nomor untuk 1 akun.</p>
           </div>
           <div class="form-group">
             <label for="nik">No. KTP / NIK (16 digit)</label>
-            <input class="form-control" type="text" id="nik" name="nik" required inputmode="numeric" maxlength="16" pattern="[0-9]{16}" placeholder="16 digit angka" />
+            <input class="form-control" type="text" id="nik" name="nik" autocomplete="off" required inputmode="numeric" maxlength="16" pattern="[0-9]{16}" placeholder="16 digit angka" />
             <p class="form-hint">Tidak bisa double — 1 NIK untuk 1 akun.</p>
           </div>
           <div class="form-group">
@@ -58,15 +58,15 @@
           </div>
           <div class="form-group" id="bankOtherWrap" hidden>
             <label for="bank_name_other">Nama Bank Lainnya</label>
-            <input class="form-control" type="text" id="bank_name_other" name="bank_name_other" maxlength="100" placeholder="Tulis nama bank" />
+            <input class="form-control" type="text" id="bank_name_other" name="bank_name_other" autocomplete="off" maxlength="100" placeholder="Tulis nama bank" />
           </div>
           <div class="form-group">
             <label for="account_number">No. Rekening</label>
-            <input class="form-control" type="text" id="account_number" name="account_number" required inputmode="numeric" maxlength="20" placeholder="6–20 digit angka" />
+            <input class="form-control" type="text" id="account_number" name="account_number" autocomplete="off" required inputmode="numeric" maxlength="20" placeholder="6–20 digit angka" />
           </div>
           <div class="form-group">
             <label for="password">Password Awal (opsional)</label>
-            <input class="form-control" type="text" id="password" name="password" minlength="6" autocomplete="new-password" placeholder="Kosongkan = pakai jap12345" />
+            <input class="form-control" type="text" id="password" name="password" autocomplete="new-password" minlength="6" placeholder="Kosongkan = pakai jap12345" />
             <p class="form-hint">Minimal 6 karakter. Berikan password ini ke downline untuk login pertama.</p>
           </div>
           <% if (typeof isCoordinator !== 'undefined' && isCoordinator) { %>

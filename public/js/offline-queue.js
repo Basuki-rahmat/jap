@@ -21,7 +21,7 @@
   var TEXT_NAMES = ['referral_code', 'owner_name', 'phone_number', 'address', 'nik', 'ttl', 'surat', 'shop_name',
 'city', 'kecamatan', 'district', 'harga_sewa_bss', 'harga_sewa_evcs',
     'bank_name', 'bank_name_other', 'account_number', 'location_address', 'area_size',
-      'unit_type', 'slot_bss', 'slot_evcs', 'location_type', 'floor_ready', 'has_canopy', 'legal_doc_type', 'maps_link', 'lat_long',
+      'unit_type', 'slot_bss', 'slot_evcs', 'slot_evcs_manual', 'location_type', 'floor_ready', 'has_canopy', 'legal_doc_type', 'maps_link', 'lat_long',
 'maps_url'];
   var FILE_IDS = ['ktp_file', 'photo_1_file', 'photo_3_file', 'photo_spot_file', 'photo_right_file', 'photo_left_file', 'photo_selfie_file', 'photo_maps_file', 'legal_doc_file', 'family_doc_file', 'sewa_doc_file', 'support_doc_file'];
   /* ---------- IndexedDB mini-wrapper ---------- */
@@ -174,7 +174,9 @@
       });
     Object.keys(entry.files || {}).forEach(function (k) {
       var f = entry.files[k];
-      if (f) fd.append(k, f, f.name || (k + '.jpg'));
+      if (Array.isArray(f)) {
+        f.forEach(function (x) { if (x) fd.append(k, x, x.name || (k + '.jpg')); });
+      } else if (f) fd.append(k, f, f.name || (k + '.jpg'));
     });
     return fetch('/submit-lahan', { method: 'POST', body: fd }).then(function (res) {
       if (res.ok) return { sent: true };
@@ -244,7 +246,10 @@
     var files = {};
     FILE_IDS.forEach(function (id) {
       var inp = document.getElementById(id);
-      if (inp && inp.files && inp.files[0]) files[id] = inp.files[0];
+      if (inp && inp.files && inp.files.length) {
+        // Legalitas bisa multi-halaman: simpan array bila >1 berkas.
+        files[id] = inp.files.length > 1 ? Array.prototype.slice.call(inp.files) : inp.files[0];
+      }
     });
     return { fields: fields, files: files };
   }
@@ -323,7 +328,12 @@
         if (Array.isArray(v)) v.forEach(function (x) { fd.append(k, x); });
         else fd.append(k, v);
       });
-    Object.keys(data.files).forEach(function (k) { fd.append(k, data.files[k], data.files[k].name); });
+    Object.keys(data.files).forEach(function (k) {
+      var f = data.files[k];
+      if (Array.isArray(f)) {
+        f.forEach(function (x) { if (x) fd.append(k, x, x.name || (k + '.jpg')); });
+      } else if (f) fd.append(k, f, f.name);
+    });
     fetch('/submit-lahan', { method: 'POST', body: fd }).then(function (res) {
       return res.text().then(function (html) {
         if (res.ok) { showServerPage(html); return; }
