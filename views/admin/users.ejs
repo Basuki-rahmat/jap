@@ -1,0 +1,119 @@
+<%- include('../partials/head', { title: 'Manajemen User - BSS' }) %>
+<%- include('../partials/dashNavbar') %>
+
+<style>
+  .user-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .user-table-wrap { overflow-x: auto; border: 1px solid var(--card-border); border-radius: 14px; }
+  .user-table { width: 100%; border-collapse: collapse; font-size: .85rem; min-width: 640px; }
+  .user-table th, .user-table td { padding: 10px 12px; border-bottom: 1px solid var(--card-border); text-align: left; vertical-align: middle; }
+  .user-table th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted, #888); background: var(--bg-soft); }
+  .user-table tr:last-child td { border-bottom: none; }
+  .role-pill { display: inline-block; font-size: .68rem; font-weight: 800; border-radius: 99px; padding: 3px 11px; border: 1px solid var(--card-border); }
+  .role-pill.superadmin { background: linear-gradient(120deg, #b45309, #f59e0b); color: #fff; border-color: transparent; }
+  .role-pill.admin { background: var(--primary-soft); color: var(--primary-strong); }
+  .lock-pill { display: inline-block; font-size: .68rem; font-weight: 800; border-radius: 99px; padding: 3px 11px; }
+  .lock-pill.on { background: rgba(220,38,38,.12); color: #dc2626; }
+  .lock-pill.off { background: rgba(25,135,84,.12); color: #146c43; }
+  .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .row-actions .btn { padding: 6px 12px; font-size: .68rem; }
+  .muted-note { font-size: .74rem; color: var(--muted, #888); }
+</style>
+
+<main>
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Akses Admin</span>
+        <h2>Manajemen User</h2>
+        <p>Akun role admin berfungsi penuh seperti superadmin. Akun superadmin dilindungi.</p>
+      </div>
+
+      <% if (flash && flash.message) { %>
+        <div class="alert alert-<%= flash.type %>"><%= flash.message %></div>
+      <% } %>
+
+      <div class="card mb-3">
+        <div class="card-title-row" style="margin-bottom:12px;">
+          <div class="feature-icon">➕</div>
+          <h3 style="margin:0;">Tambah User Admin</h3>
+        </div>
+        <form action="/admin/users" method="POST">
+          <div class="user-grid">
+            <div class="form-group">
+              <label for="u_name">Nama Lengkap</label>
+              <input class="form-control" type="text" id="u_name" name="name" required autocomplete="off" placeholder="Nama admin baru" />
+            </div>
+            <div class="form-group">
+              <label for="u_email">Email (untuk login)</label>
+              <input class="form-control" type="email" id="u_email" name="email" required autocomplete="off" placeholder="email@domain.com" />
+            </div>
+            <div class="form-group">
+              <label for="u_wa">No. WhatsApp (opsional)</label>
+              <input class="form-control" type="text" id="u_wa" name="whatsapp" autocomplete="off" placeholder="08xx" />
+            </div>
+            <div class="form-group">
+              <label for="u_pass">Password (opsional)</label>
+              <input class="form-control" type="text" id="u_pass" name="password" autocomplete="new-password" minlength="6" placeholder="Kosongkan = <%= typeof DEFAULT_PASSWORD !== 'undefined' ? DEFAULT_PASSWORD : 'jap12345' %>" />
+            </div>
+          </div>
+          <p class="muted-note">Akun baru otomatis berole <strong>admin</strong> — langsung bisa membuka seluruh halaman admin. Kosongkan password untuk memakai password bawaan.</p>
+          <button type="submit" class="btn btn-accent"><strong>Buat User Admin</strong></button>
+        </form>
+      </div>
+
+      <div class="card" style="margin-bottom:0;">
+        <div class="card-title-row" style="margin-bottom:12px;">
+          <div class="feature-icon">👥</div>
+          <h3 style="margin:0;">Daftar User Admin (<%= (typeof users !== 'undefined' ? users : []).length %>)</h3>
+        </div>
+        <div class="user-table-wrap">
+          <table class="user-table">
+            <thead>
+              <tr><th>Nama / Kontak</th><th>Role</th><th>Status</th><th>Dibuat</th><th>Aksi</th></tr>
+            </thead>
+            <tbody>
+              <% (typeof users !== 'undefined' ? users : []).forEach(function (u) { %>
+                <tr>
+                  <td>
+                    <strong><%= u.name %></strong><br />
+                    <span class="muted-note"><%= u.email %><%= u.whatsapp ? ' · ' + u.whatsapp : '' %></span>
+                  </td>
+                  <td><span class="role-pill <%= u.role %>"><%= u.role === 'superadmin' ? 'SUPERADMIN' : 'ADMIN' %></span></td>
+                  <td>
+                    <% if (Number(u.is_locked) === 1) { %>
+                      <span class="lock-pill on">🔒 Terkunci</span>
+                    <% } else { %>
+                      <span class="lock-pill off">✓ Aktif</span>
+                    <% } %>
+                  </td>
+                  <td class="muted-note"><%= u.created_at ? new Date(u.created_at).toLocaleDateString('id-ID') : '-' %></td>
+                  <td>
+                    <% if (u.role === 'superadmin') { %>
+                      <span class="muted-note">🛡️ dilindungi</span>
+                    <% } else if (typeof meId !== 'undefined' && Number(u.id) === Number(meId)) { %>
+                      <span class="muted-note">👤 akun saya</span>
+                    <% } else { %>
+                      <div class="row-actions">
+                        <form action="/admin/users/lock" method="POST">
+                          <input type="hidden" name="id" value="<%= u.id %>" />
+                          <input type="hidden" name="locked" value="<%= Number(u.is_locked) === 1 ? '0' : '1' %>" />
+                          <button type="submit" class="btn btn-outline"><%= Number(u.is_locked) === 1 ? 'Buka' : 'Kunci' %></button>
+                        </form>
+                        <form action="/admin/users/delete" method="POST" onsubmit="return confirm('Hapus user admin &quot;<%= u.name %>&quot;?');">
+                          <input type="hidden" name="id" value="<%= u.id %>" />
+                          <button type="submit" class="btn btn-outline">Hapus</button>
+                        </form>
+                      </div>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<%- include('../partials/foot') %>

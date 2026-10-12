@@ -14,7 +14,7 @@ function appBase(req) {
 exports.showForgot = (req, res) => {
   if (req.session.user) {
     const role = req.session.user.role;
-    return res.redirect(role === 'superadmin' ? '/admin' : '/marketing');
+    return res.redirect(role === 'superadmin' || role === 'admin' ? '/admin' : '/marketing');
   }
   res.render('public/lupa-password', { title: 'Lupa Password - BSS', error: null, sent: false });
 };

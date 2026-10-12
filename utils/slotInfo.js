@@ -38,7 +38,10 @@ function buildSlotMap(rows) {
     seen[ph] = (seen[ph] || 0) + 1;
     typeSeen[k] = (typeSeen[k] || 0) + 1;
     const manual = Number(r.slot_no);
-    const useManual = Number.isInteger(manual) && manual >= 1 && manual <= 10;
+    // Slot manual hanya sah bila posisinya ada dalam total (mis. 3/3).
+    // Bila melebihi total (mis. sisa 1 baris per tipe), pakai urutan otomatis
+    // agar tak tampil korup seperti "4/1".
+    const useManual = Number.isInteger(manual) && manual >= 1 && manual <= 10 && manual <= (typeTotals[k] || 0);
     map[r.id] = {
       seq: seen[ph],
       total: totals[ph] || 0,

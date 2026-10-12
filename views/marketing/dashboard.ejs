@@ -167,12 +167,27 @@
         </div>
         <div class="card stat-card">
           <div class="stat-value">Rp <%= Number(typeof paidFee !== 'undefined' ? paidFee : 0).toLocaleString('id-ID') %></div>
-          <div class="stat-label">✅ Sudah Dibayar</div>
+          <div class="stat-label">✅ Sudah Diterima</div>
         </div>
         <div class="card stat-card">
           <div class="stat-value">Rp <%= Number(typeof unpaidFee !== 'undefined' ? unpaidFee : 0).toLocaleString('id-ID') %></div>
-          <div class="stat-label">⏳ Belum Dibayar</div>
+          <div class="stat-label">💰 Saldo Siap Ditarik</div>
         </div>
+        <% if (typeof walletSummary !== 'undefined' && walletSummary && (walletSummary.balance > 0 || walletSummary.pendingAmount > 0)) { %>
+          <div class="card stat-card" style="grid-column:1/-1;">
+            <div class="stat-value" style="font-size:1rem;">
+              ⏳ Rp <%= Number(walletSummary.pendingAmount).toLocaleString('id-ID') %> sedang diproses
+            </div>
+            <div class="stat-label" style="margin-bottom:10px;"><%= walletSummary.pendingCount %> pengajuan penarikan menunggu / diproses admin</div>
+            <a class="btn btn-accent" href="/marketing/penarikan" style="padding:9px 18px;font-size:.8rem;">💸 Buka Menu Penarikan Dana</a>
+          </div>
+        <% } else { %>
+          <div class="card stat-card" style="grid-column:1/-1;">
+            <div class="stat-value" style="font-size:1rem;">💸 Penarikan dana fee</div>
+            <div class="stat-label" style="margin-bottom:10px;">Ajukan pencairan fee ke rekening Anda &amp; pantau buku mutasi saldo.</div>
+            <a class="btn btn-outline" href="/marketing/penarikan" style="padding:9px 18px;font-size:.8rem;">Buka Menu Penarikan Dana</a>
+          </div>
+        <% } %>
         <div class="card stat-card">
           <div class="stat-value"><%= me.downline_quota %></div>
           <div class="stat-label">Kuota Downline</div>
@@ -184,9 +199,16 @@
       </div>
 
       <div class="card mt-3 mkt-card">
+        <% var mktGroups = []; var _mgmap = {}; var _mqty = 0; %>
+        <% lands.forEach(function (l) { %>
+          <% var _gk = (l.phone_number || '') + '||' + (l.unit_type === 'evcs_mobil' ? 'evcs' : 'bss'); %>
+          <% if (!_mgmap[_gk]) { _mgmap[_gk] = { isEv: l.unit_type === 'evcs_mobil', units: [] }; mktGroups.push(_mgmap[_gk]); } %>
+          <% _mgmap[_gk].units.push(l); %>
+          <% _mqty += Math.min(10, Math.max(1, Number(l.slot_no) || 1)); %>
+        <% }) %>
         <div class="mkt-head">
           <h3>🗂️ Daftar Pengajuan Lahan Saya</h3>
-          <span class="mkt-count" id="mktCount"><%= lands.length %> pengajuan</span>
+          <span class="mkt-count" id="mktCount"><%= mktGroups.length %> grup · <%= _mqty %> unit</span>
           <span class="mkt-search"><input type="search" id="mktSearch" name="q" autocomplete="off" aria-label="Cari pengajuan" placeholder="🔍 Cari nama, alamat, HP, slot…" /></span>
           <span class="mkt-legend"><span class="lg-ok"><i></i>Disetujui</span><span class="lg-pend"><i></i>Pending</span><span class="lg-no"><i></i>Ditolak</span></span>
         </div>
@@ -210,50 +232,74 @@
               <% if (lands.length === 0) { %>
                 <tr><td colspan="<%= (typeof isHead !== 'undefined' && isHead) ? 10 : 9 %>" class="empty-cell mkt-empty"><span class="big">📭</span><strong>Belum ada pengajuan lahan.</strong><br><span class="subtext">Bagikan link referral Anda untuk mulai mengumpulkan lahan!</span></td></tr>
               <% } else { %>
-                <% lands.forEach(function (l) { %>
-                  <% var stLbl = l.status === 'approved' ? 'Disetujui' : (l.status === 'rejected' ? 'Ditolak' : 'Pending'); %>
-                  <% var ini = String(l.owner_name || '?').trim().charAt(0).toUpperCase() || '?'; %>
-                  <% var fixValid = !!(l.edit_token && l.edit_expires && new Date(l.edit_expires) > new Date()); %>
-                  <% var fixUrl = (typeof APP_URL !== 'undefined' ? APP_URL : '') + '/perbaiki/' + (l.edit_token || ''); %>
-                  <% var fixExp = l.edit_expires ? new Date(l.edit_expires).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : ''; %>
-                  <% var waMsg = 'Yth. Bpk/Ibu ' + (l.owner_name || '') + ',\nPengajuan lahan BSS (ID #' + l.id + ') perlu perbaikan data.\nSilakan perbaiki & upload ulang via link ini (berlaku s/d ' + fixExp + '):\n' + fixUrl + '\n- ' + (typeof me !== 'undefined' ? me.name : 'Marketing'); %>
-                  <% var slotTxt = l.slot ? (l.slot.typeCode + '-' + l.slot.typeSeq + '/' + l.slot.typeTotal + ' ' + l.slot.typeCode) : ''; %>
-                  <tr data-status="<%= l.status %>" data-search="<%= (String(l.id || '') + ' ' + (l.owner_name || '') + ' ' + (l.phone_number || '') + ' ' + (l.address || '') + ' ' + (l.location_address || '') + ' ' + (l.unit_type === 'evcs_mobil' ? 'evcs mobil' : 'bss motor') + ' ' + (l.location_type || '') + ' ' + stLbl + ' ' + l.status + ' ' + slotTxt).toLowerCase().replace(/"/g, '') %>">
-                    <td data-label="ID" class="c-id">#<%= l.id %></td>
-                    <td data-label="Pemilik">
-                      <span class="owner-cell">
-                        <span class="owner-av" aria-hidden="true"><%= ini %></span>
-                        <span class="owner-tx"><strong title="<%= l.owner_name %>"><%= l.owner_name %></strong><small><%= l.unit_type === 'evcs_mobil' ? '🔌 EVCS Mobil' : '🔋 BSS Motor' %></small></span>
-                      </span>
-                    </td>
-                    <td data-label="Slot"><% if (l.slot) { %><span class="slot-pill <%= l.slot.typeCode === 'EVCS' ? 'slot-evcs' : 'slot-bss' %>" title="Unit ke-<%= l.slot.seq %> dari <%= l.slot.total %> untuk pemilik ini"><%= l.slot.typeCode === 'EVCS' ? '🔌' : '🔋' %> <%= l.slot.typeCode %>-<%= l.slot.typeSeq %>/<%= l.slot.typeTotal %></span><% } else { %><span class="sppl-empty">-</span><% } %></td>
-                    <td data-label="No. HP" class="c-num"><%= l.phone_number %></td>
-                    <td data-label="Alamat" class="cell-wrap c-addr"><span><%= l.location_address || l.address %></span></td>
-                    <td data-label="Luas" class="c-num"><%= l.area_size %> m²</td>
-                    <td data-label="Status"><span class="status status-<%= l.status %>"><%= stLbl %></span></td>
-                    <td data-label="Fee" class="c-fee"><span class="fee-val">Rp <%= Number(l.fee_amount).toLocaleString('id-ID') %></span></td>
-                    <td data-label="SPPL"><% if (l.sppl_file) { %><a class="sppl-btn" href="<%= fileUrl(l.sppl_file) %>" target="_blank" rel="noopener">📄 SPPL</a><% } else { %><span class="sppl-empty">-</span><% } %></td>
-                    <% if (typeof isHead !== 'undefined' && isHead) { %>
-                    <td data-label="Perbaikan">
-                      <% if (l.status === 'approved') { %><span class="sppl-empty" title="Sudah disetujui — terkunci">🔒</span><% } else if (fixValid) { %>
-                        <span class="fix-act">
-                          <button type="button" class="btn btn-outline btn-xs" data-copylink="<%= fixUrl %>" title="Salin link perbaikan (s/d <%= fixExp %>)">📋 Salin Link</button>
-                          <a class="btn btn-outline btn-xs" style="text-decoration:none;" href="https://wa.me/<%= String(l.phone_number).replace(/\D/g, '') %>?text=<%= encodeURIComponent(waMsg) %>" target="_blank" rel="noopener" title="Kirim via WhatsApp">💬 WA</a>
-                        </span>
-                      <% } else { %>
-                        <form action="/marketing/lands/request-fix" method="POST" class="inline-form" data-confirm="Buat link perbaikan untuk lahan #<%= l.id %>? Berlaku 7 hari."><input type="hidden" name="land_id" value="<%= l.id %>" /><button type="submit" class="btn btn-outline btn-xs">✏️ Minta Perbaikan</button></form>
-                      <% } %>
-                    </td>
-                    <% } %>
-                  </tr>
+              <% mktGroups.forEach(function (gr) { %>
+                <% var gu = gr.units.slice().sort(function (a, b) { return a.id - b.id; }); %>
+                <% var g0 = gu[0]; %>
+                <% var gIds = gu.map(function (x) { return x.id; }); %>
+                <% var gIdLbl = gu.length > 1 ? ((gIds[gIds.length - 1] - gIds[0] + 1 === gIds.length) ? ('#' + gIds[0] + '–#' + gIds[gIds.length - 1]) : ('#' + gIds[0] + ' +' + (gIds.length - 1))) : ('#' + gIds[0]); %>
+                <% var gAppr = 0, gPend = 0, gRej = 0, gFee = 0, gSppl = null, gQty = 0; %>
+                <% gu.forEach(function (x) { %>
+                  <% var _gq = Math.min(10, Math.max(1, Number(x.slot_no) || 1)); %>
+                  <% gQty += _gq; %>
+                  <% if (x.status === 'approved') gAppr += 1; else if (x.status === 'rejected') gRej += 1; else gPend += 1; %>
+                  <% gFee += Number(x.fee_amount) || 0; %>
+                  <% if (!gSppl && x.sppl_file) gSppl = x.sppl_file; %>
                 <% }) %>
+                <% var gStKey = (gAppr && !gPend && !gRej) ? 'approved' : ((!gAppr && !gPend && gRej) ? 'rejected' : ((!gAppr && !gRej) ? 'pending' : 'mixed')); %>
+                <% var gStLbl = gStKey === 'approved' ? 'Disetujui' : (gStKey === 'rejected' ? 'Ditolak' : (gStKey === 'pending' ? 'Pending' : 'Parsial')); %>
+                <% var gNeed = [], gLink = []; %>
+                <% gu.forEach(function (x) { %>
+                  <% if (x.status === 'approved') return; %>
+                  <% var _fv = !!(x.edit_token && x.edit_expires && new Date(x.edit_expires) > new Date()); %>
+                  <% if (_fv) { %>
+                    <% var _fu = (typeof APP_URL !== 'undefined' ? APP_URL : '') + '/perbaiki/' + (x.edit_token || ''); %>
+                    <% var _fe = x.edit_expires ? new Date(x.edit_expires).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : ''; %>
+                    <% var _wm = 'Yth. Bpk/Ibu ' + (x.owner_name || '') + ',\nPengajuan lahan BSS (ID #' + x.id + ') perlu perbaikan data.\nSilakan perbaiki & upload ulang via link ini (berlaku s/d ' + _fe + '):\n' + _fu + '\n- ' + (typeof me !== 'undefined' ? me.name : 'Marketing'); %>
+                    <% gLink.push({ id: x.id, url: _fu, exp: _fe, wa: 'https://wa.me/' + String(x.phone_number).replace(/\D/g, '') + '?text=' + encodeURIComponent(_wm) }); %>
+                  <% } else { gNeed.push(x.id); } %>
+                <% }) %>
+                <% var gNeedCsv = gNeed.join(','); %>
+                <% var gSlotT = gu[0].slot ? gu[0].slot.typeCode : (gr.isEv ? 'EVCS' : 'BSS'); %>
+                <% var ini = String(g0.owner_name || '?').trim().charAt(0).toUpperCase() || '?'; %>
+                <tr data-status="<%= gStKey %>" data-search="<%= (gIds.join(' ') + ' ' + (g0.owner_name || '') + ' ' + (g0.phone_number || '') + ' ' + (g0.address || '') + ' ' + (g0.location_address || '') + ' ' + (gr.isEv ? 'evcs mobil' : 'bss motor') + ' ' + (g0.location_type || '') + ' ' + gStLbl + ' ' + gStKey).toLowerCase().replace(/"/g, '') %>">
+                  <td data-label="ID" class="c-id" title="<%= gIds.join(', ') %>"><%= gIdLbl %></td>
+                  <td data-label="Pemilik">
+                    <span class="owner-cell">
+                      <span class="owner-av" aria-hidden="true"><%= ini %></span>
+                      <span class="owner-tx"><strong title="<%= g0.owner_name %>"><%= g0.owner_name %></strong><small><%= gr.isEv ? '🔌 EVCS Mobil' : '🔋 BSS Motor' %> ×<%= gQty %></small></span>
+                    </span>
+                  </td>
+                  <td data-label="Slot"><span class="slot-pill <%= gr.isEv ? 'slot-evcs' : 'slot-bss' %>" title="<%= gu.map(function (x) { return x.slot ? (x.slot.typeCode + '-' + x.slot.typeSeq + '/' + x.slot.typeTotal) : ''; }).join(', ') %>"><%= gr.isEv ? '🔌' : '🔋' %> <%= gSlotT %> ×<%= gQty %></span></td>
+                  <td data-label="No. HP" class="c-num"><%= g0.phone_number %></td>
+                  <td data-label="Alamat" class="cell-wrap c-addr"><span><%= g0.location_address || g0.address %></span></td>
+                  <td data-label="Luas" class="c-num"><%= g0.area_size %> m²</td>
+                  <td data-label="Status"><span class="status status-<%= gStKey === 'mixed' ? 'pending' : gStKey %>" title="<%= gAppr %> disetujui · <%= gPend %> pending · <%= gRej %> ditolak"><%= gStLbl %></span></td>
+                  <td data-label="Fee" class="c-fee"><span class="fee-val">Rp <%= Number(gFee).toLocaleString('id-ID') %></span></td>
+                  <td data-label="SPPL"><% if (gSppl) { %><a class="sppl-btn" href="<%= fileUrl(gSppl) %>" target="_blank" rel="noopener">📄 SPPL</a><% } else { %><span class="sppl-empty">-</span><% } %></td>
+                  <% if (typeof isHead !== 'undefined' && isHead) { %>
+                  <td data-label="Perbaikan">
+                    <% if (gAppr === gu.length) { %><span class="sppl-empty" title="Sudah disetujui — terkunci">🔒</span><% } else { %>
+                      <% if (gNeed.length) { %>
+                        <form action="/marketing/lands/request-fix" method="POST" class="inline-form" data-confirm="Buat link perbaikan untuk <%= gNeed.length %> unit (#<%= gNeed.join(', #') %>)? Berlaku 7 hari."><input type="hidden" name="land_ids" value="<%= gNeedCsv %>" /><button type="submit" class="btn btn-outline btn-xs">✏️ Minta Perbaikan (<%= gNeed.length %>)</button></form>
+                      <% } %>
+                      <% gLink.forEach(function (gl) { %>
+                        <span class="fix-act">
+                          <button type="button" class="btn btn-outline btn-xs" data-copylink="<%= gl.url %>" title="Salin link perbaikan #<%= gl.id %> (s/d <%= gl.exp %>)">📋 #<%= gl.id %></button>
+                          <a class="btn btn-outline btn-xs" style="text-decoration:none;" href="<%= gl.wa %>" target="_blank" rel="noopener" title="Kirim via WhatsApp">💬 WA</a>
+                        </span>
+                      <% }) %>
+                    <% } %>
+                  </td>
+                  <% } %>
+                </tr>
+              <% }) %>
                 <tr id="mktNoResult" style="display:none;"><td colspan="<%= (typeof isHead !== 'undefined' && isHead) ? 10 : 9 %>" class="empty-cell mkt-empty"><span class="big">🔍</span><strong>Tidak ada hasil.</strong><br><span class="subtext">Coba kata kunci lain.</span></td></tr>
               <% } %>
             </tbody>
           </table>
         </div>
         <% if (lands.length > 0) { %>
-          <div class="mkt-foot" id="mktFoot">Menampilkan <%= lands.length %> pengajuan · Klik baris tidak ada aksi — gunakan link SPPL untuk unduh dokumen.</div>
+          <div class="mkt-foot" id="mktFoot">Menampilkan <%= mktGroups.length %> grup (<%= _mqty %> unit) · Klik baris tidak ada aksi — gunakan link SPPL untuk unduh dokumen.</div>
         <% } %>
       </div>
 
@@ -374,10 +420,10 @@
           if (hit) vis++;
         });
         if (sNo) sNo.style.display = (vis === 0 && sTotal > 0) ? '' : 'none';
-        if (sCount) sCount.textContent = q ? (vis + ' dari ' + sTotal + ' pengajuan') : (sTotal + ' pengajuan');
+        if (sCount) sCount.textContent = q ? (vis + ' dari ' + sTotal + ' grup') : (sTotal + ' grup');
         if (sFoot) sFoot.textContent = q
-          ? ('Menampilkan ' + vis + ' dari ' + sTotal + ' pengajuan · Klik baris tidak ada aksi — gunakan link SPPL untuk unduh dokumen.')
-          : ('Menampilkan ' + sTotal + ' pengajuan · Klik baris tidak ada aksi — gunakan link SPPL untuk unduh dokumen.');
+          ? ('Menampilkan ' + vis + ' dari ' + sTotal + ' grup · Klik baris tidak ada aksi — gunakan link SPPL untuk unduh dokumen.')
+          : ('Menampilkan ' + sTotal + ' grup · Klik baris tidak ada aksi — gunakan link SPPL untuk unduh dokumen.');
       });
     }
     document.querySelectorAll('form[data-confirm]').forEach(function (fm) {

@@ -58,10 +58,14 @@ async function getProposalSettings() {
     ? raw.split(',').map((s) => s.trim()).filter((s) => allowed.has(s))
     : PROPOSAL_ATTACHMENTS.map((a) => a[0]);
   const notes = String(await getSetting('proposal_notes', '')).trim();
+  const vendorA = String(await getSetting('proposal_vendor_a', 'KNAB')).trim() || 'KNAB';
+  const vendorB = String(await getSetting('proposal_vendor_b', 'V-Green')).trim() || 'V-Green';
   return {
     contractYears: /^[1-9]\d?$/.test(yearsRaw) ? yearsRaw : '5',
     attachments: attachments.length ? attachments : PROPOSAL_ATTACHMENTS.map((a) => a[0]),
     notes,
+    vendorA,
+    vendorB,
   };
 }
 

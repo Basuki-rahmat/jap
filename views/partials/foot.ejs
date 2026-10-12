@@ -2,13 +2,13 @@
   <div class="container footer-inner">
     <div class="footer-brand">
       <a href="/" class="brand">
-        <img src="<%= typeof brandLogo !== 'undefined' ? brandLogo : '/img/logo.png' %>" alt="<%= typeof brandFullName !== 'undefined' ? brandFullName : (typeof brandName !== 'undefined' ? brandName : 'BSS') %> logo" class="logo-img" />
+        <img src="<%= typeof brandLogo !== 'undefined' ? brandLogo : '/img/logo.png' %>" alt="<%= typeof brandFullName !== 'undefined' ? brandFullName : (typeof brandName !== 'undefined' ? brandName : 'BSS') %> logo" class="logo-img" width="38" height="38" loading="lazy" decoding="async" />
         <span class="brand-text"><%= typeof brandFullName !== 'undefined' ? brandFullName : (typeof brandName !== 'undefined' ? brandName : 'BSS') %></span>
       </a>
       <p>Sewa Lahan BSS × V-Green — ubah lahan kecil menjadi penghasilan tahunan sekaligus dukung ekosistem kendaraan listrik.</p>
     </div>
     <div class="footer-col">
-      <h4>Menu</h4>
+      <h2>Menu</h2>
       <a href="/">Beranda</a>
       <a href="/panduan">Panduan</a>
       <% if (typeof user !== 'undefined' && user) { %><a href="/struktur">Struktur Tim</a><% } %>
@@ -17,7 +17,7 @@
       <a href="/login">Login</a>
     </div>
     <div class="footer-col">
-      <h4>Bantuan</h4>
+      <h2>Bantuan</h2>
       <a href="/panduan">Syarat Lokasi</a>
       <a href="/panduan">Berkas Wajib</a>
       <a href="/lacak">Pantau Status</a>
@@ -70,7 +70,7 @@
     line-height: 1.35;
   }
   .footer-brand p { font-size: .84rem; line-height: 1.7; margin: 0; max-width: 360px; color: var(--footer-muted); }
-  .footer-col h4 {
+  .footer-col h2 {
     margin: 0 0 12px;
     font-size: .74rem;
     text-transform: uppercase;
@@ -117,7 +117,7 @@
     .footer-inner { grid-template-columns: 1fr 1fr; gap: 14px; padding-top: 26px; padding-bottom: 20px; }
     .footer-brand { grid-column: 1 / -1; }
     .footer-brand p { font-size: .78rem; line-height: 1.6; }
-    .footer-col h4 { font-size: .68rem; margin-bottom: 8px; padding-bottom: 6px; }
+    .footer-col h2 { font-size: .68rem; margin-bottom: 8px; padding-bottom: 6px; }
     .footer-col a { font-size: .78rem; padding: 4px 0; }
     .footer-bottom { flex-direction: column; text-align: center; }
   }

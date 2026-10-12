@@ -11,7 +11,7 @@
       </div>
 
       <figure class="card text-center zoomable" style="padding:12px;max-width:720px;margin:0 auto 20px;">
-        <img src="/img/Syarat.png" alt="Syarat Pengajuan Pemasangan BSS & EVCS — KNAB x V-Green" loading="lazy" decoding="async" style="width:100%;height:auto;border-radius:8px;cursor:zoom-in;" />
+        <img src="/img/Syarat.png" alt="Syarat Pengajuan Pemasangan BSS & EVCS — KNAB x V-Green" width="1024" height="1536" loading="lazy" decoding="async" style="width:100%;height:auto;border-radius:8px;cursor:zoom-in;" />
         <figcaption class="zoom-hint">🔍 Klik gambar untuk zoom &amp; baca syarat dengan jelas</figcaption>
       </figure>
 
@@ -107,7 +107,7 @@
             <li>Foto dokumen pendukung lainnya (bila ada, opsional).</li>
             <li>Titik koordinat Google Maps.</li>
             <li>
-              <strong>SPPL</strong> (Surat Persetujuan Pemilik Lahan): tidak perlu diunduh/diisi — diterbitkan otomatis oleh sistem setelah berkas lolos verifikasi, terisi identitas pemilik dan nama marketing.
+              <strong>SPPL</strong> (Surat Persetujuan Pemilik Lahan): blanko kosong (tanpa nama) bisa diunduh mandiri <a href="/sppl-blanko" download><strong>di sini</strong></a> — versi resmi terisi identitas pemilik dan nama marketing diterbitkan otomatis oleh sistem setelah berkas lolos verifikasi.
             </li>
           </ul>
         </div>
@@ -246,7 +246,7 @@
     <button type="button" id="zoom-reset" aria-label="Reset">⤾</button>
   </div>
   <button id="zoom-close" aria-label="Tutup">&times;</button>
-  <img id="zoom-img" src="/img/Syarat.png" alt="Syarat Pengajuan Pemasangan BSS & EVCS" />
+  <img id="zoom-img" src="" alt="Syarat Pengajuan Pemasangan BSS & EVCS" width="1024" height="1536" loading="lazy" decoding="async" />
   <div class="zoom-caption">Scroll / cubit untuk zoom · seret untuk geser · ESC untuk tutup</div>
 </div>
 
@@ -310,9 +310,10 @@
       overlay.classList.remove('open');
       overlay.setAttribute('aria-hidden', 'true');
       document.body.style.overflow = '';
+      img.removeAttribute('src');
     }
     document.querySelectorAll('.zoomable img').forEach(function (el) {
-      el.addEventListener('click', function () { open(el.src); });
+      el.addEventListener('click', function () { open(el.currentSrc || el.src); });
     });
     document.getElementById('zoom-close').addEventListener('click', close);
     document.getElementById('zoom-in').addEventListener('click', function (e) { e.stopPropagation(); scale = Math.min(scale * 1.3, 6); apply(); });

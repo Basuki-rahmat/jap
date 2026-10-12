@@ -40,13 +40,20 @@ try {
   GEO = null;
 }
 
-const GREEN_DARK = '#14532d';
-const GREEN = '#15803d';
-const BLUE = '#1d4ed8';
-const ORANGE = '#c2410c';
-const RED = '#b91c1c';
-const GRAY = '#6b7280';
-const INK = '#111827';
+// ---- Palet Warna Modern (Slate & Emerald Theme) ----
+const COLOR_PRIMARY_DARK = '#0f172a'; // Slate 900
+const COLOR_PRIMARY = '#1e293b';      // Slate 800
+const COLOR_ACCENT = '#059669';       // Emerald 600
+const COLOR_ACCENT_BG = '#ecfdf5';    // Emerald 50
+const COLOR_ACCENT_BORDER = '#a7f3d0';// Emerald 200
+
+const BLUE = '#2563eb';   // Blue 600
+const ORANGE = '#d97706'; // Amber 600
+const RED = '#dc2626';    // Red 600
+const GRAY = '#64748b';   // Slate 500
+const GRAY_LIGHT = '#f8fafc'; // Slate 50
+const GRAY_BORDER = '#e2e8f0';// Slate 200
+const INK = '#0f172a';    // Slate 900
 
 function parseCoords(mapsLink) {
   const m = String(mapsLink || '').match(/q=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
@@ -74,7 +81,6 @@ function featureContains(f, lng, lat) {
 }
 
 // Pindah halaman hanya bila sisa ruang tak muat DAN halaman saat ini sudah terisi.
-// (tidak pernah membuat halaman kosong: bila kursor masih di atas halaman baru, biarkan mengalir)
 function needSpace(doc, h) {
   const top = doc.page.margins.top;
   const bottom = doc.page.height - doc.page.margins.bottom;
@@ -82,38 +88,56 @@ function needSpace(doc, h) {
   if (doc.y + h > bottom && doc.y > top + 1) doc.addPage();
 }
 
-function sectionTitle(doc, text) {
-  needSpace(doc, 56); // judul + awal isi tetap sehalaman (anti-judul yatim)
-  doc.fillColor(GREEN_DARK).font('Helvetica-Bold').fontSize(12).text(text);
-  doc.moveTo(doc.page.margins.left, doc.y + 2)
-    .lineTo(doc.page.width - doc.page.margins.right, doc.y + 2)
-    .strokeColor('#bbf7d0')
-    .lineWidth(1.5)
+function sectionTitle(doc, text, opts) {
+  if (!text) return;
+  needSpace(doc, 40);
+  const centered = !!(opts && opts.center);
+  const x0 = doc.page.margins.left;
+  const W = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+
+  doc.save();
+  doc.fillColor(COLOR_PRIMARY_DARK).font('Helvetica-Bold').fontSize(10.5);
+  
+  if (centered) {
+    doc.text(text, x0, doc.y, { width: W, align: 'center' });
+  } else {
+    // Dipastikan benar-benar rata kiri (align: left) di margin x0
+    doc.text(text, x0, doc.y, { width: W, align: 'left' });
+  }
+
+  const lineY = doc.y + 3;
+  doc.moveTo(x0, lineY)
+    .lineTo(x0 + W, lineY)
+    .strokeColor(GRAY_BORDER)
+    .lineWidth(0.8)
     .stroke();
-  doc.moveDown(0.6);
+  doc.restore();
+
+  doc.y = lineY + 6;
   doc.fillColor(INK);
 }
 
 function statCards(doc, cards) {
-  needSpace(doc, 72);
+  needSpace(doc, 68);
   const x0 = doc.page.margins.left;
   const W = doc.page.width - doc.page.margins.left - doc.page.margins.right;
   const gap = 8;
   const cw = (W - gap * (cards.length - 1)) / cards.length;
-  const h = 62;
+  const h = 58;
   const y = doc.y;
+
   cards.forEach((c, i) => {
     const x = x0 + i * (cw + gap);
     doc.save();
-    doc.roundedRect(x, y, cw, h, 8).fillColor('#ffffff').fill();
-    doc.roundedRect(x, y, cw, h, 8).strokeColor('#e5e7eb').lineWidth(1).stroke();
-    doc.rect(x, y, cw, 5).fillColor(c.color || GREEN).fill();
-    doc.fillColor(GRAY).font('Helvetica-Bold').fontSize(7.5).text(c.label.toUpperCase(), x + 8, y + 12, { width: cw - 16 });
-    doc.fillColor(INK).font('Helvetica-Bold').fontSize(11).text(c.value, x + 8, y + 28, { width: cw - 16 });
-    if (c.sub) doc.fillColor(GRAY).font('Helvetica').fontSize(8).text(c.sub, x + 8, y + 44, { width: cw - 16 });
+    doc.roundedRect(x, y, cw, h, 6).fillColor('#ffffff').fill();
+    doc.roundedRect(x, y, cw, h, 6).strokeColor(GRAY_BORDER).lineWidth(0.8).stroke();
+    doc.roundedRect(x, y, cw, 4, 2).fillColor(c.color || COLOR_ACCENT).fill();
+    doc.fillColor(GRAY).font('Helvetica-Bold').fontSize(7).text(c.label.toUpperCase(), x + 8, y + 10, { width: cw - 16 });
+    doc.fillColor(INK).font('Helvetica-Bold').fontSize(11).text(c.value, x + 8, y + 23, { width: cw - 16, lineBreak: false, ellipsis: true });
+    if (c.sub) doc.fillColor(GRAY).font('Helvetica').fontSize(7.5).text(c.sub, x + 8, y + 39, { width: cw - 16, lineBreak: false, ellipsis: true });
     doc.restore();
   });
-  doc.y = y + h + 10;
+  doc.y = y + h + 12;
 }
 
 // ---- Background peta OSM (tile 256px, di-cache di folder temp) ----
@@ -129,7 +153,6 @@ async function tileBuf(z, x, y) {
     if (!fs.existsSync(TILE_DIR)) fs.mkdirSync(TILE_DIR, { recursive: true });
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), 9000);
-    // Esri World Street Map (urutan z/y/x); OSM & CARTO memblokir IP hosting (403)
     const res = await fetch(`https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${z}/${y}/${x}`, {
       headers: { 'User-Agent': 'JAP-BSS-Proposal/1.0 (admin proposal pdf)' },
       signal: ctl.signal,
@@ -137,7 +160,6 @@ async function tileBuf(z, x, y) {
     clearTimeout(t);
     if (!res.ok) return null;
     const buf = Buffer.from(await res.arrayBuffer());
-    // Tolak halaman error (HTML) agar tak ikut ter-cache / ter-embed
     const isPng = buf.length > 8 && buf[0] === 0x89 && buf[1] === 0x50;
     const isJpg = buf.length > 2 && buf[0] === 0xff && buf[1] === 0xd8;
     if (!isPng && !isJpg) return null;
@@ -145,7 +167,7 @@ async function tileBuf(z, x, y) {
     return buf;
   } catch (e) { return null; }
 }
-// Muat tile yang menutupi bbox (maks 4x4). null bila offline/gagal.
+
 async function loadTileLayer(minX, minY, maxX, maxY) {
   let z = 12, tx0 = 0, ty0 = 0, tx1 = -1, ty1 = -1;
   for (; z >= 8; z--) {
@@ -172,17 +194,15 @@ function paintPolys(doc, coords, PX, PY, lineW) {
     polys.forEach((poly) => {
       const ring = poly[0];
       if (!ring || ring.length < 3) return;
-      // Fill poligon
       doc.save();
-      doc.fillOpacity(hit ? 0.55 : 0.20);
+      doc.fillOpacity(hit ? 0.45 : 0.15);
       doc.fillColor(col);
       doc.moveTo(PX(ring[0][0]), PY(ring[0][1]));
       for (let i = 1; i < ring.length; i++) doc.lineTo(PX(ring[i][0]), PY(ring[i][1]));
       doc.closePath().fill();
       doc.restore();
-      // Stroke poligon
       doc.save();
-      doc.strokeColor(col).lineWidth(hit ? 2 : (lineW || 0.8));
+      doc.strokeColor(col).lineWidth(hit ? 1.8 : (lineW || 0.8));
       doc.moveTo(PX(ring[0][0]), PY(ring[0][1]));
       for (let i = 1; i < ring.length; i++) doc.lineTo(PX(ring[i][0]), PY(ring[i][1]));
       doc.closePath().stroke();
@@ -194,12 +214,10 @@ function paintPolys(doc, coords, PX, PY, lineW) {
 function paintMarker(doc, mx, my) {
   doc.save();
   doc.fillOpacity(1);
-  // Efek shadow / pulse
-  doc.circle(mx, my, 14).fillColor('#fca5a5').fillOpacity(0.4).fill();
-  // Core marker
-  doc.circle(mx, my, 7).fillColor('#dc2626').fillOpacity(1).fill();
-  doc.circle(mx, my, 7).strokeColor('#ffffff').lineWidth(2).stroke();
-  doc.circle(mx, my, 2.5).fillColor('#ffffff').fill();
+  doc.circle(mx, my, 12).fillColor('#fca5a5').fillOpacity(0.35).fill();
+  doc.circle(mx, my, 6).fillColor(RED).fillOpacity(1).fill();
+  doc.circle(mx, my, 6).strokeColor('#ffffff').lineWidth(1.8).stroke();
+  doc.circle(mx, my, 2).fillColor('#ffffff').fill();
   doc.restore();
 }
 
@@ -207,16 +225,12 @@ async function drawMap(doc, coords, box) {
   const { x, y, w, h } = box;
   let districtLabel = '';
   doc.save();
-  // Background peta
-  doc.roundedRect(x, y, w, h, 8).fillColor('#f8fafc').fill();
-  doc.roundedRect(x, y, w, h, 8).strokeColor('#cbd5e1').lineWidth(1).stroke();
-
-  // Clip area agar poligon tidak keluar batas kotak
-  doc.roundedRect(x, y, w, h, 8).clip();
+  
+  doc.roundedRect(x, y, w, h, 6).fillColor('#f8fafc').fill();
+  doc.roundedRect(x, y, w, h, 6).strokeColor(GRAY_BORDER).lineWidth(1).stroke();
+  doc.roundedRect(x, y, w, h, 6).clip();
 
   if (GEO && GEO_BBOX && MAINLAND_BBOX && coords) {
-    // Fokus daratan (tanpa Kep. Seribu) agar peta tidak gepeng;
-    // kecuali pengajuan memang di Kep. Seribu. Titik selalu dimuat + margin.
     const inSeribu = GEO.some(
       (f) => String(f.properties && f.properties.kode_kemendagri) === '31.01' && featureContains(f, coords.lng, coords.lat)
     );
@@ -230,7 +244,6 @@ async function drawMap(doc, coords, box) {
     let layer = null;
     try { layer = await loadTileLayer(minX, minY, maxX, maxY); } catch (e) { layer = null; }
     if (layer) {
-      // Jalur utama: background peta OSM + proyeksi mercator sejajar tile
       const totW = (layer.tx1 - layer.tx0 + 1) * 256;
       const totH = (layer.ty1 - layer.ty0 + 1) * 256;
       const s = Math.min((w - pad * 2) / totW, (h - pad * 2) / totH);
@@ -240,11 +253,10 @@ async function drawMap(doc, coords, box) {
       layer.tiles.forEach((t) => {
         try {
           doc.image(t.buf, ox + (t.x - layer.tx0) * ts, oy + (t.y - layer.ty0) * ts, { width: ts, height: ts });
-        } catch (e) { /* tile rusak: lewati */ }
+        } catch (e) { /* tile rusak */ }
       });
-      // Lapisan putih tipis agar poligon & marker terbaca di atas peta
       doc.save();
-      doc.fillOpacity(0.16);
+      doc.fillOpacity(0.12);
       doc.fillColor('#ffffff');
       doc.rect(ox, oy, totW * s, totH * s).fill();
       doc.restore();
@@ -253,7 +265,6 @@ async function drawMap(doc, coords, box) {
       paintPolys(doc, coords, PX, PY, 1);
       paintMarker(doc, PX(coords.lng), PY(coords.lat));
     } else {
-      // Fallback offline: latar polos + proyeksi linear
       const bw = maxX - minX;
       const bh = maxY - minY;
       const s = Math.min((w - pad * 2) / bw, (h - pad * 2) / bh);
@@ -265,10 +276,10 @@ async function drawMap(doc, coords, box) {
       paintMarker(doc, PX(coords.lng), PY(coords.lat));
     }
     const hit = GEO.find((f) => featureContains(f, coords.lng, coords.lat));
-    if (hit && hit.properties) districtLabel = `${hit.properties.nama} (Kemendagri ${hit.properties.kode_kemendagri})`;
+    if (hit && hit.properties) districtLabel = `${hit.properties.nama} (${hit.properties.kode_kemendagri})`;
   } else {
-    doc.fillColor(GRAY).font('Helvetica').fontSize(10)
-      .text('Koordinat / peta wilayah belum tersedia.', x + 12, y + h / 2 - 8, { width: w - 24, align: 'center' });
+    doc.fillColor(GRAY).font('Helvetica').fontSize(9)
+      .text('Koordinat / peta wilayah belum tersedia.', x + 12, y + h / 2 - 6, { width: w - 24, align: 'center' });
   }
   doc.restore();
   return districtLabel;
@@ -279,29 +290,24 @@ function docImageAbs(webPath) {
   const rel = String(webPath).replace(/^\//, '');
   const abs = path.join(publicDir, rel);
   if (!fs.existsSync(abs)) return null;
-  if (!/\.(jpe?g|png)$/i.test(abs)) return null; // pdfkit: hanya JPEG/PNG
+  if (!/\.(jpe?g|png)$/i.test(abs)) return null;
   return abs;
 }
 
-// Ukur & saring lampiran: hanya file yang benar-benar ada dan terbaca.
-// File yang tidak ada dilewati diam-diam (tanpa halaman/placeholder).
-// KTP di-crop paksa ke rasio 9:6 landscape (ukuran cetak 9cm x 6cm) agar
-// seragam seperti kartu identitas.
 async function measureDocs(doc, items) {
   const W = doc.page.width - doc.page.margins.left - doc.page.margins.right;
   const out = [];
   for (const { title, webPath, docType } of items) {
     const abs = docImageAbs(webPath);
     if (!abs) continue;
-    // KTP: crop cover ke 3:2 landscape + ukuran tetap 255x170pt (9cm x 6cm).
     if (docType === 'ktp') {
       try {
         const sharp = require('sharp');
         const buf = await sharp(abs).rotate().resize(900, 600, { fit: 'cover', position: 'centre' }).jpeg({ quality: 88 }).toBuffer();
         const img = doc.openImage(buf);
-        out.push({ title, img, dw: 255, dh: 170 });
+        out.push({ title, img, dw: 255, dh: 170, docType });
         continue;
-      } catch (e) { /* jatuh ke jalur normal di bawah */ }
+      } catch (e) { /* fallback */ }
     }
     try {
       const img = doc.openImage(abs);
@@ -312,49 +318,81 @@ async function measureDocs(doc, items) {
         img,
         dw: Math.max(1, Math.round(img.width * sc)),
         dh: Math.max(1, Math.round(img.height * sc)),
+        docType,
       });
-    } catch (e) { /* rusak / tak terbaca: lewati */ }
+    } catch (e) { /* rusak / tak terbaca */ }
   }
   return out;
 }
 
-// Gambar satu kartu lampiran utuh sehalaman (desain dipertahankan)
 function renderDocCard(doc, d) {
   const x0 = doc.page.margins.left;
   const W = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-  // Satu kartu utuh sehalaman (page-break-inside: avoid ala referensi HTML)
-  needSpace(doc, 20 + 8 + d.dh + 10);
+  const cardH = 22 + 8 + d.dh + 10;
+  needSpace(doc, cardH);
   const y = doc.y;
-  // Isi kartu: kepala + gambar
+
   doc.save();
-  doc.roundedRect(x0, y, W, 20, 5).fillColor('#f0fdf4').fill();
-  doc.moveTo(x0 + 5, y + 20).lineTo(x0 + W - 5, y + 20).strokeColor('#dcfce7').lineWidth(1).stroke();
-  doc.fillColor(GREEN_DARK).font('Helvetica-Bold').fontSize(9.5).text(d.title, x0 + 8, y + 5, { width: W - 16 });
+  doc.roundedRect(x0, y, W, cardH, 6).fillColor('#ffffff').fill();
+  doc.roundedRect(x0, y, W, cardH, 6).strokeColor(GRAY_BORDER).lineWidth(0.8).stroke();
+  doc.roundedRect(x0, y, W, 22, 6).fillColor(COLOR_ACCENT_BG).fill();
+  doc.rect(x0, y + 16, W, 6).fillColor(COLOR_ACCENT_BG).fill();
+  doc.moveTo(x0, y + 22).lineTo(x0 + W, y + 22).strokeColor(COLOR_ACCENT_BORDER).lineWidth(0.8).stroke();
+  doc.fillColor(COLOR_PRIMARY_DARK).font('Helvetica-Bold').fontSize(8.5).text(d.title, x0 + 10, y + 6, { width: W - 20 });
   doc.restore();
+
   try {
     doc.image(d.img, x0 + (W - d.dw) / 2, y + 28, { width: d.dw, height: d.dh });
   } catch (e) {
-    doc.fillColor(RED).font('Helvetica-Oblique').fontSize(9).text('Error merender file gambar.', x0 + 12, y + 28, { width: W - 24 });
+    doc.fillColor(RED).font('Helvetica-Oblique').fontSize(8.5).text('Error merender file gambar.', x0 + 12, y + 28, { width: W - 24 });
   }
-  doc.y = y + 28 + d.dh + 10;
-  // Bingkai kartu di atas isi
-  doc.save();
-  doc.roundedRect(x0, y, W, doc.y - y, 8).strokeColor('#e5e7eb').lineWidth(1).stroke();
-  doc.restore();
+
+  doc.y = y + cardH + 10;
   doc.fillColor(INK);
-  doc.y += 8; // jeda antar kartu
+}
+
+function renderLegalFullPage(doc, d) {
+  const x0 = doc.page.margins.left;
+  const W = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+  if (doc.y > doc.page.margins.top + 1) doc.addPage();
+  
+  doc.fillColor(COLOR_PRIMARY_DARK).font('Helvetica-Bold').fontSize(10.5).text(d.title, { align: 'center' });
+  doc.moveDown(0.4);
+  
+  const yTop = doc.y;
+  const maxH = doc.page.height - doc.page.margins.bottom - yTop - 12;
+  const sc = Math.min(W / d.img.width, maxH / d.img.height);
+  const dw = Math.max(1, Math.round(d.img.width * sc));
+  const dh = Math.max(1, Math.round(d.img.height * sc));
+  
+  try {
+    doc.image(d.img, x0 + (W - dw) / 2, yTop, { width: dw, height: dh });
+  } catch (e) {
+    doc.fillColor(RED).font('Helvetica-Oblique').fontSize(8.5).text('Error merender file gambar.', x0, yTop, { width: W });
+  }
+  doc.y = yTop + dh + 10;
+  doc.fillColor(INK);
+}
+
+function renderLampiranDocs(doc, docs, sectionName) {
+  const legals = docs.filter((d) => d.docType === 'legal');
+  const others = docs.filter((d) => d.docType !== 'legal');
+  if (others.length) {
+    sectionTitle(doc, sectionName || 'Lampiran Dokumen');
+    others.forEach((d) => renderDocCard(doc, d));
+  }
+  legals.forEach((d) => renderLegalFullPage(doc, d));
 }
 
 function statusMeta(status) {
-  if (status === 'approved') return { label: 'DISETUJUI', color: GREEN };
+  if (status === 'approved') return { label: 'DISETUJUI', color: COLOR_ACCENT };
   if (status === 'rejected') return { label: 'DITOLAK', color: RED };
   return { label: 'PENDING', color: ORANGE };
 }
 
-// Definisi lampiran proposal: key = pilihan di Pengaturan Proposal.
 const ATTACH_DEFS = [
   { key: 'ktp', title: () => 'Fotokopi KTP Pemilik Lahan', get: (L) => L.ktp_file, docType: 'ktp' },
-  { key: 'legal', title: (L) => `Dokumen Legalitas (${(L.legal_doc_type || '').toUpperCase() || 'SHM/PBB'})`, get: (L) => L.legal_doc_file, docType: 'legal' },
+  { key: 'legal', title: () => 'Dokumen Legalitas (SHM/PBB)', get: (L) => L.legal_doc_file, docType: 'legal' },
   { key: 'family', title: () => 'KK / Buku Nikah', get: (L) => L.family_doc_file, docType: 'photo' },
   { key: 'sewa', title: () => 'Surat Sewa', get: (L) => L.sewa_doc_file, docType: 'photo' },
   { key: 'support', title: () => 'Dokumen Pendukung', get: (L) => L.support_doc_file, docType: 'photo' },
@@ -367,7 +405,6 @@ const ATTACH_DEFS = [
   { key: 'foto_maps', title: () => 'Screenshot Lokasi & Koordinat', get: (L) => L.photo_maps_file, docType: 'photo' },
 ];
 
-// Susun item lampiran satu unit sesuai pilihan pengaturan (dengan penomoran).
 function unitLampiran(L, enabled, startNo) {
   const items = [];
   let n = startNo || 1;
@@ -383,25 +420,35 @@ function unitLampiran(L, enabled, startNo) {
 
 function renderNotes(doc, notes) {
   if (!notes) return;
-  needSpace(doc, 60);
-  sectionTitle(doc, 'Catatan');
-  doc.fillColor(INK).font('Helvetica').fontSize(9).text(notes, { width: doc.page.width - doc.page.margins.left - doc.page.margins.right });
-  doc.moveDown(0.5);
+  needSpace(doc, 50);
+  sectionTitle(doc, 'Catatan Tambahan');
+  const x0 = doc.page.margins.left;
+  const W = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+  
+  doc.save();
+  doc.fillColor(INK).font('Helvetica').fontSize(8.5).text(notes, x0, doc.y, { width: W, align: 'justify' });
+  doc.restore();
+  doc.moveDown(0.6);
 }
 
 function finishDoc(doc, stream, abs, fname, downloadName, noProposal, ownerName, resolve, reject) {
   const range = doc.bufferedPageRange();
-  const fy = doc.page.height - doc.page.margins.bottom - 14;
+  const fy = doc.page.height - doc.page.margins.bottom - 12;
   const x0 = doc.page.margins.left;
   const W = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+
   for (let i = 0; i < range.count; i++) {
     doc.switchToPage(i);
-    doc.fillColor(GRAY).font('Helvetica').fontSize(7.5)
-      .text(`Proposal ${noProposal} — ${ownerName || ''} — dokumen internal untuk vendor`, x0, fy, {
-        width: W, align: 'center',
+    doc.save();
+    doc.moveTo(x0, fy - 4).lineTo(x0 + W, fy - 4).strokeColor(GRAY_BORDER).lineWidth(0.5).stroke();
+    doc.fillColor(GRAY).font('Helvetica').fontSize(7)
+      .text(`Proposal ${noProposal} — ${ownerName || ''} — Dokumen Internal Vendor`, x0, fy, {
+        width: W, align: 'left',
       });
-    doc.text(`Hal. ${i + 1}/${range.count}`, x0, fy, { width: W, align: 'right' });
+    doc.text(`Halaman ${i + 1} dari ${range.count}`, x0, fy, { width: W, align: 'right' });
+    doc.restore();
   }
+  
   if (doc.bufferedPageRange().count !== range.count) {
     reject(new Error('Halaman bertambah saat pemberian footer.'));
     return;
@@ -416,18 +463,17 @@ function generateProposalPdf(land, marketingName, feeMarketing, slot, brandShort
     try {
       if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
       const L = land || {};
-      // Kebijakan dokumen: nominal sewa & fee TIDAK ditampilkan di proposal vendor.
-      const coBrand = (brandShort || 'BSS') + ' × V-Green';
       const fname = `proposal-${L.id || 'doc'}-${Date.now()}.pdf`;
       const abs = path.join(uploadDir, fname);
 
-      const doc = new PDFDocument({ size: 'A4', margins: { top: 36, right: 40, bottom: 44, left: 40 }, bufferPages: true });
+      const doc = new PDFDocument({ size: 'A4', margins: { top: 32, right: 36, bottom: 36, left: 36 }, bufferPages: true });
       const stream = fs.createWriteStream(abs);
       doc.pipe(stream);
 
       let prop = null;
       try { prop = await require('./settings').getProposalSettings(); } catch (e) { prop = null; }
-      if (!prop) prop = { contractYears: '5', attachments: null, notes: '' };
+      if (!prop) prop = { contractYears: '5', attachments: null, notes: '', vendorA: 'KNAB', vendorB: 'V-Green' };
+      const coBrand = `${prop.vendorA || brandShort || 'BSS'} × ${prop.vendorB || 'V-Green'}`;
 
       const W = doc.page.width - doc.page.margins.left - doc.page.margins.right;
       const x0 = doc.page.margins.left;
@@ -440,114 +486,117 @@ function generateProposalPdf(land, marketingName, feeMarketing, slot, brandShort
       const coords = parseCoords(L.maps_link);
       const noProposal = `PROP/${L.id || '...'}/${now.getFullYear()}`;
 
-      // ===== Header modern =====
-      const hy = 30;
+      // ===== Header Modern =====
+      const hy = 28;
+      const headerH = 82;
       doc.save();
-      doc.roundedRect(x0, hy, W, 92, 10).fillColor(GREEN_DARK).fill();
-      doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(19).text('PROPOSAL PENGAJUAN LAHAN', x0 + 18, hy + 12);
-      doc.fillColor('#bbf7d0').font('Helvetica').fontSize(9.5)
-        .text(`Battery Swap Station & EV Charging Station  •  ${coBrand} Indonesia`, x0 + 18, hy + 38);
-      doc.fillColor('#ffffff').font('Helvetica').fontSize(9)
-        .text(`No. ${noProposal}   •   ${tgl}`, x0 + 18, hy + 56);
-      // badge status kanan
-      const badge = st.label;
-      doc.font('Helvetica-Bold').fontSize(10);
-      const bw = doc.widthOfString(badge) + 26;
-      doc.roundedRect(x0 + W - bw - 16, hy + 14, bw, 26, 13).fillColor(st.color).fill();
-      doc.fillColor('#ffffff').text(badge, x0 + W - bw - 16, hy + 21, { width: bw, align: 'center' });
-      doc.restore();
-      doc.y = hy + 102;
+      doc.roundedRect(x0, hy, W, headerH, 8).fillColor(COLOR_PRIMARY_DARK).fill();
+      doc.roundedRect(x0, hy, 6, headerH, 3).fillColor(COLOR_ACCENT).fill();
 
-      // ===== Kartu ringkasan (nominal disembunyikan sesuai kebijakan) =====
+      doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(16).text('PROPOSAL PENGAJUAN LAHAN', x0 + 16, hy + 14);
+      doc.fillColor('#cbd5e1').font('Helvetica').fontSize(8.5)
+        .text(`Battery Swap Station & EV Charging Station  •  ${coBrand} Indonesia`, x0 + 16, hy + 36);
+      doc.fillColor('#94a3b8').font('Helvetica').fontSize(8)
+        .text(`No. ${noProposal}   •   ${tgl}`, x0 + 16, hy + 52);
+
+      const badge = st.label;
+      doc.font('Helvetica-Bold').fontSize(8.5);
+      const bw = doc.widthOfString(badge) + 20;
+      doc.roundedRect(x0 + W - bw - 14, hy + 14, bw, 22, 11).fillColor(st.color).fill();
+      doc.fillColor('#ffffff').text(badge, x0 + W - bw - 14, hy + 20, { width: bw, align: 'center' });
+      doc.restore();
+
+      doc.y = hy + headerH + 12;
+
+      // ===== Kartu Ringkasan Dashboard =====
       statCards(doc, [
-        { label: 'Jenis Unit', value: unitLabel, sub: unitSize, color: isEvcs ? BLUE : GREEN },
-        { label: 'Luas Lahan', value: `${L.area_size || '-'} m²`, sub: L.location_type || '', color: GREEN },
-        { label: 'Sewa / Tahun / Unit', value: ' ', sub: `Kontrak ${prop.contractYears} tahun`, color: ORANGE },
+        { label: 'Jenis Unit', value: unitLabel, sub: unitSize, color: isEvcs ? BLUE : COLOR_ACCENT },
+        { label: 'Luas Lahan', value: `${L.area_size || '-'} m²`, sub: L.location_type || '-', color: COLOR_ACCENT },
+        { label: 'Sewa / Tahun', value: ' ', sub: `Kontrak ${prop.contractYears} tahun`, color: ORANGE },
         { label: 'Fee Marketing', value: ' ', sub: marketingName || '-', color: BLUE },
       ]);
 
-      // ===== Peta + Data berdampingan (mengikuti referensi HTML) =====
-      sectionTitle(doc, '');
-      
+      // ===== Grid Peta & Data Penyedia =====
       (await (async function mapDataGrid() {
-        const mapW = 240;
-        const gapX = 16;
+        const mapW = 230;
+        const gapX = 14;
         const dataX = x0 + mapW + gapX;
         const dataW = W - mapW - gapX;
-        const mapH = 215;
-        needSpace(doc, 300);
+        const mapH = 220;
+        needSpace(doc, 260);
         const yTop = doc.y;
-        // --- Kolom kiri: peta + info ---
+
         const wilayah = await drawMap(doc, coords, { x: x0, y: yTop, w: mapW, h: mapH });
         let ly = yTop + mapH + 6;
-        doc.fillColor(INK).font('Helvetica').fontSize(8);
+        doc.save();
+        doc.fillColor(INK).font('Helvetica').fontSize(7.5);
         if (coords) {
           doc.text(`Koordinat: ${coords.lat}, ${coords.lng}`, x0, ly, { width: mapW });
-          ly = doc.y + 1;
+          ly = doc.y + 2;
           if (wilayah) {
             doc.text(`Wilayah: ${wilayah}`, x0, ly, { width: mapW });
-            ly = doc.y + 1;
+            ly = doc.y + 2;
           }
           if (L.maps_link) {
-            doc.fillColor(INK).font('Helvetica').fontSize(8)
-              .text('Google Maps: ', x0, ly, { width: mapW, continued: true });
-            doc.fillColor(BLUE).text('Lihat Peta', { link: L.maps_link, underline: true });
-            ly = doc.y + 1;
-            doc.fillColor(INK);
+            doc.fillColor(INK).text('Google Maps: ', x0, ly, { width: mapW, continued: true });
+            doc.fillColor(BLUE).text('Lihat Tautan Peta', { link: L.maps_link, underline: true });
+            ly = doc.y + 2;
           }
-        } else {
-          doc.fillColor(INK);
         }
-        // --- Kolom kanan: detail penyedia ---
+        doc.restore();
+
         let ry = yTop;
-        doc.fillColor(GREEN_DARK).font('Helvetica-Bold').fontSize(11)
+        doc.save();
+        doc.fillColor(COLOR_PRIMARY_DARK).font('Helvetica-Bold').fontSize(10)
           .text(`Detail Calon Penyedia — ${L.owner_name || '-'}`, dataX, ry, { width: dataW });
-        ry = doc.y + 6;
-        // Format jumlah per tipe: "BSS = 2 Slot" (total slot tipe itu milik penyedia ini).
+        
+        ry = doc.y + 4;
+        doc.moveTo(dataX, ry).lineTo(dataX + dataW, ry).strokeColor(GRAY_BORDER).lineWidth(0.8).stroke();
+        ry += 6;
+
         const slotCode = slot ? slot.typeCode : (isEvcs ? 'EVCS' : 'BSS');
-        const slotTotal = slot && slot.typeTotal ? slot.typeTotal : 1;
+        const slotTotal = Math.min(10, Math.max(1, Number(L.slot_no) || 1));
         const rows = [
           ['Nama Pemilik', L.owner_name],
           ['Nama Toko', L.shop_name],
           ['NIK', L.nik],
           ['No. HP / WA', L.phone_number],
           ['Slot Unit', `${slotCode} = ${slotTotal} Slot`],
-          ['Bank / No. Rek', L.bank_name ? `${L.bank_name}${L.account_number ? ' • ' + L.account_number : ''}` : null],
+          ['Bank / Rekening', L.bank_name ? `${L.bank_name}${L.account_number ? ' • ' + L.account_number : ''}` : null],
           ['Alamat Pemilik', L.address],
           ['Alamat Lokasi', L.location_address || L.address],
           ['Jenis Lokasi', L.location_type],
-          ['Lantai Rata / Cor', L.floor_ready === 'ya' ? 'Ya' : L.floor_ready === 'tidak' ? 'Tidak' : '-'],
+          ['Lantai Rata/Cor', L.floor_ready === 'ya' ? 'Ya' : L.floor_ready === 'tidak' ? 'Tidak' : '-'],
           ['Kanopi / Atap', L.has_canopy === 'ya' ? 'Ya' : L.has_canopy === 'tidak' ? 'Tidak' : '-'],
           ['Legalitas', (L.legal_doc_type || '').toUpperCase() || '-'],
           ['Marketing', `${marketingName || '-'}${L.referral_code ? ` (${L.referral_code})` : ''}`],
-          ['Tanggal Pengajuan', L.created_at ? new Date(L.created_at).toLocaleString('id-ID') : '-'],
+          ['Tgl Pengajuan', L.created_at ? new Date(L.created_at).toLocaleString('id-ID') : '-'],
         ];
-        const lw = 92;
+
+        const lw = 85;
         rows.forEach(([lb, val]) => {
           const v = val || '-';
           const vw = dataW - lw - 6;
-          doc.fillColor(GRAY).font('Helvetica').fontSize(9);
+          
+          doc.font('Helvetica').fontSize(8);
           const lh = doc.heightOfString(lb, { width: lw });
-          doc.fillColor(INK).font('Helvetica-Bold').fontSize(9);
+          doc.font('Helvetica-Bold').fontSize(8);
           const vh = doc.heightOfString(v, { width: vw });
-          doc.fillColor(GRAY).font('Helvetica').fontSize(9).text(lb, dataX, ry, { width: lw });
-          doc.fillColor(INK).font('Helvetica-Bold').fontSize(9).text(v, dataX + lw + 6, ry, { width: vw });
-          ry += Math.max(lh, vh) + 4;
+          
+          doc.fillColor(GRAY).font('Helvetica').fontSize(8).text(lb, dataX, ry, { width: lw });
+          doc.fillColor(INK).font('Helvetica-Bold').fontSize(8).text(v, dataX + lw + 6, ry, { width: vw });
+          ry += Math.max(lh, vh) + 3;
         });
-        doc.fillColor(INK);
-        doc.y = Math.max(ly, ry) + 6;
+        doc.restore();
+
+        doc.y = Math.max(ly, ry) + 8;
       })());
 
-      // ===== Lampiran dokumen: seksi hanya dibuat bila minimal satu file tersedia =====
       const lamp = unitLampiran(L, prop.attachments, 1);
       const lampiran = await measureDocs(doc, lamp.items);
-      if (lampiran.length) {
-        sectionTitle(doc, 'Lampiran Dokumen');
-        lampiran.forEach((d) => renderDocCard(doc, d));
-      }
+      renderLampiranDocs(doc, lampiran, 'Lampiran Dokumen');
       renderNotes(doc, prop.notes);
 
-      // ===== Footer + nomor halaman (y di dalam area cetak agar tidak memicu halaman baru) =====
       finishDoc(doc, stream, abs, fname, `proposal-lahan-${L.id || 'doc'}.pdf`, noProposal, L.owner_name, resolve, reject);
     } catch (err) {
       reject(err);
@@ -555,65 +604,77 @@ function generateProposalPdf(land, marketingName, feeMarketing, slot, brandShort
   });
 }
 
-// Satu kartu unit (detail + peta + lampiran) untuk proposal gabungan penyedia.
-async function renderOwnerUnit(doc, L, slot, marketingName, prop, lampNo) {
+async function renderOwnerUnit(doc, L, slot, marketingName, prop, lampNo, seen) {
   const W = doc.page.width - doc.page.margins.left - doc.page.margins.right;
   const x0 = doc.page.margins.left;
   const isEvcs = L.unit_type === 'evcs_mobil';
   const unitLabel = isEvcs ? 'EVCS Mobil' : 'BSS Motor';
+  const qty = Math.min(10, Math.max(1, Number(L.slot_no) || 1));
   const slotTxt = slot ? `Slot ${slot.typeCode}-${slot.typeSeq}` : '-';
-  sectionTitle(doc, `${unitLabel} — ${slotTxt}`);
-  needSpace(doc, 120);
+  
+  sectionTitle(doc, `${unitLabel} ×${qty} — ${slotTxt}`);
+  needSpace(doc, 110);
+
   const slotCode = slot ? slot.typeCode : (isEvcs ? 'EVCS' : 'BSS');
-  const slotTotal = slot && slot.typeTotal ? slot.typeTotal : 1;
+  const slotTotal = qty;
   const rows = [
     ['Nama Toko', L.shop_name],
     ['Slot Unit', `${slotCode} = ${slotTotal} Slot`],
     ['Marketing', `${marketingName || '-'}${L.referral_code ? ` (${L.referral_code})` : ''}`],
     ['Alamat Lokasi', L.location_address || L.address],
     ['Jenis Lokasi', L.location_type],
-    ['Luas', L.area_size ? `${L.area_size} m²` : '-'],
+    ['Luas Lahan', L.area_size ? `${L.area_size} m²` : '-'],
     ['Lantai / Kanopi', `${L.floor_ready === 'ya' ? 'Rata' : 'Belum'} / ${L.has_canopy === 'ya' ? 'Ada' : 'Tidak'}`],
     ['Legalitas', (L.legal_doc_type || '').toUpperCase() || '-'],
     ['Status', (L.status || '').toUpperCase()],
-    ['Tanggal Pengajuan', L.created_at ? new Date(L.created_at).toLocaleString('id-ID') : '-'],
+    ['Tgl Pengajuan', L.created_at ? new Date(L.created_at).toLocaleString('id-ID') : '-'],
   ];
-  const lw = 100;
+
+  const lw = 95;
   rows.forEach(([lb, val]) => {
     const v = val || '-';
     const vw = W - lw - 6;
-    doc.fillColor(GRAY).font('Helvetica').fontSize(9);
+    
+    doc.font('Helvetica').fontSize(8);
     const lh = doc.heightOfString(lb, { width: lw });
-    doc.fillColor(INK).font('Helvetica-Bold').fontSize(9);
+    doc.font('Helvetica-Bold').fontSize(8);
     const vh = doc.heightOfString(v, { width: vw });
-    doc.fillColor(GRAY).font('Helvetica').fontSize(9).text(lb, x0, doc.y, { width: lw });
-    doc.fillColor(INK).font('Helvetica-Bold').fontSize(9).text(v, x0 + lw + 6, doc.y, { width: vw });
-    doc.y += Math.max(lh, vh) + 3;
+    
+    doc.fillColor(GRAY).font('Helvetica').fontSize(8).text(lb, x0, doc.y, { width: lw });
+    doc.fillColor(INK).font('Helvetica-Bold').fontSize(8).text(v, x0 + lw + 6, doc.y, { width: vw });
+    doc.y += Math.max(lh, vh) + 2.5;
   });
+
   doc.fillColor(INK);
-  // Peta titik unit (full-width, ringkas)
+  doc.y += 6;
+
   const coords = parseCoords(L.maps_link);
-  needSpace(doc, 150);
-  const wilayah = await drawMap(doc, coords, { x: x0, y: doc.y, w: W, h: 170 });
-  doc.y += 170 + 6;
-  doc.fillColor(INK).font('Helvetica').fontSize(8);
+  needSpace(doc, 200);
+  const wilayah = await drawMap(doc, coords, { x: x0, y: doc.y, w: W, h: 180 });
+  doc.y += 180 + 6;
+
+  doc.save();
+  doc.fillColor(INK).font('Helvetica').fontSize(7.5);
   if (coords) {
     doc.text(`Koordinat: ${coords.lat}, ${coords.lng}`, x0, doc.y, { width: W });
-    doc.y += 12;
-    if (wilayah) { doc.text(`Wilayah: ${wilayah}`, x0, doc.y, { width: W }); doc.y += 12; }
+    doc.y += 10;
+    if (wilayah) { 
+      doc.text(`Wilayah: ${wilayah}`, x0, doc.y, { width: W }); 
+      doc.y += 10; 
+    }
   }
-  doc.fillColor(INK);
-  // Lampiran unit ini (penomoran berlanjut antar unit)
+  doc.restore();
+
   const lamp = unitLampiran(L, prop.attachments, lampNo);
-  const docs = await measureDocs(doc, lamp.items);
-  if (docs.length) {
-    sectionTitle(doc, 'Lampiran');
-    docs.forEach((d) => renderDocCard(doc, d));
-  }
+  const fresh = seen
+    ? lamp.items.filter((it) => { if (seen.has(it.webPath)) return false; seen.add(it.webPath); return true; })
+    : lamp.items;
+  const docs = await measureDocs(doc, fresh);
+  renderLampiranDocs(doc, docs, 'Lampiran Dokumen Unit');
+  
   return lamp.nextNo;
 }
 
-// Proposal gabungan 1 penyedia: semua unit (BSS 1-4 + EVCS 1-4) dalam satu PDF.
 function generateOwnerProposalPdf({ owner, units, slotMap, brandShort, marketingNames }) {
   return new Promise(async (resolve, reject) => {
     try {
@@ -623,8 +684,8 @@ function generateOwnerProposalPdf({ owner, units, slotMap, brandShort, marketing
       if (!list.length) throw new Error('Tidak ada unit untuk proposal.');
       let prop = null;
       try { prop = await require('./settings').getProposalSettings(); } catch (e) { prop = null; }
-      if (!prop) prop = { contractYears: '5', attachments: null, notes: '' };
-      const coBrand = (brandShort || 'BSS') + ' × V-Green';
+      if (!prop) prop = { contractYears: '5', attachments: null, notes: '', vendorA: 'KNAB', vendorB: 'V-Green' };
+      const coBrand = `${prop.vendorA || brandShort || 'BSS'} × ${prop.vendorB || 'V-Green'}`;
       const now = new Date();
       const tgl = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
       const digits = String(O.phone_number || '').replace(/\D/g, '');
@@ -632,7 +693,7 @@ function generateOwnerProposalPdf({ owner, units, slotMap, brandShort, marketing
       const fname = `proposal-penyedia-${digits.slice(-6) || 'doc'}-${Date.now()}.pdf`;
       const abs = path.join(uploadDir, fname);
 
-      const doc = new PDFDocument({ size: 'A4', margins: { top: 36, right: 40, bottom: 44, left: 40 }, bufferPages: true });
+      const doc = new PDFDocument({ size: 'A4', margins: { top: 32, right: 36, bottom: 36, left: 36 }, bufferPages: true });
       const stream = fs.createWriteStream(abs);
       doc.pipe(stream);
 
@@ -640,62 +701,77 @@ function generateOwnerProposalPdf({ owner, units, slotMap, brandShort, marketing
       const x0 = doc.page.margins.left;
       const bss = list.filter((u) => u.unit_type === 'evcs_mobil' ? false : true);
       const evcs = list.filter((u) => u.unit_type === 'evcs_mobil');
+      const qtyOf = (u) => Math.min(10, Math.max(1, Number(u.slot_no) || 1));
+      const bssQty = bss.reduce((a, u) => a + qtyOf(u), 0);
+      const evcsQty = evcs.reduce((a, u) => a + qtyOf(u), 0);
 
       // ===== Header =====
-      const hy = 30;
+      const hy = 28;
+      const headerH = 82;
       doc.save();
-      doc.roundedRect(x0, hy, W, 92, 10).fillColor(GREEN_DARK).fill();
-      doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(19).text('PROPOSAL PENGAJUAN LAHAN', x0 + 18, hy + 12);
-      doc.fillColor('#bbf7d0').font('Helvetica').fontSize(9.5)
-        .text(`Battery Swap Station & EV Charging Station  •  ${coBrand} Indonesia`, x0 + 18, hy + 38);
-      doc.fillColor('#ffffff').font('Helvetica').fontSize(9)
-        .text(`No. ${noProposal}   •   ${tgl}`, x0 + 18, hy + 56);
-      const badge = `${list.length} UNIT`;
-      doc.font('Helvetica-Bold').fontSize(10);
-      const bw = doc.widthOfString(badge) + 26;
-      doc.roundedRect(x0 + W - bw - 16, hy + 14, bw, 26, 13).fillColor(BLUE).fill();
-      doc.fillColor('#ffffff').text(badge, x0 + W - bw - 16, hy + 21, { width: bw, align: 'center' });
-      doc.restore();
-      doc.y = hy + 102;
+      doc.roundedRect(x0, hy, W, headerH, 8).fillColor(COLOR_PRIMARY_DARK).fill();
+      doc.roundedRect(x0, hy, 6, headerH, 3).fillColor(BLUE).fill();
 
-      // ===== Ringkasan penyedia =====
+      doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(16).text('PROPOSAL PENGAJUAN LAHAN', x0 + 16, hy + 14);
+      doc.fillColor('#cbd5e1').font('Helvetica').fontSize(8.5)
+        .text(`Battery Swap Station & EV Charging Station  •  ${coBrand} Indonesia`, x0 + 16, hy + 36);
+      doc.fillColor('#94a3b8').font('Helvetica').fontSize(8)
+        .text(`No. ${noProposal}   •   ${tgl}`, x0 + 16, hy + 52);
+
+      const badge = `${bssQty + evcsQty} UNIT`;
+      doc.font('Helvetica-Bold').fontSize(8.5);
+      const bw = doc.widthOfString(badge) + 20;
+      doc.roundedRect(x0 + W - bw - 14, hy + 14, bw, 22, 11).fillColor(BLUE).fill();
+      doc.fillColor('#ffffff').text(badge, x0 + W - bw - 14, hy + 20, { width: bw, align: 'center' });
+      doc.restore();
+
+      doc.y = hy + headerH + 12;
+
+      // ===== Dashboard Ringkasan Penyedia =====
       statCards(doc, [
-        { label: 'Total Unit', value: String(list.length), sub: `${bss.length} BSS • ${evcs.length} EVCS`, color: GREEN },
-        { label: 'Penyedia', value: (O.owner_name || '-').slice(0, 24), sub: O.phone_number || '', color: BLUE },
-        { label: 'Kota', value: (O.city || '-').slice(0, 22), sub: O.district || '', color: GREEN },
-        { label: 'Kontrak / Unit', value: `${prop.contractYears} thn`, sub: 'Sewa per tahun', color: ORANGE },
+        { label: 'Total Unit', value: String(bssQty + evcsQty), sub: `${bssQty} BSS • ${evcsQty} EVCS`, color: COLOR_ACCENT },
+        { label: 'Penyedia', value: (O.owner_name || '-').slice(0, 22), sub: O.phone_number || '', color: BLUE },
+        { label: 'Kota', value: (O.city || '-').slice(0, 20), sub: O.district || '', color: COLOR_ACCENT },
+        { label: 'Kontrak / Unit', value: `${prop.contractYears} Tahun`, sub: 'Sewa per tahun', color: ORANGE },
       ]);
 
+      // ===== Ringkasan Data Utama Penyedia (Bagian Judul & Rata Kiri di atas Nama Pemilik) =====
       sectionTitle(doc, `Data Penyedia — ${O.owner_name || '-'}`);
-      needSpace(doc, 80);
+      needSpace(doc, 70);
+      
       const orows = [
         ['Nama Pemilik', O.owner_name],
         ['NIK', O.nik],
         ['No. HP / WA', O.phone_number],
-        ['Bank / No. Rek', O.bank_name ? `${O.bank_name}${O.account_number ? ' • ' + O.account_number : ''}` : null],
+        ['Bank / Rekening', O.bank_name ? `${O.bank_name}${O.account_number ? ' • ' + O.account_number : ''}` : null],
         ['Alamat Pemilik', O.address],
       ];
+
       orows.forEach(([lb, val]) => {
         const v = val || '-';
-        const vw = W - 106;
-        doc.fillColor(GRAY).font('Helvetica').fontSize(9);
-        const lh = doc.heightOfString(lb, { width: 100 });
-        doc.fillColor(INK).font('Helvetica-Bold').fontSize(9);
+        const vw = W - 100;
+        
+        doc.font('Helvetica').fontSize(8);
+        const lh = doc.heightOfString(lb, { width: 94 });
+        doc.font('Helvetica-Bold').fontSize(8);
         const vh = doc.heightOfString(v, { width: vw });
-        doc.fillColor(GRAY).font('Helvetica').fontSize(9).text(lb, x0, doc.y, { width: 100 });
-        doc.fillColor(INK).font('Helvetica-Bold').fontSize(9).text(v, x0 + 106, doc.y, { width: vw });
-        doc.y += Math.max(lh, vh) + 3;
+        
+        doc.fillColor(GRAY).font('Helvetica').fontSize(8).text(lb, x0, doc.y, { width: 94 });
+        doc.fillColor(INK).font('Helvetica-Bold').fontSize(8).text(v, x0 + 100, doc.y, { width: vw });
+        doc.y += Math.max(lh, vh) + 2.5;
       });
-      doc.fillColor(INK);
-      doc.y += 4;
 
-      // ===== Tiap unit =====
+      doc.fillColor(INK);
+      doc.y += 6;
+
+      // ===== Render Tiap Unit =====
       let lampNo = 1;
+      const seenFiles = new Set();
       for (let i = 0; i < list.length; i++) {
         const L = list[i];
         const slot = (slotMap && slotMap[L.id]) || null;
         const mk = (marketingNames && marketingNames[L.marketing_id]) || L.marketing_name || '-';
-        lampNo = await renderOwnerUnit(doc, L, slot, mk, prop, lampNo);
+        lampNo = await renderOwnerUnit(doc, L, slot, mk, prop, lampNo, seenFiles);
       }
       renderNotes(doc, prop.notes);
 

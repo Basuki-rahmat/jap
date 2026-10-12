@@ -34,7 +34,13 @@ async function getCompanyProfile() {
 
 // Brand global untuk navbar/logo: nama = nama usaha SINGKAT (fallback Nama Perusahaan),
 // logo = logo upload (fallback /img/logo.png).
+// Cache memori 5 menit: getBrand() dipanggil setiap request (middleware global)
+// dan aslinya memicu ~17 query settings. Cache ini memangkas TTFB signifikan.
+let _brandCache = null;
+let _brandCacheExp = 0;
+const BRAND_TTL_MS = 5 * 60 * 1000;
 async function getBrand() {
+  if (_brandCache && Date.now() < _brandCacheExp) return _brandCache;
   const { getSetting } = require('./settings');
   let short = '';
   let full = '';
@@ -47,7 +53,14 @@ async function getBrand() {
   try {
     short = (await getSetting('business_name', '')).trim();
   } catch (e) { short = ''; }
-  return { name: short || full || 'BSS', full: full || short || 'BSS', logo: logo || '/img/logo.png' };
+  _brandCache = { name: short || full || 'BSS', full: full || short || 'BSS', logo: logo || '/img/logo.png' };
+  _brandCacheExp = Date.now() + BRAND_TTL_MS;
+  return _brandCache;
+}
+// Dipanggil saat admin menyimpan pengaturan agar perubahan logo/nama langsung tampil.
+function clearBrandCache() {
+  _brandCache = null;
+  _brandCacheExp = 0;
 }
 
-module.exports = { COMPANY_DEFAULTS, COMPANY_FIELDS, getCompanyProfile, getBrand };
+module.exports = { COMPANY_DEFAULTS, COMPANY_FIELDS, getCompanyProfile, getBrand, clearBrandCache };

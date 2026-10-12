@@ -27,7 +27,7 @@ async function main() {
       fee_type ENUM('rupiah','persen') NULL,
       fee_value DECIMAL(12,2) DEFAULT 0,
       password VARCHAR(255) NOT NULL,
-      role ENUM('superadmin','marketing') NOT NULL,
+      role ENUM('superadmin','admin','marketing') NOT NULL,
       referral_code VARCHAR(20) UNIQUE,
       parent_id INT NULL,
       downline_quota INT DEFAULT 0,
@@ -47,7 +47,8 @@ async function main() {
       status ENUM('pending','approved','rejected') DEFAULT 'pending',
       fee_amount DECIMAL(12,2) DEFAULT 0.00,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (marketing_id) REFERENCES users(id)
+      FOREIGN KEY (marketing_id) REFERENCES users(id),
+      UNIQUE KEY uniq_phone_unit (phone_number, unit_type)
     ) ENGINE=InnoDB`,
 
     `CREATE TABLE IF NOT EXISTS fee_logs (
@@ -88,6 +89,11 @@ async function main() {
     await conn.query(s);
   }
   console.log('Tabel users, lands, fee_logs, settings siap.');
+
+  // Dompet fee: saldo + buku mutasi + pengajuan penarikan mitra.
+  const wallet = require('../utils/wallet');
+  await wallet.ensureWalletSchema(conn);
+  console.log('Tabel user_wallets, wallet_ledger, withdrawals siap.');
 
   // Kunci akun marketing/head (kebijakan perusahaan): 0 aktif, 1 terkunci.
   try {
@@ -146,6 +152,24 @@ async function main() {
     ) ENGINE=InnoDB`
   );
   console.log('Tabel device_tokens siap.');
+
+  // Jejak perangkat login per user untuk peringatan "perangkat baru" via email.
+  // device_hash = SHA256(device_name|user-agent yang dinormalisasi).
+  await conn.query(
+    `CREATE TABLE IF NOT EXISTS user_devices (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      device_hash CHAR(64) NOT NULL,
+      device_name VARCHAR(100) NULL,
+      user_agent VARCHAR(500) NULL,
+      last_ip VARCHAR(45) NULL,
+      first_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
+      last_seen DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_user_device (user_id, device_hash),
+      KEY idx_user (user_id)
+    ) ENGINE=InnoDB`
+  );
+  console.log('Tabel user_devices siap.');
 
   try {
     await conn.query(`ALTER TABLE users ADD COLUMN whatsapp VARCHAR(20) NULL AFTER email`);
@@ -367,6 +391,15 @@ async function main() {
     console.log('Marketing contoh dibuat -> email: marketing@jap.id | password: jap12345 | referral: JAPCONTOH');
   } else {
     console.log('Marketing contoh sudah ada.');
+  }
+
+  // Fee approved sebelum fitur dompet ada -> catat sebagai kredit saldo
+  // (idempotent: baris yang sudah tercatat dilewati lewat kunci unik ledger).
+  try {
+    const backfilled = await wallet.backfillFeeCredits(conn);
+    if (backfilled) console.log(`Backfill saldo dari fee_logs: ${backfilled} baris.`);
+  } catch (e) {
+    console.error('Backfill saldo dilewati:', e.message);
   }
 
   await conn.end();

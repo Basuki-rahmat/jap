@@ -1,6 +1,7 @@
 require('dotenv').config();
 const path = require('path');
 const express = require('express');
+const compression = require('compression');
 const session = require('express-session');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -33,7 +34,8 @@ try {
 }
 
 // Header keamanan. CSP disesuaikan: inline script/style dipakai di views,
-// peta memakai tile OSM/Esri + reverse-geocode Nominatim, font dari Google.
+// peta memakai tile OSM/Esri + reverse-geocode Nominatim.
+// Font di-self-host (public/fonts) sehingga tidak ada koneksi Google Fonts.
 app.use(helmet({
   // HSTS hanya di produksi (HTTPS). Di development (http://localhost)
   // header ini tidak boleh dikirim agar browser tidak mengunci hostname
@@ -44,8 +46,8 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
       scriptSrcAttr: ["'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      fontSrc: ["'self'"],
       imgSrc: ["'self'", 'data:', 'blob:', 'https://*.basemaps.cartocdn.com', 'https://server.arcgisonline.com'],
       connectSrc: ["'self'", 'https://nominatim.openstreetmap.org'],
       objectSrc: ["'none'"],
@@ -75,6 +77,16 @@ const submitLimiter = rateLimit({
 });
 app.use('/login', loginLimiter);
 app.use('/submit-lahan', submitLimiter);
+// OTP penarikan dana (anti spam / sedot email): hanya POST, 10x per 15 menit per IP.
+const otpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  skip: (req) => req.method !== 'POST',
+  message: { ok: false, message: 'Terlalu banyak permintaan kode OTP. Coba lagi 15 menit.' },
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+});
+app.use('/marketing/penarikan/otp', otpLimiter);
 
 // API mobile (/api/v1, auth Bearer — tanpa cookie):
 // limiter longgar per IP (HP di NAT operator berbagi IP) + ketat khusus auth.
@@ -159,6 +171,10 @@ app.get('/ajukan', (req, res, next) => {
   );
 });
 
+// Kompresi gzip/brotli untuk HTML/CSS/JS (wajib untuk skor PageSpeed mobile).
+// Harus dipasang SEBELUM express.static & routes agar aset statis ikut terkompres.
+app.use(compression());
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
@@ -166,7 +182,7 @@ app.use(
   session({
     secret: SESSION_SECRET || 'jap-secret-dev-only',
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false,
     cookie: {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -194,7 +210,33 @@ app.use('/uploads', (req, res) => {
 });
 app.use('/berkas', require('./routes/fileRoutes'));
 
-app.use(express.static(path.join(__dirname, 'public')));
+// Katalog sumber daya agen (spesifikasi ai-catalog / ARD) untuk audit
+// "Penjelajahan Agentic" PageSpeed: wajib JSON valid di /.well-known/.
+// express.static mengabaikan dotfile, jadi sajikan lewat route eksplisit.
+// Salinan yang sama juga tersedia di /ai-catalog.json via static.
+app.get('/.well-known/ai-catalog.json', (req, res) => {
+  res.set('Content-Type', 'application/json; charset=utf-8');
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.sendFile(path.join(__dirname, 'public', 'ai-catalog.json'));
+});
+
+// Aset statis dengan cache lama (30 hari) agar lolos audit PageSpeed
+// "Serve static assets with efficient cache policy".
+// EJS/HTML tetap dinamis (tidak ter-cache) karena hanya folder public yang di-cache.
+// Nama logo upload mengandung timestamp sehingga aman di-cache lama.
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: '30d',
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    // Gambar/font/vendor yang immutable (ada hash/timestamp di nama) boleh 1 tahun.
+    if (/\.(png|jpe?g|webp|avif|svg|woff2?|ico)$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+    }
+  },
+}));
 
 app.use(async (req, res, next) => {
   res.locals.currentPath = req.path;
@@ -278,6 +320,7 @@ app.use('/api/v1', apiLimiter, (req, res, next) => {
 }, require('./routes/apiV1Routes'));
 
 app.use('/', require('./routes/notifRoutes'));
+app.use('/', require('./routes/deviceRoutes'));
 app.use('/admin', adminRoutes);
 app.use('/marketing', marketingRoutes);
 

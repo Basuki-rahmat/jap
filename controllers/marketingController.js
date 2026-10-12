@@ -39,22 +39,20 @@ exports.dashboard = async (req, res) => {
       await query('SELECT status, COUNT(*) total FROM lands WHERE marketing_id = ? GROUP BY status', [userId])
     );
 
-    // Akumulasi fee dari total approve (hak marketing sebenarnya, sudah
-    // memperhitungkan aturan persen/rupiah) + rincian lunas/belum untuk menu pembayaran.
-    const feeRows = await query(
-      `SELECT COALESCE(SUM(amount),0) acc,
-              COALESCE(SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END),0) paid,
-              COALESCE(SUM(CASE WHEN status = 'unpaid' THEN amount ELSE 0 END),0) unpaid
-       FROM fee_logs WHERE marketing_id = ?`,
-      [userId]
-    );
-    const totalFee = feeRows[0].acc;
-    const paidFee = feeRows[0].paid;
-    const unpaidFee = feeRows[0].unpaid;
+    // Kartu fee memakai dompet (utils/wallet.js) sebagai sumber kebenaran:
+    // - totalFee   = akumulasi fee dari lahan approved.
+    // - paidFee    = penarikan yang sudah dibayarkan admin.
+    // - unpaidFee  = saldo tersedia (siap diajukan penarikan).
+    // Detail lengkap ada di halaman /marketing/penarikan.
+    const wallet = require('../utils/wallet');
+    const walletSummary = await wallet.getWalletSummary(userId);
+    const totalFee = walletSummary.feeTotal;
+    const paidFee = walletSummary.paidAmount;
+    const unpaidFee = walletSummary.balance;
 
     const lands = await query(
       `SELECT id, marketing_id, owner_name, phone_number, address, location_address,
-              area_size, unit_type, location_type, floor_ready, has_canopy, legal_doc_type,
+              area_size, unit_type, slot_no, location_type, floor_ready, has_canopy, legal_doc_type,
               maps_link, ktp_file, photo_1_file, photo_2_file, photo_3_file,
               legal_doc_file, family_doc_file, sppl_file, status, survey_status,
               verify_status, fee_amount, created_at, edit_token, edit_expires
@@ -137,6 +135,7 @@ exports.dashboard = async (req, res) => {
       totalFee,
       paidFee,
       unpaidFee,
+      walletSummary,
       lands,
       netLands,
       isHead,
@@ -498,18 +497,14 @@ exports.requestFix = async (req, res) => {
       flash(req, 'error', 'Hanya Head Marketing / Koordinator yang bisa meminta perbaikan.');
       return res.redirect('/marketing');
     }
-    const landId = Number(req.body.land_id);
-    if (!landId) {
+    const rawIds = req.body.land_ids != null && String(req.body.land_ids).trim() !== ''
+      ? String(req.body.land_ids)
+      : String(req.body.land_id != null ? req.body.land_id : '');
+    const ids = [...new Set(
+      rawIds.split(',').map((s) => Number(String(s).trim())).filter((n) => Number.isInteger(n) && n > 0)
+    )].slice(0, 20);
+    if (!ids.length) {
       flash(req, 'error', 'Pengajuan tidak valid.');
-      return res.redirect('/marketing');
-    }
-    const land = await get('SELECT id, marketing_id, status FROM lands WHERE id = ?', [landId]);
-    if (!land) {
-      flash(req, 'error', 'Pengajuan tidak ditemukan.');
-      return res.redirect('/marketing');
-    }
-    if (land.status === 'approved') {
-      flash(req, 'error', 'Pengajuan sudah disetujui — tidak bisa diminta perbaikan.');
       return res.redirect('/marketing');
     }
     // Cakupan: milik sendiri + milik seluruh downline (semua level).
@@ -530,13 +525,22 @@ exports.requestFix = async (req, res) => {
       allowed.add(Number(did));
       (byParent[did] || []).forEach((k) => stack.push(k));
     }
-    if (!allowed.has(Number(land.marketing_id))) {
-      flash(req, 'error', 'Anda hanya bisa meminta perbaikan untuk referral sendiri atau jaringan downline Anda.');
+    const ok = [];
+    const fail = [];
+    for (const landId of ids) {
+      const land = await get('SELECT id, marketing_id, status FROM lands WHERE id = ?', [landId]);
+      if (!land) { fail.push(`#${landId}: tidak ditemukan`); continue; }
+      if (land.status === 'approved') { fail.push(`#${landId}: sudah disetujui`); continue; }
+      if (!allowed.has(Number(land.marketing_id))) { fail.push(`#${landId}: di luar jaringan`); continue; }
+      const token = require('crypto').randomBytes(32).toString('hex');
+      await query('UPDATE lands SET edit_token = ?, edit_expires = DATE_ADD(NOW(), INTERVAL 7 DAY) WHERE id = ?', [token, landId]);
+      ok.push(landId);
+    }
+    if (!ok.length) {
+      flash(req, 'error', 'Gagal membuat link perbaikan. ' + fail.join(' | '));
       return res.redirect('/marketing');
     }
-    const token = require('crypto').randomBytes(32).toString('hex');
-    await query('UPDATE lands SET edit_token = ?, edit_expires = DATE_ADD(NOW(), INTERVAL 7 DAY) WHERE id = ?', [token, landId]);
-    flash(req, 'success', `Link perbaikan lahan #${landId} dibuat (berlaku 7 hari). Klik "Salin Link" lalu kirim via WA ke pemilik.`);
+    flash(req, 'success', `Link perbaikan dibuat untuk ${ok.length} lahan (#${ok.join(', #')}, berlaku 7 hari). Klik "Salin Link" lalu kirim via WA ke pemilik.${fail.length ? ' Gagal: ' + fail.join(' | ') : ''}`);
     res.redirect('/marketing');
   } catch (err) {
     console.error('Marketing request fix error:', err);

@@ -181,6 +181,24 @@ async function main() {
     console.log('  ! backfill harga per tipe dilewati:', e.message);
   }
 
+  // Batas 2 baris per penyedia (1 BSS + 1 EVCS): kunci unik phone+type.
+  // Dilewati bila masih ada data ganda (rapikan dulu, lalu jalankan ulang).
+  try {
+    const [dup] = await conn.query(
+      'SELECT phone_number v, unit_type, COUNT(*) c FROM `lands` GROUP BY phone_number, unit_type HAVING c > 1 LIMIT 1'
+    );
+    if (dup.length) {
+      console.log(`  ! lands.(phone_number,unit_type): ada nilai ganda (${dup[0].v}) -> UNIQUE uniq_phone_unit DILEWATI, rapikan data dulu`);
+    } else {
+      await conn.query('ALTER TABLE `lands` ADD UNIQUE KEY `uniq_phone_unit` (`phone_number`, `unit_type`)');
+      console.log('  + UNIQUE lands.(phone_number,unit_type)');
+    }
+  } catch (err) {
+    if (err.code === 'ER_DUP_KEYNAME' || err.code === 'ER_DUP_ENTRY') {
+      console.log('  = UNIQUE lands.(phone_number,unit_type) sudah ada');
+    } else throw err;
+  }
+
   // users
   await addColumns(conn, 'users', [
     '`whatsapp` VARCHAR(20) NULL AFTER `email`',
@@ -200,6 +218,14 @@ async function main() {
   ]);
   await addUnique(conn, 'users', 'uniq_nik', 'nik');
   await addUnique(conn, 'users', 'uniq_whatsapp', 'whatsapp');
+
+  // Role admin setara superadmin (akses penuh halaman /admin).
+  try {
+    await conn.query("ALTER TABLE `users` MODIFY `role` ENUM('superadmin','admin','marketing') NOT NULL");
+    console.log('  ~ users.role ditambah nilai admin');
+  } catch (e) {
+    console.log('  ! migrasi users.role dilewati:', e.message);
+  }
 
   // Pendaftaran marketing publik: status akun + token verifikasi email.
   // pending_verification = baru daftar, belum klik link email.
@@ -234,6 +260,21 @@ async function main() {
     '`gross_amount` INT NULL AFTER `amount`',
   ]);
 
+  // Dompet fee: saldo, buku mutasi (ledger), dan pengajuan penarikan mitra.
+  // Mitra mengajukan penarikan dari /marketing/penarikan, admin memprosesnya
+  // di /admin/pembayaran.
+  const wallet = require('../utils/wallet');
+  await wallet.ensureWalletSchema(conn);
+  console.log('  = user_wallets, wallet_ledger, withdrawals siap');
+  try {
+    const backfilled = await wallet.backfillFeeCredits(conn);
+    console.log(`  ~ wallet_ledger backfill dari fee_logs: ${backfilled} baris`);
+    const rebuilt = await wallet.rebuildBalances(conn);
+    console.log(`  ~ user_wallets.balance disamakan dengan ledger: ${rebuilt} user`);
+  } catch (e) {
+    console.log('  ! backfill saldo dilewati:', e.message);
+  }
+
   // API mobile (React Native): refresh token (disimpan sebagai hash) + token FCM per perangkat.
   await conn.query(
     `CREATE TABLE IF NOT EXISTS api_tokens (
@@ -260,8 +301,41 @@ async function main() {
   );
   console.log('  = device_tokens siap');
 
+  // OTP penarikan dana (kode 6 digit via email, 10 menit, sekali pakai).
+  await conn.query(
+    `CREATE TABLE IF NOT EXISTS withdrawal_otps (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      otp_hash CHAR(64) NOT NULL,
+      amount DECIMAL(14,2) NOT NULL,
+      expires_at DATETIME NOT NULL,
+      used TINYINT(1) NOT NULL DEFAULT 0,
+      attempts INT NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_user (user_id, used, expires_at)
+    ) ENGINE=InnoDB`
+  );
+  console.log('  = withdrawal_otps siap');
+
+  // Jejak perangkat login per user untuk peringatan "perangkat baru" via email.
+  await conn.query(
+    `CREATE TABLE IF NOT EXISTS user_devices (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      device_hash CHAR(64) NOT NULL,
+      device_name VARCHAR(100) NULL,
+      user_agent VARCHAR(500) NULL,
+      last_ip VARCHAR(45) NULL,
+      first_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
+      last_seen DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_user_device (user_id, device_hash),
+      KEY idx_user (user_id)
+    ) ENGINE=InnoDB`
+  );
+  console.log('  = user_devices siap');
+
   // Ringkasan data (bukti tidak ada yang hilang)
-  for (const t of ['users', 'lands', 'fee_logs', 'fee_rules', 'settings']) {
+  for (const t of ['users', 'lands', 'fee_logs', 'fee_rules', 'settings', 'wallet_ledger', 'withdrawals', 'withdrawal_otps']) {
     try {
       const [r] = await conn.query(`SELECT COUNT(*) c FROM \`${t}\``);
       console.log(`  # ${t}: ${r[0].c} baris`);

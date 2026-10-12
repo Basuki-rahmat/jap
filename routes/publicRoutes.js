@@ -307,10 +307,10 @@ router.get('/struktur', async (req, res) => {
 
     const su = req.session.user;
     const myId = Number(su && su.id) || 0;
-    const isSuper = su && su.role === 'superadmin';
+    const isSuper = su && (su.role === 'superadmin' || su.role === 'admin');
     const isCoord = !isSuper && Number(su.is_coordinator) === 1;
     const isHead = !isSuper && !isCoord && Number(su.is_head) === 1;
-    const roleLabel = isSuper ? 'SUPERADMIN' : (isCoord ? 'KOORDINATOR' : (isHead ? 'HEAD' : 'MARKETING'));
+    const roleLabel = su && su.role === 'admin' ? 'ADMIN' : (isSuper ? 'SUPERADMIN' : (isCoord ? 'KOORDINATOR' : (isHead ? 'HEAD' : 'MARKETING')));
 
     // Cari simpul milik sendiri di pohon penuh (DFS, anti-siklus, maks 6 level ikut builder).
     const findSelf = (roots, id) => {
@@ -511,6 +511,26 @@ router.get('/lacak', async (req, res) => {
     res.status(500).render('public/lacak', {
       title: 'Lacak Pengajuan - BSS', searched: true, phone: rawPhone, lands: [], error: 'Gagal mencari. Coba lagi.',
     });
+  }
+});
+
+// Blanko SPPL kosong (tanpa nama) untuk diunduh mandiri — publik, tanpa login.
+// Dialirkan langsung sebagai PDF, tanpa menyentuh DB maupun folder uploads.
+router.get('/sppl-blanko', async (req, res) => {
+  try {
+    let company = {};
+    try {
+      company = await require('../utils/companyProfile').getCompanyProfile();
+    } catch (e) { company = {}; }
+    const { streamBlankSpplPdf } = require('../utils/spplPdf');
+    res.set('Content-Type', 'application/pdf');
+    res.set('Content-Disposition', 'attachment; filename="SPPL-Blanko.pdf"');
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+    return streamBlankSpplPdf(res, company);
+  } catch (e) {
+    console.error('Blanko SPPL error:', e.message);
+    return res.status(500).send('Gagal membuat blanko SPPL.');
   }
 });
 
@@ -769,7 +789,17 @@ router.post('/perbaiki/:token', (req, res, next) => {
         land.id, String(req.params.token).slice(0, 64),
       ]
     );
-    // Kembali pending = persetujuan gugur -> fee yang pernah tercatat ikut batal (anti fee yatim)
+    // Kembali pending = persetujuan gugur -> fee yang pernah tercatat ikut batal (anti fee yatim).
+    // Saldo dompet mitra dikoreksi lebih dulu, baru baris fee dihapus.
+    try {
+      const walletMod = require('../utils/wallet');
+      await walletMod.reverseFeesForLand(null, {
+        landId: land.id,
+        note: `Pembatalan fee lahan #${land.id} (pengajuan diperbaiki)`,
+      });
+    } catch (e) {
+      console.error('Reversal saldo saat perbaikan pengajuan gagal:', e.message);
+    }
     await query('DELETE FROM fee_logs WHERE land_id = ?', [land.id]);
     try {
       const { notify } = require('../utils/notify');

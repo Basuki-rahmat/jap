@@ -1,0 +1,50 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "KARYA NYATA ANAK BANGSA (KNAB)",
+    "identifier": "did:web:knab.co.id",
+    "documentationUrl": "https://knab.co.id/panduan",
+    "logoUrl": "https://knab.co.id/img/logo.png"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:knab.co.id:api:public-v1",
+      "displayName": "KNAB Public API v1",
+      "type": "application/json",
+      "description": "API JSON publik untuk aplikasi mobile: login marketing, pengajuan sewa lahan BSS/EVCS, dan pelacakan status pengajuan.",
+      "tags": ["api", "pengajuan-lahan", "bss", "evcs", "pelacakan"],
+      "capabilities": ["auth.login", "auth.refresh", "lahan.create", "lahan.track"],
+      "data": {
+        "baseUrl": "https://knab.co.id/api/v1",
+        "auth": "Authorization: Bearer <token> (tanpa cookie)",
+        "docs": "https://knab.co.id/panduan",
+        "rateLimit": "600 permintaan per 15 menit per IP; auth 30 per 15 menit",
+        "endpoints": [
+          "POST /api/v1/auth/login",
+          "POST /api/v1/auth/refresh",
+          "POST /api/v1/lahan (pengajuan lahan)",
+          "GET /api/v1/lahan (lacak status)"
+        ]
+      },
+      "representativeQueries": [
+        "bagaimana cara mengajukan sewa lahan lewat API",
+        "endpoint apa saja yang tersedia untuk aplikasi mobile KNAB",
+        "bagaimana autentikasi API KNAB bekerja"
+      ],
+      "version": "1.0"
+    },
+    {
+      "identifier": "urn:air:knab.co.id:web:main",
+      "displayName": "KNAB Website",
+      "type": "text/html",
+      "url": "https://knab.co.id/",
+      "description": "Situs publik Sewa Lahan BSS × V-Green: informasi kerja sama, formulir pengajuan lahan, pelacakan status, dan pendaftaran marketing.",
+      "tags": ["website", "sewa-lahan", "bss", "v-green"],
+      "representativeQueries": [
+        "bagaimana cara menyewakan lahan untuk BSS",
+        "di mana memantau status pengajuan lahan saya"
+      ],
+      "version": "1.0"
+    }
+  ]
+}

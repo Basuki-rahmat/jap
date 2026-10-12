@@ -1,0 +1,242 @@
+<%- include('../partials/head', { title: 'Pembayaran Fee - BSS' }) %>
+<%- include('../partials/dashNavbar') %>
+
+<style>
+  .pay-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .pay-card { border-radius: 16px; text-align: center; }
+  .p-val { font-size: 1.25rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--primary); line-height: 1.15; }
+  .p-lab { font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); font-weight: 800; }
+  .p-sub { font-size: .7rem; color: var(--text-muted); margin-top: 3px; }
+  .filter-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+  .filter-row .f-item { display: flex; flex-direction: column; gap: 4px; }
+  .filter-row .f-item label { font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); }
+  .pay-table td.amt, .pay-table th.amt { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pay-table td.mid, .pay-table th.mid { text-align: center; }
+  .pay-form { display: grid; gap: 6px; min-width: 250px; }
+  .pay-form .form-control { padding: 7px 10px; font-size: .78rem; }
+  .btn-xs { padding: 7px 12px !important; font-size: .74rem !important; white-space: nowrap; }
+  .doc-links { display: flex; gap: 6px; flex-wrap: wrap; }
+  .who { display: flex; flex-direction: column; line-height: 1.35; }
+  .who strong { font-weight: 800; }
+  .who small { font-size: .68rem; color: var(--text-muted); }
+  .role-tag { display: inline-block; font-size: .6rem; font-weight: 800; border-radius: 99px; padding: 2px 8px; background: var(--primary-soft); color: var(--primary); margin-left: 6px; }
+  @media (max-width: 980px) { .pay-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .pay-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 640px) {
+    .pay-table thead { display: none; }
+    .pay-table, .pay-table tbody { display: block; }
+    .pay-table tr { display: block; background: var(--bg-soft); border: 1px solid var(--card-border); border-radius: 14px; margin-bottom: 12px; padding: 6px 14px; }
+    .pay-table td { display: flex; flex-direction: column; gap: 6px; border: none; padding: 8px 0; border-bottom: 1px dashed var(--card-border); }
+    .pay-table td:last-child { border-bottom: none; }
+    .pay-table td::before { content: attr(data-label); font-size: .64rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
+    .pay-form { min-width: 0; }
+  }
+</style>
+
+<main>
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Laporan &amp; Pembayaran</span>
+        <h2>Pembayaran Fee Mitra</h2>
+        <p>Proses pengajuan penarikan dana dari mitra: tandai diproses, tandai sudah dibayar (unggah bukti transfer), atau tolak dengan alasan. Saldo mitra otomatis menyesuaikan.</p>
+      </div>
+
+      <% if (flash && flash.message) { %>
+        <div class="alert alert-<%= flash.type %>"><%= flash.message %></div>
+      <% } %>
+
+      <div class="pay-grid mb-3">
+        <div class="card pay-card stat-card">
+          <div class="p-val">Rp <%= Number(filtered.pending_amount).toLocaleString('id-ID') %></div>
+          <div class="p-lab">⏳ Menunggu Diproses</div>
+          <div class="p-sub"><%= filtered.pending %> pengajuan</div>
+        </div>
+        <div class="card pay-card stat-card">
+          <div class="p-val">Rp <%= Number(filtered.processing_amount).toLocaleString('id-ID') %></div>
+          <div class="p-lab">🔄 Sedang Diproses</div>
+          <div class="p-sub"><%= filtered.processing %> pengajuan</div>
+        </div>
+        <div class="card pay-card stat-card">
+          <div class="p-val">Rp <%= Number(filtered.paid_amount).toLocaleString('id-ID') %></div>
+          <div class="p-lab">✅ Sudah Dibayarkan</div>
+          <div class="p-sub"><%= filtered.paid %> penarikan</div>
+        </div>
+        <div class="card pay-card stat-card">
+          <div class="p-val">Rp <%= Number(filtered.rejected_amount).toLocaleString('id-ID') %></div>
+          <div class="p-lab">❌ Ditolak</div>
+          <div class="p-sub"><%= filtered.rejected %> pengajuan · saldo dikembalikan</div>
+        </div>
+      </div>
+
+      <p class="subtext" style="margin-top:-8px;">
+        Antrean seluruh periode: <strong><%= global.pending %></strong> menunggu (Rp <%= Number(global.pending_amount).toLocaleString('id-ID') %>) ·
+        <strong><%= global.processing %></strong> diproses (Rp <%= Number(global.processing_amount).toLocaleString('id-ID') %>) ·
+        <strong><%= global.paid %></strong> sudah dibayar (Rp <%= Number(global.paid_amount).toLocaleString('id-ID') %>).
+      </p>
+
+      <% if (Number(bankReady) > 0) { %>
+        <div class="alert alert-error">
+          <strong><%= bankReady %> mitra</strong> punya saldo tapi rekeningnya belum lengkap — minta mereka melengkapi Profil sebelum transfer.
+        </div>
+      <% } %>
+
+      <div class="card mb-3">
+        <div class="card-title-row">
+          <div class="feature-icon">🗂️</div>
+          <h3 style="margin:0;">Filter Laporan</h3>
+        </div>
+        <form action="/admin/pembayaran" method="GET" class="filter-row mt-2">
+          <div class="f-item">
+            <label for="f-status">Status</label>
+            <select class="form-control" id="f-status" name="status">
+              <option value="all" <%= filters.status === 'all' ? 'selected' : '' %>>Semua status</option>
+              <option value="pending" <%= filters.status === 'pending' ? 'selected' : '' %>>⏳ Menunggu</option>
+              <option value="processing" <%= filters.status === 'processing' ? 'selected' : '' %>>🔄 Diproses</option>
+              <option value="paid" <%= filters.status === 'paid' ? 'selected' : '' %>>✅ Dibayar</option>
+              <option value="rejected" <%= filters.status === 'rejected' ? 'selected' : '' %>>❌ Ditolak</option>
+              <option value="cancelled" <%= filters.status === 'cancelled' ? 'selected' : '' %>>↩️ Dibatalkan</option>
+            </select>
+          </div>
+          <div class="f-item">
+            <label for="f-q">Mitra</label>
+            <input class="form-control" type="text" id="f-q" name="q" value="<%= filters.term %>" placeholder="Nama / email / kode referral" maxlength="60" />
+          </div>
+          <div class="f-item">
+            <label for="f-from">Dari tanggal</label>
+            <input class="form-control" type="date" id="f-from" name="from" value="<%= filters.from %>" />
+          </div>
+          <div class="f-item">
+            <label for="f-to">Sampai tanggal</label>
+            <input class="form-control" type="date" id="f-to" name="to" value="<%= filters.to %>" />
+          </div>
+          <button class="btn btn-primary btn-xs" type="submit">🔍 Tampilkan</button>
+          <a class="btn btn-outline btn-xs" href="/admin/pembayaran">Reset</a>
+          <a class="btn btn-accent btn-xs" href="/admin/pembayaran/export?status=<%= encodeURIComponent(filters.status) %>&q=<%= encodeURIComponent(filters.term) %>&from=<%= encodeURIComponent(filters.from) %>&to=<%= encodeURIComponent(filters.to) %>">⬇️ Export CSV</a>
+        </form>
+        <p class="form-hint" style="margin-bottom:0;">Laporan CSV memuat semua baris sesuai filter (tanpa batas tampilan) — buka dengan Excel/LibreOffice.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title-row">
+          <div class="feature-icon">💸</div>
+          <h3 style="margin:0;">Pengajuan Penarikan</h3>
+        </div>
+        <% if (rows.length >= 300) { %>
+          <p class="form-hint">Menampilkan 300 baris terbaru. Persempit filter tanggal untuk melihat yang lama.</p>
+        <% } %>
+        <div class="table-wrap mt-2">
+          <table class="table pay-table">
+            <thead>
+              <tr>
+                <th>Tanggal</th>
+                <th>Mitra</th>
+                <th>Rekening Tujuan</th>
+                <th class="amt">Nominal</th>
+                <th class="mid">Status</th>
+                <th>Bukti / Jejak</th>
+                <th>Aksi Admin</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!rows.length) { %>
+                <tr><td colspan="7" class="empty-cell">Tidak ada pengajuan penarikan pada filter ini.</td></tr>
+              <% } %>
+              <% rows.forEach(function (r) { %>
+                <% var st = String(r.status); var open = (st === 'pending' || st === 'processing'); %>
+                <tr>
+                  <td data-label="Tanggal">
+                    <%= r.requested_at ? new Date(r.requested_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-' %>
+                    <div class="who"><small>#<%= r.id %></small></div>
+                  </td>
+                  <td data-label="Mitra">
+                    <div class="who">
+                      <strong><%= r.name %><% if (Number(r.is_coordinator) === 1) { %><span class="role-tag">Koordinator</span><% } else if (Number(r.is_head) === 1) { %><span class="role-tag">Head</span><% } %></strong>
+                      <small><%= r.email %></small>
+                      <small><%= r.whatsapp || '-' %> · <code><%= r.referral_code || '-' %></code></small>
+                    </div>
+                  </td>
+                  <td data-label="Rekening">
+                    <div class="who">
+                      <strong><%= r.bank_name || '-' %></strong>
+                      <small><%= r.account_number || '-' %></small>
+                      <small>a.n. <%= r.account_name || r.name %></small>
+                    </div>
+                  </td>
+                  <td data-label="Nominal" class="amt"><strong>Rp <%= Number(r.amount).toLocaleString('id-ID') %></strong></td>
+                  <td data-label="Status" class="mid">
+                    <span class="status <%= st === 'pending' ? 'status-pending' : (st === 'processing' ? 'status-processing' : (st === 'paid' ? 'status-paid' : (st === 'rejected' ? 'status-rejected' : 'status-cancelled'))) %>"><%= statusLabel[st] || st %></span>
+                  </td>
+                  <td data-label="Bukti / Jejak">
+                    <div class="who">
+                      <% if (r.transfer_ref) { %><small>Ref: <strong><%= r.transfer_ref %></strong></small><% } %>
+                      <% if (r.admin_note) { %><small>Catatan: <%= r.admin_note %></small><% } %>
+                      <% if (r.reject_reason) { %><small>Alasan tolak: <%= r.reject_reason %></small><% } %>
+                      <% if (r.processed_at) { %><small>Diproses: <%= new Date(r.processed_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }) %><%= r.processed_by_name ? ' oleh ' + r.processed_by_name : '' %></small><% } %>
+                      <% if (r.paid_at) { %><small>Dibayar: <%= new Date(r.paid_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }) %></small><% } %>
+                    </div>
+                    <% if (r.proof_file) { %>
+                      <div class="doc-links" style="margin-top:6px;">
+                        <a class="btn btn-outline btn-xs" href="<%= fileUrl(r.proof_file) %>" target="_blank" rel="noopener">📄 Bukti transfer</a>
+                      </div>
+                    <% } %>
+                  </td>
+                  <td data-label="Aksi">
+                    <% if (open) { %>
+                      <form action="/admin/pembayaran/status" method="POST" enctype="multipart/form-data" class="pay-form" data-wid="<%= r.id %>" data-amount="<%= Number(r.amount) %>">
+                        <input type="hidden" name="id" value="<%= r.id %>" />
+                        <select class="form-control" name="action" required>
+                          <option value="process" <%= st === 'processing' ? 'disabled' : '' %>>⏳ Tandai sedang diproses</option>
+                          <option value="paid">✅ Tandai sudah dibayar</option>
+                          <option value="reject">❌ Tolak + kembalikan saldo</option>
+                        </select>
+                        <input class="form-control" type="text" name="admin_note" maxlength="255" placeholder="Catatan admin (opsional)" />
+                        <input class="form-control" type="text" name="transfer_ref" maxlength="100" placeholder="No. referensi transfer (opsional)" />
+                        <input class="form-control" type="text" name="reject_reason" maxlength="255" placeholder="Alasan tolak (wajib bila menolak)" />
+                        <input class="form-control" type="file" name="proof_file" accept=".jpg,.jpeg,.png,.webp,.pdf" />
+                        <button class="btn btn-accent btn-xs" type="submit">Simpan Aksi</button>
+                      </form>
+                    <% } else { %>
+                      <span class="muted-text">Selesai — tidak ada aksi.</span>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+  (function () {
+    // Konfirmasi aksi + validasi alasan tolak (server tetap memvalidasi ulang).
+    document.querySelectorAll('.pay-form').forEach(function (fm) {
+      fm.addEventListener('submit', function (e) {
+        var sel = fm.querySelector('select[name="action"]');
+        var action = sel ? sel.value : '';
+        var amount = Number(fm.getAttribute('data-amount') || 0);
+        var wid = fm.getAttribute('data-wid');
+        if (action === 'reject') {
+          var reason = fm.querySelector('input[name="reject_reason"]');
+          if (!reason || !String(reason.value || '').trim()) {
+            e.preventDefault();
+            alert('Alasan penolakan wajib diisi.');
+            return;
+          }
+          if (!window.confirm('Tolak pengajuan #' + wid + '? Saldo Rp ' + amount.toLocaleString('id-ID') + ' dikembalikan ke mitra.')) e.preventDefault();
+          return;
+        }
+        if (action === 'paid') {
+          if (!window.confirm('Tandai pengajuan #' + wid + ' (Rp ' + amount.toLocaleString('id-ID') + ') sudah dibayarkan? Mitra akan mendapat email & notifikasi.')) e.preventDefault();
+          return;
+        }
+        if (!window.confirm('Tandai pengajuan #' + wid + ' sedang diproses?')) e.preventDefault();
+      });
+    });
+  })();
+</script>
+
+<%- include('../partials/foot') %>

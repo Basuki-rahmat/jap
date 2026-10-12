@@ -4,6 +4,21 @@
 //   Head terima G_head, teruskan G_mkt  -> bersih head = G_head - G_mkt
 //   Marketing terima G_mkt (bersih, tidak meneruskan)
 // Total keluar perusahaan = kotor peran tertinggi yang hadir dalam rantai.
+//
+// ATURAN DISTRIBUSI MENURUT SIAPA YANG MENGAJUKAN LAHAN (lihat buildPayouts):
+//   (a) Pengaju marketing biasa
+//       marketing dapat porsi marketing; porsi itu MENGURANGI porsi head,
+//       dan porsi head mengurangi porsi koordinator (rantai berantai).
+//   (b) Pengaju head marketing
+//       head memegang seluruh porsi head (slot marketing dipegang pengaju,
+//       tidak dibayar ke orang lain), porsi head mengurangi koordinator.
+//   (c) Pengaju koordinator
+//       fee TIDAK didistribusikan ke bawah — koordinator memegang kotor
+//       penuh; head dan marketing tidak mendapat fee.
+// Peran yang tidak ada di rantai: slotnya diserap peran tertinggi berikutnya
+// (mis. head tidak ada -> koordinator menerima kotor K - porsi marketing),
+// sehingga total keluar selalu = kotor peran tertinggi yang hadir.
+// Lahan TANPA referral (marketing_id NULL): fee Rp 0 — hanya ditandai admin.
 const { query, get } = require('../models/db');
 const { getSetting, setSetting } = require('./settings');
 
@@ -184,33 +199,46 @@ async function resolveChain(marketingId, getUser) {
   return { headId, koorId };
 }
 
-// Susun daftar payout (bersih + kotor) untuk satu lahan.
-// Aturan peran hilang: total keluar = kotor peran tertinggi yang hadir.
+// Susun daftar payout (bersih + kotor) untuk satu lahan, sesuai aturan
+// distribusi berdasarkan siapa yang mengajukan (lihat komentar atas file):
+//   (a) marketing biasa   -> mkt = G_mkt, head = G_head - G_mkt, koor = G_koor - G_head
+//   (b) head yang mengaju -> head memegang seluruh porsi head, koor = G_koor - G_head
+//   (c) koor yang mengaju -> koor memegang kotor penuh, bawahnya tidak dapat
 function buildPayouts({ marketingId, headId, koorId, gross }) {
+  const gk = toInt(gross.koordinator);
+  const gh = toInt(gross.head);
+  const gm = toInt(gross.marketing);
   const net = splitNet(gross);
   const rows = [];
-  if (marketingId) {
-    rows.push({ userId: marketingId, role: 'marketing', net: net.marketing, gross: toInt(gross.marketing) });
+  const netHead = Math.max(0, gh - gm);
+  // Head tidak ada di rantai -> slot head diserap koordinator (total keluar
+  // tetap kotor koor, bukan menyisakan porsi yang tidak terbayar).
+  const netKoor = (hasHead) => (hasHead ? Math.max(0, gk - gh) : Math.max(0, gk - gm));
+
+  if (koorId && marketingId && koorId === marketingId) {
+    // (c) Pengaju koordinator: fee tidak didistribusikan ke bawah.
+    rows.push({ userId: koorId, role: 'koordinator', net: gk, gross: gk });
+  } else if (headId && marketingId && headId === marketingId) {
+    // (b) Pengaju head: baris marketing hanya jejak audit (porsinya dipegang
+    //     pengaju juga), sehingga total yang diterima = G_head.
+    rows.push({ userId: headId, role: 'marketing', net: gm, gross: gm });
+    rows.push({ userId: headId, role: 'head', net: netHead, gross: gh });
+    if (koorId) rows.push({ userId: koorId, role: 'koordinator', net: netKoor(true), gross: gk });
+  } else {
+    // (a) Pengaju marketing biasa.
+    if (marketingId) rows.push({ userId: marketingId, role: 'marketing', net: gm, gross: gm });
+    if (headId) rows.push({ userId: headId, role: 'head', net: netHead, gross: gh });
+    if (koorId) rows.push({ userId: koorId, role: 'koordinator', net: netKoor(Boolean(headId)), gross: gk });
   }
-  if (headId && headId !== marketingId) {
-    rows.push({ userId: headId, role: 'head', net: net.head, gross: toInt(gross.head) });
-  } else if (headId && headId === marketingId) {
-    // Merangkap: net sudah mencakup head+marketing? marketing row pegang gm,
-    // tambahkan porsi head ke user yang sama sebagai baris head terpisah agar audit jelas.
-    rows.push({ userId: headId, role: 'head', net: net.head, gross: toInt(gross.head) });
-  }
-  if (koorId && koorId !== marketingId && koorId !== headId) {
-    rows.push({ userId: koorId, role: 'koordinator', net: net.koordinator, gross: toInt(gross.koordinator) });
-  } else if (koorId && (koorId === marketingId || koorId === headId)) {
-    rows.push({ userId: koorId, role: 'koordinator', net: net.koordinator, gross: toInt(gross.koordinator) });
-  }
+
   // Total keluar = jumlah bersih peran yang hadir.
   const total = rows.reduce((a, r) => a + r.net, 0);
   // Kotor tertinggi yang hadir (untuk lands.fee_amount / display).
+  // Tanpa penerima (lahan tanpa referral) -> fee memang 0.
   let topGross = 0;
-  if (koorId) topGross = toInt(gross.koordinator);
-  else if (headId) topGross = toInt(gross.head);
-  else topGross = toInt(gross.marketing);
+  if (koorId) topGross = gk;
+  else if (headId) topGross = gh;
+  else if (marketingId) topGross = gm;
   return { rows: rows.filter((r) => r.net >= 0), net, total, topGross };
 }
 

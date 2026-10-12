@@ -1,7 +1,7 @@
 // Inti pengajuan lahan dipakai BERSAMA oleh form web (publicRoutes) dan
 // API mobile (/api/v1/lahan). Validasi + insert + notifikasi identik;
 // yang berbeda hanya cara merespons (render HTML vs JSON) — itu urusan pemanggil.
-const { get, insert } = require('../models/db');
+const { get, insert, query } = require('../models/db');
 const {
   resolveBankName, normNik, normRek, normArea, validateOwnerFields,
   validateLahanExtra, normHarga, normLatLong, normMapsUrl,
@@ -162,9 +162,85 @@ async function submitLahan({ body, files, sessionReferralCode }) {
     }
 
     const newLandIds = [];
+    const updatedIds = [];
     for (const u of unitList) {
       const unitPrice = u === 'evcs_mobil' ? hargaEvcs : hargaBss;
-      const newLandId = await insert(
+      // Batas 2 baris per penyedia (1 BSS + 1 EVCS, kunci phone+type):
+      // submit berikut MENGEDIT baris yang ada, bukan menambah baris baru.
+      const old = await get(
+        'SELECT id, status, owner_name, nik, sppl_file, ktp_file, photo_1_file, photo_2_file, photo_3_file, photo_spot_file, photo_right_file, photo_left_file, photo_selfie_file, photo_maps_file, legal_doc_file, family_doc_file, sewa_doc_file, support_doc_file FROM lands WHERE phone_number = ? AND unit_type = ? ORDER BY id DESC LIMIT 1',
+        [phone62, u]
+      );
+      if (old && old.status === 'approved') {
+        fail(`Unit ${u === 'evcs_mobil' ? 'EVCS' : 'BSS'} No HP ini sudah disetujui — hubungi admin untuk perubahan.`);
+      }
+      // Orang beda tidak boleh menimpa: NIK pengaju harus sama dengan NIK pemilik baris.
+      if (old && old.nik && nik2 && old.nik !== nik2) {
+        fail(`No HP ini sudah dipakai pengajuan a.n. ${old.owner_name || 'orang lain'} — data beda orang tidak bisa menimpa. Gunakan No HP lain atau hubungi admin.`);
+      }
+      if (old) {
+        const before = [old.sppl_file, old.ktp_file, old.photo_1_file, old.photo_2_file, old.photo_3_file, old.photo_spot_file, old.photo_right_file, old.photo_left_file, old.photo_selfie_file, old.photo_maps_file, old.legal_doc_file, old.family_doc_file, old.sewa_doc_file, old.support_doc_file].filter(Boolean);
+        await query(
+          `UPDATE lands SET marketing_id = ?, owner_name = ?, phone_number = ?, bank_name = ?, account_number = ?, nik = ?, ttl = ?, surat = ?, shop_name = ?, city = ?, district = ?, harga_sewa = ?, harga_sewa_bss = ?, harga_sewa_evcs = ?, address = ?, location_address = ?, area_size = ?, unit_type = ?, slot_no = ?, location_type = ?, floor_ready = ?, has_canopy = ?, legal_doc_type = ?, maps_link = ?, lat_long = ?, maps_url = ?, ktp_file = ?, photo_1_file = ?, photo_2_file = ?, photo_3_file = ?, photo_spot_file = ?, photo_right_file = ?, photo_left_file = ?, photo_selfie_file = ?, photo_maps_file = ?, legal_doc_file = ?, family_doc_file = ?, sewa_doc_file = ?, support_doc_file = ?, sppl_file = NULL, status = 'pending', fee_amount = 0, edit_token = NULL, edit_expires = NULL WHERE id = ?`,
+          [
+            marketingId,
+            String(owner_name).trim(),
+            phone62,
+            bankName2,
+            accountNumber2,
+            nik2,
+            String(ttl).trim().slice(0, 100),
+            String(surat).trim().slice(0, 255),
+            String(shop_name).trim().slice(0, 150),
+            String(city).trim().slice(0, 100),
+            districtFinal || null,
+            unitPrice,
+            hargaBss,
+            hargaEvcs,
+            String(address).trim(),
+            String(location_address).trim(),
+            areaSize2,
+            u,
+            slotFor[u],
+            String(location_type || '').trim(),
+            floor_ready === 'ya' ? 'ya' : 'tidak',
+            has_canopy === 'ya' ? 'ya' : 'tidak',
+            u === 'evcs_mobil' ? 'shm' : 'pbb',
+            String(maps_link || '').trim(),
+            latLong2,
+            mapsUrl2,
+            cols.ktp_file,
+            cols.photo_1_file,
+            cols.photo_2_file,
+            cols.photo_3_file,
+            cols.photo_spot_file,
+            cols.photo_right_file,
+            cols.photo_left_file,
+            cols.photo_selfie_file,
+            cols.photo_maps_file,
+            cols.legal_doc_file,
+            cols.family_doc_file,
+            cols.sewa_doc_file,
+            cols.support_doc_file,
+            old.id,
+          ]
+        );
+        // Berkas lama yang terganti dibuang agar tidak yatim.
+        try {
+          const fs0 = require('fs');
+          const path0 = require('path');
+          const after = new Set(Object.values(cols).filter(Boolean));
+          before.forEach((p) => {
+            if (!after.has(p)) fs0.unlink(path0.join(__dirname, '..', 'public', String(p).replace(/^\//, '')), () => {});
+          });
+        } catch (e) {}
+        newLandIds.push(old.id);
+        updatedIds.push(old.id);
+        continue;
+      }
+      let newLandId;
+      try {
+        newLandId = await insert(
       `INSERT INTO lands (marketing_id, owner_name, phone_number, bank_name, account_number, nik, ttl, surat, shop_name, city, district, harga_sewa, harga_sewa_bss, harga_sewa_evcs, address, location_address, area_size, unit_type, slot_no, location_type, floor_ready, has_canopy, legal_doc_type, maps_link, lat_long, maps_url, ktp_file, photo_1_file, photo_2_file, photo_3_file, photo_spot_file, photo_right_file, photo_left_file, photo_selfie_file, photo_maps_file, legal_doc_file, family_doc_file, sewa_doc_file, support_doc_file, sppl_file, status, fee_amount)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)`,
       [
@@ -210,6 +286,11 @@ async function submitLahan({ body, files, sessionReferralCode }) {
         sppl_file,
       ]
       );
+      } catch (e) {
+        // Balapan insert bersamaan: baris sudah dibuat proses lain.
+        if (e && e.code === 'ER_DUP_ENTRY') fail('No HP ini sudah dipakai pengajuan lain untuk unit ini — gunakan No HP lain atau hubungi admin.');
+        throw e;
+      }
       newLandIds.push(newLandId);
     }
 
@@ -218,16 +299,17 @@ async function submitLahan({ body, files, sessionReferralCode }) {
     try {
       const { notify } = require('./notify');
       const unitLbl = unitList.map((u) => (u === 'evcs_mobil' ? 'EVCS' : 'BSS')).join('+');
+      const allUpd = newLandIds.length > 0 && updatedIds.length === newLandIds.length;
       notify({
         audience: 'admins',
         userIds: marketingId ? [marketingId] : [],
-        title: `📥 Pengajuan lahan baru #${newLandIds.join(', #')} (${unitLbl}): ${String(owner_name).trim().slice(0, 40)}`,
+        title: `📥 Pengajuan lahan ${allUpd ? 'diperbarui' : 'baru'} #${newLandIds.join(', #')} (${unitLbl}): ${String(owner_name).trim().slice(0, 40)}`,
         body: `${String(shop_name).trim().slice(0, 60)} • ${String(city).trim()} • ${phone62}`,
         link: '/admin/lands',
       }).catch(() => {});
     } catch (e) {}
 
-    return { landIds: newLandIds, referralCode: referral_code || '', unitList };
+    return { landIds: newLandIds, updatedIds, referralCode: referral_code || '', unitList };
   } catch (err) {
     if (err instanceof SubmitError) throw err;
     // Peta pesan error disamakan dengan handler web lama.

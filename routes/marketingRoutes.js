@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const router = express.Router();
 const marketingController = require('../controllers/marketingController');
+const walletController = require('../controllers/walletController');
 const { isAuth, isRole } = require('../middlewares/authMiddleware');
 
 router.use(isAuth, isRole('marketing'));
@@ -51,6 +52,11 @@ router.post(
 );
 router.get('/password', marketingController.showPassword);
 router.post('/password', marketingController.updatePassword);
+// Penarikan dana fee mitra: saldo, buku mutasi, pengajuan & pembatalan.
+router.get('/penarikan', walletController.userPage);
+router.post('/penarikan/otp', walletController.requestOtp);
+router.post('/penarikan', walletController.userCreate);
+router.post('/penarikan/batal', walletController.userCancel);
 router.get('/id-card', marketingController.idCard);
 router.get('/surat-tugas', marketingController.suratTugas);
 

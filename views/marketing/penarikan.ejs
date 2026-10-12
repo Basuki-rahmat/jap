@@ -1,0 +1,411 @@
+<%- include('../partials/head', { title: 'Penarikan Dana - BSS' }) %>
+<%- include('../partials/dashNavbar') %>
+
+<style>
+  .wallet-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .wallet-card { border-radius: 16px; text-align: center; }
+  .w-val { font-size: 1.3rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--primary); line-height: 1.15; }
+  .w-lab { font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); font-weight: 800; }
+  .w-sub { font-size: .7rem; color: var(--text-muted); margin-top: 3px; }
+  .amount-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; }
+  .amount-row .form-control { flex: 1 1 200px; }
+  .quick-btn { padding: 10px 14px !important; font-size: .76rem !important; white-space: nowrap; }
+  .stmt-table td.amt, .stmt-table th.amt { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .stmt-table td.mid, .stmt-table th.mid { text-align: center; }
+  .in { color: var(--success); font-weight: 800; }
+  .out { color: var(--danger); font-weight: 800; }
+  .wd-off { color: var(--text-muted); }
+  /* ===== Popup OTP penarikan ===== */
+  .otp-overlay { position: fixed; inset: 0; z-index: 200; display: none; align-items: center; justify-content: center; background: rgba(5,15,25,.62); padding: 16px; }
+  .otp-overlay.open { display: flex; }
+  .otp-box { width: 100%; max-width: 420px; background: var(--card); border: 1px solid var(--card-border); border-radius: 18px; box-shadow: var(--shadow); padding: 26px 24px; text-align: center; }
+  .otp-box h3 { margin: 0 0 6px; font-size: 1.05rem; }
+  .otp-code { width: 100%; box-sizing: border-box; margin: 14px 0 6px; padding: 13px 13px 13px 21px; font-size: 1.6rem; font-weight: 800; letter-spacing: 8px; text-align: center; border-radius: 12px; border: 2px dashed var(--primary); background: var(--bg-soft); color: var(--text); font-variant-numeric: tabular-nums; }
+  .otp-code:focus { outline: none; border-style: solid; }
+  .otp-timer { font-size: .78rem; color: var(--text-muted); font-weight: 700; }
+  .otp-err { display: none; margin-top: 10px; font-size: .8rem; font-weight: 700; color: var(--danger); }
+  .otp-actions { display: flex; gap: 8px; margin-top: 16px; }
+  .otp-actions .btn { flex: 1; }
+  .otp-resend { margin: 12px 0 0; font-size: .78rem; color: var(--text-muted); }
+  .otp-link { background: none; border: none; padding: 0; color: var(--primary); font-weight: 800; font-size: .78rem; cursor: pointer; font-family: inherit; }
+  .otp-link:disabled { color: var(--text-muted); cursor: not-allowed; font-weight: 600; }
+  @media (max-width: 900px) { .wallet-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .wallet-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 640px) {
+    .stmt-table thead { display: none; }
+    .stmt-table, .stmt-table tbody { display: block; }
+    .stmt-table tr { display: block; background: var(--bg-soft); border: 1px solid var(--card-border); border-radius: 14px; margin-bottom: 10px; padding: 6px 14px; }
+    .stmt-table td { display: flex; justify-content: space-between; align-items: center; gap: 10px; border: none; padding: 7px 0; border-bottom: 1px dashed var(--card-border); text-align: right; }
+    .stmt-table td:last-child { border-bottom: none; }
+    .stmt-table td::before { content: attr(data-label); font-size: .64rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; text-align: left; flex-shrink: 0; }
+    .wallet-grid { grid-template-columns: repeat(2, 1fr); }
+    .w-val { font-size: 1.05rem; }
+  }
+</style>
+
+<main>
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Dompet Fee</span>
+        <h2>Penarikan Dana</h2>
+        <p>Saldo berasal dari fee lahan yang sudah disetujui. Ajukan penarikan ke rekening Anda, lalu pantau statusnya di sini.</p>
+      </div>
+
+      <% if (flash && flash.message) { %>
+        <div class="alert alert-<%= flash.type %>"><%= flash.message %></div>
+      <% } %>
+
+      <div class="wallet-grid mb-3">
+        <div class="card wallet-card stat-card">
+          <div class="w-val">Rp <%= Number(summary.balance).toLocaleString('id-ID') %></div>
+          <div class="w-lab">💰 Saldo Tersedia</div>
+          <div class="w-sub">Siap ditarik sekarang</div>
+        </div>
+        <div class="card wallet-card stat-card">
+          <div class="w-val">Rp <%= Number(summary.pendingAmount).toLocaleString('id-ID') %></div>
+          <div class="w-lab">⏳ Sedang Diproses</div>
+          <div class="w-sub"><%= summary.pendingCount %> pengajuan menunggu admin</div>
+        </div>
+        <div class="card wallet-card stat-card">
+          <div class="w-val">Rp <%= Number(summary.paidAmount).toLocaleString('id-ID') %></div>
+          <div class="w-lab">✅ Sudah Diterima</div>
+          <div class="w-sub"><%= summary.paidCount %> penarikan dibayarkan</div>
+        </div>
+        <div class="card wallet-card stat-card">
+          <div class="w-val">Rp <%= Number(summary.feeTotal).toLocaleString('id-ID') %></div>
+          <div class="w-lab">📈 Total Fee Masuk</div>
+          <div class="w-sub"><% if (summary.reversalTotal > 0) { %>Dikoreksi Rp <%= Number(summary.reversalTotal).toLocaleString('id-ID') %> (fee batal)<% } else { %>Akumulasi fee lahan disetujui<% } %></div>
+        </div>
+      </div>
+
+      <% if (!bankReady) { %>
+        <div class="alert alert-error">
+          Rekening tujuan belum lengkap. Isi <strong>nama bank</strong> &amp; <strong>nomor rekening</strong> di
+          <a href="/marketing/profil">Profil Saya</a> sebelum mengajukan penarikan.
+        </div>
+      <% } %>
+
+      <% if (typeof ktpReady !== 'undefined' && !ktpReady) { %>
+        <div class="alert alert-error">
+          🪪 <strong>Verifikasi KTP wajib.</strong> Isi <strong>NIK</strong> &amp; upload <strong>foto KTP</strong> di
+          <a href="/marketing/profil">Profil Saya</a> sebelum mengajukan penarikan.
+        </div>
+      <% } %>
+
+      <div class="card mb-3">
+        <div class="card-title-row">
+          <div class="feature-icon">💸</div>
+          <h3 style="margin:0;">Ajukan Penarikan</h3>
+        </div>
+        <% if (bankReady && (typeof ktpReady === 'undefined' || ktpReady)) { %>
+        <form action="/marketing/penarikan" method="POST" id="wdForm" class="mt-2">
+          <input type="hidden" name="otp" id="otpField" value="" />
+          <div class="form-group">
+            <label for="amount">Nominal penarikan (Rp)</label>
+            <div class="amount-row">
+              <input class="form-control" type="text" inputmode="numeric" id="amount" name="amount" required
+                     autocomplete="off" placeholder="<%= Number(minWithdraw).toLocaleString('id-ID') %>" />
+              <button type="button" class="btn btn-outline quick-btn" data-fill="<%= Number(summary.balance) %>">Semua saldo (Rp <%= Number(summary.balance).toLocaleString('id-ID') %>)</button>
+            </div>
+            <p class="form-hint">
+              Minimal Rp <%= Number(minWithdraw).toLocaleString('id-ID') %> · saldo tersedia Rp <%= Number(summary.balance).toLocaleString('id-ID') %>.
+              Tujuan transfer: <strong><%= me.bank_name %> — <%= me.account_number %></strong> (a.n. <%= me.name %>) · ubah di <a href="/marketing/profil">Profil</a>.
+            </p>
+          </div>
+          <button type="submit" class="btn btn-accent" <%= Number(summary.balance) < Number(minWithdraw) ? 'disabled' : '' %>>
+            <strong>💸 Kirim Pengajuan</strong>
+          </button>
+          <% if (Number(summary.balance) < Number(minWithdraw)) { %>
+            <p class="form-hint">Saldo belum mencapai nominal minimal penarikan.</p>
+          <% } %>
+        </form>
+        <% } else { %>
+          <p class="muted-text mt-2" style="margin-bottom:0;">Lengkapi rekening di Profil untuk membuka form penarikan.</p>
+        <% } %>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-title-row">
+          <div class="feature-icon">🧾</div>
+          <h3 style="margin:0;">Riwayat Pengajuan</h3>
+        </div>
+        <div class="table-wrap mt-2">
+          <table class="table stmt-table">
+            <thead>
+              <tr>
+                <th>Tanggal</th>
+                <th>Pengajuan</th>
+                <th class="amt">Nominal</th>
+                <th>Rekening Tujuan</th>
+                <th class="mid">Status</th>
+                <th>Catatan / Bukti</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!requests.length) { %>
+                <tr><td colspan="6" class="empty-cell">Belum ada pengajuan penarikan.</td></tr>
+              <% } %>
+              <% requests.forEach(function (r) { %>
+                <% var st = String(r.status); %>
+                <tr>
+                  <td data-label="Tanggal"><%= r.requested_at ? new Date(r.requested_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-' %></td>
+                  <td data-label="Pengajuan">#<%= r.id %></td>
+                  <td data-label="Nominal" class="amt"><strong>Rp <%= Number(r.amount).toLocaleString('id-ID') %></strong></td>
+                  <td data-label="Rekening"><%= r.bank_name || '-' %> · <%= r.account_number || '-' %><br /><span class="subtext">a.n. <%= r.account_name || me.name %></span></td>
+                  <td data-label="Status" class="mid">
+                    <span class="status <%= st === 'pending' ? 'status-pending' : (st === 'processing' ? 'status-processing' : (st === 'paid' ? 'status-approved' : (st === 'rejected' ? 'status-rejected' : 'status-cancelled'))) %>"><%= statusLabel[st] || st %></span>
+                    <% if (st === 'paid' && r.paid_at) { %><br /><span class="subtext"><%= new Date(r.paid_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: '2-digit' }) %></span><% } %>
+                  </td>
+                  <td data-label="Catatan">
+                    <% if (r.reject_reason) { %><span class="wd-off">Alasan: <%= r.reject_reason %></span><br /><% } %>
+                    <% if (r.admin_note) { %><span class="wd-off"><%= r.admin_note %></span><br /><% } %>
+                    <% if (r.transfer_ref) { %><span class="subtext">Ref: <%= r.transfer_ref %></span><br /><% } %>
+                    <% if (r.proof_file) { %>
+                      <a class="btn btn-outline quick-btn" href="<%= fileUrl(r.proof_file) %>" target="_blank" rel="noopener">📄 Bukti transfer</a>
+                    <% } %>
+                    <% if (st === 'pending') { %>
+                      <form action="/marketing/penarikan/batal" method="POST" style="display:inline-block;margin-left:6px;" data-confirm="Batalkan pengajuan #<%= r.id %>? Saldo Rp <%= Number(r.amount).toLocaleString('id-ID') %> kembali ke saldo tersedia.">
+                        <input type="hidden" name="id" value="<%= r.id %>" />
+                        <button type="submit" class="btn btn-outline quick-btn">✖ Batalkan</button>
+                      </form>
+                    <% } %>
+                    <% if (!r.reject_reason && !r.admin_note && !r.transfer_ref && !r.proof_file && st !== 'pending') { %><span class="subtext">-</span><% } %>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title-row">
+          <div class="feature-icon">📚</div>
+          <h3 style="margin:0;">Buku Mutasi Saldo</h3>
+        </div>
+        <p class="subtext mt-1">Setiap fee masuk, penarikan, dan koreksi tercatat berurutan beserta saldo setelahnya.</p>
+        <div class="table-wrap mt-2">
+          <table class="table stmt-table">
+            <thead>
+              <tr>
+                <th>Waktu</th>
+                <th>Keterangan</th>
+                <th class="amt">Nominal</th>
+                <th class="amt">Saldo Setelah</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!ledger.length) { %>
+                <tr><td colspan="4" class="empty-cell">Belum ada mutasi saldo.</td></tr>
+              <% } %>
+              <% ledger.forEach(function (l) { %>
+                <tr>
+                  <td data-label="Waktu"><%= l.created_at ? new Date(l.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-' %></td>
+                  <td data-label="Keterangan"><%= l.note || l.source %></td>
+                  <td data-label="Nominal" class="amt">
+                    <span class="<%= l.kind === 'credit' ? 'in' : 'out' %>"><%= l.kind === 'credit' ? '+' : '−' %> Rp <%= Number(l.amount).toLocaleString('id-ID') %></span>
+                  </td>
+                  <td data-label="Saldo Setelah" class="amt">Rp <%= Number(l.balance_after).toLocaleString('id-ID') %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- Popup verifikasi OTP penarikan -->
+<div class="otp-overlay" id="otpOverlay" role="dialog" aria-modal="true" aria-labelledby="otpTitle">
+  <div class="otp-box">
+    <div style="font-size:2rem;">🔐</div>
+    <h3 id="otpTitle">Verifikasi Penarikan</h3>
+    <p class="subtext" id="otpDesc">Kode OTP 6 digit dikirim ke email Anda.</p>
+    <p class="subtext"><strong id="otpAmountLbl"></strong></p>
+    <input class="otp-code" id="otpInput" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" aria-label="Kode OTP 6 digit" />
+    <div class="otp-timer" id="otpTimer"></div>
+    <div class="otp-err" id="otpErr"></div>
+    <div class="otp-actions">
+      <button type="button" class="btn btn-outline" id="otpCancel">Batal</button>
+      <button type="button" class="btn btn-accent" id="otpConfirm"><strong>Verifikasi &amp; Kirim</strong></button>
+    </div>
+    <p class="otp-resend">Tidak dapat kode? <button type="button" class="otp-link" id="otpResend" disabled>Kirim ulang</button> <span id="otpResendWrap">(<span id="otpResendSec">60</span> dtk)</span></p>
+  </div>
+</div>
+
+<script>
+  // Konfirmasi universal via data-confirm (pengganti onsubmit inline)
+  document.querySelectorAll('form[data-confirm]').forEach(function (fm) {
+    fm.addEventListener('submit', function (e) {
+      if (!window.confirm(fm.getAttribute('data-confirm'))) e.preventDefault();
+    });
+  });
+
+  (function () {
+    var form = document.getElementById('wdForm');
+    if (!form) return;
+    var input = document.getElementById('amount');
+    var otpField = document.getElementById('otpField');
+    var overlay = document.getElementById('otpOverlay');
+    var otpInput = document.getElementById('otpInput');
+    var otpDesc = document.getElementById('otpDesc');
+    var otpAmountLbl = document.getElementById('otpAmountLbl');
+    var otpTimer = document.getElementById('otpTimer');
+    var otpErr = document.getElementById('otpErr');
+    var otpResend = document.getElementById('otpResend');
+    var otpResendSec = document.getElementById('otpResendSec');
+    var otpCancel = document.getElementById('otpCancel');
+    var otpConfirm = document.getElementById('otpConfirm');
+    var verifiedSubmit = false;
+    var timerId = null;
+    var resendId = null;
+
+    function digits(v) { return String(v || '').replace(/\D/g, ''); }
+    function fmt(v) {
+      var d = digits(v);
+      return d ? Number(d).toLocaleString('id-ID') : '';
+    }
+    if (input) {
+      input.addEventListener('input', function () { input.value = fmt(input.value); });
+    }
+    form.querySelectorAll('[data-fill]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (input) input.value = fmt(btn.getAttribute('data-fill'));
+      });
+    });
+
+    function showErr(msg) {
+      if (!msg) { otpErr.style.display = 'none'; otpErr.textContent = ''; return; }
+      otpErr.style.display = 'block';
+      otpErr.textContent = msg;
+    }
+    function startCountdown(minutes) {
+      var end = Date.now() + minutes * 60 * 1000;
+      if (timerId) clearInterval(timerId);
+      timerId = setInterval(function () {
+        var left = Math.max(0, Math.floor((end - Date.now()) / 1000));
+        var mm = String(Math.floor(left / 60));
+        var ss = String(left % 60).padStart(2, '0');
+        otpTimer.textContent = left > 0 ? ('Kode berlaku ' + mm + ':' + ss) : 'Kode kedaluwarsa — minta kode baru.';
+        if (left <= 0) clearInterval(timerId);
+      }, 1000);
+    }
+    function startResendCooldown(sec) {
+      var left = sec || 60;
+      var wrap = document.getElementById('otpResendWrap');
+      otpResend.disabled = true;
+      if (resendId) clearInterval(resendId);
+      otpResendSec = document.getElementById('otpResendSec');
+      function paint() {
+        if (otpResendSec) otpResendSec.textContent = left;
+        if (wrap) wrap.style.display = left > 0 ? '' : 'none';
+      }
+      paint();
+      resendId = setInterval(function () {
+        left -= 1;
+        if (left <= 0) {
+          clearInterval(resendId);
+          otpResend.disabled = false;
+        }
+        paint();
+      }, 1000);
+    }
+    function postOtp(amount, btn) {
+      showErr('');
+      if (btn) { btn.disabled = true; }
+      var body = 'amount=' + encodeURIComponent(amount);
+      return fetch('/marketing/penarikan/otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body,
+      }).then(function (r) {
+        return r.json().then(function (j) { return { status: r.status, body: j }; });
+      }).catch(function () {
+        return { status: 0, body: { ok: false, message: 'Jaringan gagal. Coba lagi.' } };
+      }).finally(function () {
+        if (btn && btn !== otpResend) { btn.disabled = false; }
+      });
+    }
+    function openOtp(nominal) {
+      showErr('');
+      otpInput.value = '';
+      otpAmountLbl.textContent = 'Rp ' + nominal.toLocaleString('id-ID');
+      otpDesc.textContent = 'Kode OTP 6 digit dikirim ke email Anda.';
+      overlay.classList.add('open');
+      postOtp(String(nominal).replace(/\D/g, ''), otpConfirm).then(function (res) {
+        var j = res.body || {};
+        if (j.ok) {
+          otpDesc.textContent = j.message || 'Kode OTP dikirim ke email Anda.';
+          startCountdown(j.ttlMinutes || 10);
+          startResendCooldown(60);
+          setTimeout(function () { otpInput.focus(); }, 100);
+        } else if (j.redirect) {
+          window.location.href = j.redirect;
+        } else {
+          showErr(j.message || 'Gagal mengirim kode OTP.');
+          if (j.retryAfter) startResendCooldown(j.retryAfter);
+        }
+      });
+    }
+    function closeOtp() {
+      overlay.classList.remove('open');
+      if (timerId) clearInterval(timerId);
+      if (resendId) clearInterval(resendId);
+    }
+
+    otpCancel.addEventListener('click', closeOtp);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) closeOtp(); });
+    otpInput.addEventListener('input', function () {
+      otpInput.value = digits(otpInput.value).slice(0, 6);
+      showErr('');
+    });
+    otpResend.addEventListener('click', function () {
+      var nominal = Number(digits(input && input.value));
+      if (!nominal) return;
+      postOtp(String(nominal), otpResend).then(function (res) {
+        var j = res.body || {};
+        if (j.ok) {
+          otpDesc.textContent = j.message || 'Kode baru dikirim.';
+          startCountdown(j.ttlMinutes || 10);
+          startResendCooldown(j.retryAfter || 60);
+        } else if (j.redirect) {
+          window.location.href = j.redirect;
+        } else {
+          showErr(j.message || 'Gagal mengirim ulang.');
+          if (j.retryAfter) startResendCooldown(j.retryAfter);
+          else {
+            otpResend.disabled = false;
+            var wrap = document.getElementById('otpResendWrap');
+            if (wrap) wrap.style.display = 'none';
+          }
+        }
+      });
+    });
+    otpConfirm.addEventListener('click', function () {
+      var code = digits(otpInput.value);
+      if (code.length !== 6) {
+        showErr('Masukkan 6 digit kode OTP dari email.');
+        otpInput.focus();
+        return;
+      }
+      otpField.value = code;
+      verifiedSubmit = true;
+      form.submit();
+    });
+
+    form.addEventListener('submit', function (e) {
+      if (verifiedSubmit) return; // lolos dari popup OTP
+      e.preventDefault();
+      var nominal = Number(digits(input && input.value));
+      if (!nominal) {
+        alert('Isi nominal penarikan dulu.');
+        return;
+      }
+      openOtp(nominal);
+    });
+  })();
+</script>
+
+<%- include('../partials/foot') %>

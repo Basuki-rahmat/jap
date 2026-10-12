@@ -1,4 +1,4 @@
-<%- include('../partials/head', { title: 'Beranda - Sewa Lahan BSS' }) %>
+<%- include('../partials/head', { title: 'Beranda - Sewa Lahan BSS', preloadImage: '/img/jabodetabek-map.jpg' }) %>
 <%- include('../partials/navbar') %>
 
 <style>
@@ -49,6 +49,7 @@
           <a href="/ajukan?ref=<%= referralCode %>" class="btn btn-accent"><strong>Ajukan Lahan →</strong></a>
           <% } %>
           <a href="/panduan" class="btn btn-outline">Lihat Panduan</a>
+          <a href="/sppl-blanko" class="btn btn-outline" download>⬇ Blanko SPPL</a>
         </div>
         <ol class="hero-steps">
           <li><strong>1</strong> Ajukan lahan</li>
@@ -59,7 +60,7 @@
 
       <div class="hero-art">
         <figure class="hero-img-card hero-map zoomable">
-          <img src="/img/jabodetabek-map.jpg" alt="Wilayah prioritas Jabodetabek Sewa Lahan BSS x V-Green" />
+          <img src="/img/jabodetabek-map.jpg" alt="Wilayah prioritas Jabodetabek Sewa Lahan BSS x V-Green" width="630" height="958" fetchpriority="high" decoding="async" />
           <span class="zoom-hint">Klik untuk zoom</span>
           <span class="hero-badge hero-badge-top">📍 Wilayah Prioritas</span>
           <span class="hero-badge hero-badge-bottom">🔋 BSS &times; V-Green</span>
@@ -80,27 +81,27 @@
       <div class="grid-3">
         <% if (typeof user !== 'undefined' && user) { %>
         <a class="card" href="/ajukan<%= (typeof referralCode !== 'undefined' && referralCode) ? '?ref=' + referralCode : '' %>" title="Ajukan lokasi lahan">
-          <img class="feature-img" src="/img/ajukan-lokasi.png" alt="Ajukan lokasi lahan" loading="lazy" decoding="async" />
+          <img class="feature-img" src="/img/ajukan-lokasi.webp" alt="Ajukan lokasi lahan" width="640" height="427" loading="lazy" decoding="async" />
         </a>
         <% } else { %>
         <div class="card">
-          <img class="feature-img" src="/img/ajukan-lokasi.png" alt="Ajukan lokasi lahan" loading="lazy" decoding="async" />
+          <img class="feature-img" src="/img/ajukan-lokasi.webp" alt="Ajukan lokasi lahan" width="640" height="427" loading="lazy" decoding="async" />
         </div>
         <% } %>
         <div class="card">
-            <img class="feature-img" src="/img/verifikasi-admin.png" alt="verifikasi" loading="lazy" decoding="async" />
+            <img class="feature-img" src="/img/verifikasi-admin.webp" alt="verifikasi" width="640" height="427" loading="lazy" decoding="async" />
           </div>
         <div class="card">
-            <img class="feature-img" src="/img/fee.png" alt="fee" loading="lazy" decoding="async" />
+            <img class="feature-img" src="/img/fee.webp" alt="fee" width="640" height="427" loading="lazy" decoding="async" />
         </div>
         <div class="card">
-            <img class="feature-img" src="/img/rekrut.png" alt="Downline" loading="lazy" decoding="async" />
+            <img class="feature-img" src="/img/rekrut.webp" alt="Downline" width="640" height="427" loading="lazy" decoding="async" />
         </div>
         <div class="card">
-          <img class="feature-img" src="/img/referal.png" alt="refferal" loading="lazy" decoding="async" />
+          <img class="feature-img" src="/img/referal.webp" alt="refferal" width="640" height="427" loading="lazy" decoding="async" />
         </div>
         <div class="card">
-          <img class="feature-img" src="/img/pantau.png" alt="Dashboard" loading="lazy" decoding="async" />
+          <img class="feature-img" src="/img/pantau.webp" alt="Dashboard" width="640" height="427" loading="lazy" decoding="async" />
         </div>
       </div>
     </div>
@@ -110,7 +111,7 @@
   <section class="section">
     <div class="container">
       <div class="cta-banner text-center">
-        <img class="cta-banner-img" src="/img/pengajuan.png" alt="Pengajuan lahan" loading="lazy" decoding="async" />
+        <img class="cta-banner-img" src="/img/pengajuan.webp" alt="Pengajuan lahan" width="1080" height="540" loading="lazy" decoding="async" />
         <h2 class="mb-3">Siap Memulai?</h2>
         <p style="max-width:520px;margin:0 auto 26px;">
           Ajukan lahan pertama Anda sekarang dan nikmati keuntungannya.
@@ -120,6 +121,7 @@
         <% } else { %>
         <a href="/panduan" class="btn btn-accent">Lihat Panduan</a>
         <% } %>
+        <a href="/sppl-blanko" class="btn btn-outline" download style="margin-left:8px;">⬇ Unduh Blanko SPPL (kosong, tanpa nama)</a>
       </div>
     </div>
   </section>
@@ -128,7 +130,7 @@
 <%- include('../partials/foot') %>
 
 <div id="zoom-overlay" aria-hidden="true">
-  <img id="zoom-img" src="/img/jabodetabek-map.jpg" alt="Wilayah prioritas Jabodetabek" />
+  <img id="zoom-img" src="" data-src="/img/jabodetabek-map.jpg" alt="Wilayah prioritas Jabodetabek" width="630" height="958" loading="lazy" decoding="async" />
   <button id="zoom-close" aria-label="Tutup">&times;</button>
 </div>
 
@@ -139,7 +141,7 @@
     var closeBtn = document.getElementById('zoom-close');
     document.querySelectorAll('.zoomable img').forEach(function (el) {
       el.addEventListener('click', function () {
-        img.src = el.src;
+        img.src = el.currentSrc || el.src;
         overlay.classList.add('open');
         overlay.setAttribute('aria-hidden', 'false');
       });
@@ -147,6 +149,7 @@
     function close() {
       overlay.classList.remove('open');
       overlay.setAttribute('aria-hidden', 'true');
+      img.removeAttribute('src');
     }
     closeBtn.addEventListener('click', close);
     overlay.addEventListener('click', function (e) {

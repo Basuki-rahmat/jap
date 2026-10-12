@@ -2,7 +2,16 @@
    BSS THEME — Light Mode KNAB (navy + gold) + Dark Mode
    Referensi terang: navy (#0b376b/#0b4385) + emas (#c4931c/#d2a02a)
    di atas putih (#ffffff) -> (#f8fafc) -> (#eef4fa)
+   Font Open Sans di-self-host (public/fonts) agar tidak render-blocking
+   ke Google Fonts + bisa di-cache immutable.
    ============================================================ */
+@font-face {
+  font-family: "Open Sans";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/open-sans-latin.woff2") format("woff2");
+}
 
 :root {
   /* --- Light Mode (KNAB inspired) --- */
@@ -1527,6 +1536,10 @@ img {
 .status-pending { background: rgba(243, 147, 27, 0.15); color: var(--accent); }
 .status-approved { background: var(--accent-soft); color: var(--success); }
 .status-rejected { background: rgba(220, 38, 38, 0.12); color: var(--danger); }
+/* Status penarikan dana fee (mitra & admin) */
+.status-processing { background: var(--primary-soft); color: var(--primary); }
+.status-paid { background: var(--accent-soft); color: var(--success); }
+.status-cancelled { background: var(--surface-2); color: var(--text-muted); }
 
 .copy-row {
   display: flex;
@@ -1918,4 +1931,42 @@ img {
   .org-name { font-size: .86rem; }
   .org-role { margin-top: 0; }
   .org-stat { margin-top: 0; }
+}
+
+/* ============================================================
+   Admin: sidemenu kiri terpisah & menetap di desktop.
+   Mobile/tablet (<=1024px): sidemenu disembunyikan, drawer overlay biasa.
+   ============================================================ */
+.admin-sidebar { display: none; }
+@media (min-width: 1025px) {
+  body.has-admin-sidebar .admin-sidebar { display: flex; position: fixed; left: 0; top: 0; bottom: 0; width: 260px; z-index: 60; flex-direction: column; gap: 4px; overflow-y: auto; background: var(--bg); border-right: 1px solid var(--card-border); padding: 0 12px 20px; }
+  body.has-admin-sidebar .admin-side-brand, body.has-mkt-sidebar .admin-side-brand { display: flex; align-items: center; gap: 10px; min-height: 68px; padding: 12px 8px; border-bottom: 1px solid var(--card-border); font-weight: 700; font-size: 1.25rem; color: var(--text); white-space: nowrap; }
+  body.has-admin-sidebar .admin-side-brand .logo-img, body.has-mkt-sidebar .admin-side-brand .logo-img { width: 38px; height: 38px; border-radius: 10px; object-fit: contain; background: #ffffff; padding: 3px; border: 1px solid var(--card-border); }
+  body.has-admin-sidebar .admin-side-brand .brand-text, body.has-mkt-sidebar .admin-side-brand .brand-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  body.has-admin-sidebar .navbar { margin-left: 260px; }
+  body.has-admin-sidebar .navbar .nav-start .brand { display: none; }
+  body.has-admin-sidebar .admin-side-head, body.has-mkt-sidebar .admin-side-head { padding: 12px 8px 10px; font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
+  body.has-admin-sidebar .admin-side-nav, body.has-mkt-sidebar .admin-side-nav { display: flex; flex-direction: column; gap: 4px; }
+  body.has-admin-sidebar .admin-side-nav .drawer-link, body.has-mkt-sidebar .admin-side-nav .drawer-link { font-size: .95rem; }
+  body.has-admin-sidebar .admin-side-foot, body.has-mkt-sidebar .admin-side-foot { margin-top: auto; padding-top: 12px; }
+  body.has-admin-sidebar .drawer-backdrop { display: none !important; }
+  body.has-admin-sidebar .nav-toggle { display: none; }
+  body.has-admin-sidebar main { margin-left: 260px; }
+  body.has-admin-sidebar .footer { margin-left: 260px; }
+}
+
+/* ============================================================
+   Marketing: sidemenu kiri terpisah & menetap di desktop.
+   Mobile/tablet (<=1024px): sidemenu disembunyikan, drawer overlay biasa.
+   ============================================================ */
+.mkt-sidebar { display: none; }
+@media (min-width: 1025px) {
+  body.has-mkt-sidebar .mkt-sidebar { display: flex; position: fixed; left: 0; top: 0; bottom: 0; width: 260px; z-index: 60; flex-direction: column; gap: 4px; overflow-y: auto; background: var(--bg); border-right: 1px solid var(--card-border); padding: 0 12px 20px; }
+  body.has-mkt-sidebar .navbar { margin-left: 260px; }
+  body.has-mkt-sidebar .navbar .nav-start .brand { display: none; }
+  body.has-mkt-sidebar .navbar .nav-menu { display: none; }
+  body.has-mkt-sidebar .drawer-backdrop { display: none !important; }
+  body.has-mkt-sidebar .nav-toggle { display: none; }
+  body.has-mkt-sidebar main { margin-left: 260px; }
+  body.has-mkt-sidebar .footer { margin-left: 260px; }
 }

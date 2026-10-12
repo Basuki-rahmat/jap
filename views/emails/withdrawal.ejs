@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title><%= heading %></title>
+</head>
+<body style="margin:0;padding:0;background-color:#eef3f7;font-family:'Segoe UI',Arial,Helvetica,sans-serif;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;"><%= heading %> — <%= brandName %></div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#eef3f7;padding:24px 12px;">
+<tr><td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 6px 24px rgba(11,95,165,.14);">
+<tr><td style="background:linear-gradient(135deg,#0b5fa5 0%,#0e7a5f 55%,#16a34a 100%);padding:26px 32px;text-align:center;">
+<% if (logoUrl) { %><img src="<%= logoUrl %>" alt="<%= brandName %>" style="max-height:56px;max-width:220px;margin-bottom:10px;" /><br /><% } %>
+<div style="font-size:34px;line-height:1;">💸</div>
+<div style="color:#ffffff;font-size:19px;font-weight:800;letter-spacing:.3px;margin-top:6px;"><%= heading %></div>
+<div style="color:rgba(255,255,255,.85);font-size:13px;margin-top:4px;"><%= brandName %> — Penarikan Dana Fee</div>
+</td></tr>
+<tr><td style="padding:30px 32px 8px;">
+<p style="margin:0 0 16px;font-size:14px;line-height:1.7;color:#3d5469;"><%= intro %></p>
+<% if (typeof lines !== 'undefined' && lines && lines.length) { %>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;background:#f4f8fd;border:1px solid #d6e6f6;border-radius:12px;">
+<tr><td style="padding:16px;font-size:13px;line-height:1.9;color:#123a5e;">
+<% lines.forEach(function (row) { %>
+<strong><%= row[0] %>:</strong> <%= row[1] %><br />
+<% }) %>
+</td></tr></table>
+<% } %>
+<% if (typeof actionUrl !== 'undefined' && actionUrl && typeof actionText !== 'undefined' && actionText) { %>
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px auto 20px;"><tr><td align="center" style="background:linear-gradient(135deg,#0b5fa5,#16a34a);border-radius:999px;">
+<a href="<%= actionUrl %>" style="display:inline-block;padding:14px 36px;color:#ffffff;font-size:15px;font-weight:800;text-decoration:none;"><%= actionText %></a>
+</td></tr></table>
+<% } %>
+<p style="margin:0 0 16px;font-size:13px;line-height:1.7;color:#3d5469;">Simpan email ini sebagai bukti pengajuan/pembayaran. Bila ada pertanyaan, hubungi admin melalui kontak resmi kami.</p>
+</td></tr>
+<tr><td style="padding:18px 32px 26px;border-top:1px solid #e6edf3;text-align:center;">
+<p style="margin:0;font-size:12px;line-height:1.8;color:#8aa0b4;"><strong><%= brandFull %></strong><br />Email otomatis — mohon tidak membalas langsung.<br /><a href="<%= appUrl %>" style="color:#0b5fa5;"><%= appUrl %></a></p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>

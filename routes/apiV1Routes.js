@@ -91,6 +91,10 @@ router.post('/auth/login', async (req, res) => {
     purgeExpired().catch(() => {});
     const accessToken = signAccess(user);
     const refreshToken = await storeRefreshToken(user.id, deviceName);
+    // Peringatan email bila device_name + UA belum pernah dipakai user ini.
+    try {
+      require('../utils/loginAlert').checkNewDeviceAndAlert(req, user, deviceName).catch(() => {});
+    } catch (e) {}
     res.json({
       ok: true,
       access_token: accessToken,
@@ -202,6 +206,38 @@ router.post('/device-token', isApiAuth, async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error('API device-token error:', err && err.message);
+    res.status(500).json({ ok: false, message: 'Terjadi kesalahan server.' });
+  }
+});
+
+// ============ PERANGKAT DIKENAL (semua role, milik sendiri) ============
+// Daftar fingerprint login yang pernah memicu / menahan email peringatan baru.
+router.get('/devices', isApiAuth, async (req, res) => {
+  try {
+    const items = await query(
+      `SELECT id, device_name, user_agent, last_ip, first_seen, last_seen
+       FROM user_devices WHERE user_id = ? ORDER BY last_seen DESC LIMIT 50`,
+      [Number(req.apiUser.id)]
+    );
+    res.json({ ok: true, items });
+  } catch (err) {
+    if (err && err.code === 'ER_NO_SUCH_TABLE') {
+      return res.status(500).json({ ok: false, message: 'Tabel user_devices belum ada — jalankan upgradeDb di server.' });
+    }
+    console.error('API devices error:', err && err.message);
+    res.status(500).json({ ok: false, message: 'Terjadi kesalahan server.' });
+  }
+});
+
+// Lupakan satu perangkat milik sendiri -> login berikutnya dari sana memicu email lagi.
+router.delete('/devices/:id', isApiAuth, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ ok: false, message: 'id perangkat wajib diisi.' });
+    await query('DELETE FROM user_devices WHERE id = ? AND user_id = ?', [id, Number(req.apiUser.id)]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('API devices delete error:', err && err.message);
     res.status(500).json({ ok: false, message: 'Terjadi kesalahan server.' });
   }
 });
@@ -366,7 +402,7 @@ router.get('/lahan', async (req, res) => {
 });
 
 // ============ ADMIN (role superadmin) ============
-const isAdmin = [isApiAuth, isApiRole('superadmin')];
+const isAdmin = [isApiAuth, isApiRole('superadmin', 'admin')];
 
 // Daftar marketing + agregat (mobile memfilter pending_approval sendiri).
 router.get('/admin/marketing', ...isAdmin,

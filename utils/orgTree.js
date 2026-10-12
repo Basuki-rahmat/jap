@@ -19,13 +19,17 @@ function initials(n) {
     .map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 }
 
+function qtyOfUnit(l) {
+  return Math.min(10, Math.max(1, Number((l && l.slot_no) || 1)));
+}
+
 function ownerNodes(units) {
   const map = {};
   (units || []).forEach((l) => {
     const k = String(l.phone_number || l.owner_name);
     if (!map[k]) map[k] = { name: l.owner_name || '-', phone: l.phone_number || '', bss: 0, evcs: 0 };
-    if (l.unit_type === 'evcs_mobil') map[k].evcs += 1;
-    else map[k].bss += 1;
+    if (l.unit_type === 'evcs_mobil') map[k].evcs += qtyOfUnit(l);
+    else map[k].bss += qtyOfUnit(l);
   });
   return Object.values(map);
 }
@@ -67,7 +71,7 @@ async function buildOrgTree({ includeOwners = false, includeLocked = false, phot
       photo: photoMap ? photoMap(u.photo_file) : null,
       initials: initials(u.name),
       referral: u.referral_code || '-',
-      units: units.length,
+      units: units.reduce((a, l) => a + qtyOfUnit(l), 0),
       locked: Number(u.is_locked) === 1,
       children: (byParent[u.id] || []).map((c) => build(c, depth + 1, seen)).filter(Boolean),
       owners: includeOwners ? ownerNodes(units) : [],
@@ -78,7 +82,7 @@ async function buildOrgTree({ includeOwners = false, includeLocked = false, phot
     .filter((u) => !u.parent_id || !ids.has(Number(u.parent_id)))
     .map((u) => build(u, 0, new Set()))
     .filter(Boolean);
-  const totalUnits = lands.length;
+  const totalUnits = lands.reduce((a, l) => a + qtyOfUnit(l), 0);
   const totalOwners = new Set(lands.map((l) => String(l.phone_number || l.owner_name))).size;
   return {
     tree: roots,

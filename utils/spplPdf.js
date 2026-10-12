@@ -70,27 +70,7 @@ function identityRow(doc, label, value, opts) {
  * Membuat PDF SPPL sesuai format dokumen asli.
  * company: profil perusahaan dari Pengaturan (nama, alamat, kota, penandatangan).
  */
-function generateSpplPdf(land, marketingName, approvalDate, company) {
-  return new Promise(async (resolve, reject) => {
-    try {
-      if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-      const fname = `sppl-${land ? land.id : 'doc'}-${Date.now()}.pdf`;
-      const abs = path.join(uploadDir, fname);
-
-      // Margin A4: Top 4cm, Right 3cm, Bottom 3cm, Left 3cm
-      const doc = new PDFDocument({
-        size: 'A4',
-        margins: {
-          top: cmToPt(4),
-          right: cmToPt(3),
-          bottom: cmToPt(3),
-          left: cmToPt(3),
-        },
-      });
-
-      const stream = fs.createWriteStream(abs);
-      doc.pipe(stream);
-
+function buildSpplBody(doc, land, marketingName, approvalDate, company) {
       const L = land || {};
       const C = company || {};
       const kada = approvalDate ? new Date(approvalDate) : new Date();
@@ -242,14 +222,49 @@ function generateSpplPdf(land, marketingName, approvalDate, company) {
       doc.moveDown(0.5);
 
       {
-        const signColWidth = 200;
+        const signColWidth = 220;
         const signX = pageLeft + contentWidth - signColWidth;
         doc.font('Times-Roman').fontSize(11).text(textTgl, signX, doc.y, { width: signColWidth, align: 'right' });
         doc.moveDown(0.3);
         doc.font('Times-Roman').fontSize(11).text('Yang membuat pernyataan,', signX, doc.y, { width: signColWidth, align: 'center' });
-        doc.moveDown(3);
+        doc.moveDown(2);
+        // Ruang materai: tempel materai fisik di sini, tanda tangan melintasi materai.
+        doc.font('Times-Roman').fontSize(11).text('Materai\nRp10.000', signX, doc.y, { width: signColWidth, align: 'center' });
+        doc.moveDown(2);
         doc.font('Times-Bold').fontSize(11).text(`[ ${L.owner_name || '....................'} ]`, signX, doc.y, { width: signColWidth, align: 'center' });
       }
+}
+
+function newSpplDoc() {
+  return new PDFDocument({
+    size: 'A4',
+    margins: {
+      top: cmToPt(4),
+      right: cmToPt(3),
+      bottom: cmToPt(3),
+      left: cmToPt(3),
+    },
+  });
+}
+
+/**
+ * Membuat PDF SPPL sesuai format dokumen asli.
+ * company: profil perusahaan dari Pengaturan (nama, alamat, kota, penandatangan).
+ */
+function generateSpplPdf(land, marketingName, approvalDate, company) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+      const fname = `sppl-${land ? land.id : 'doc'}-${Date.now()}.pdf`;
+      const abs = path.join(uploadDir, fname);
+
+      // Margin A4: Top 4cm, Right 3cm, Bottom 3cm, Left 3cm
+      const doc = newSpplDoc();
+
+      const stream = fs.createWriteStream(abs);
+      doc.pipe(stream);
+
+      buildSpplBody(doc, land, marketingName, approvalDate, company);
 
       doc.end();
       stream.on('finish', () => resolve('/uploads/' + fname));
@@ -260,4 +275,17 @@ function generateSpplPdf(land, marketingName, approvalDate, company) {
   });
 }
 
-module.exports = { generateSpplPdf, fmtDateLong };
+/**
+ * Blanko SPPL kosong (tanpa nama pemilik) untuk diunduh mandiri.
+ * Dialirkan langsung ke response — tanpa DB, tanpa login, tanpa file sisa.
+ */
+function streamBlankSpplPdf(res, company) {
+  const doc = newSpplDoc();
+  doc.info.Title = 'Blanko SPPL - Sewa Lahan BSS';
+  doc.info.Author = (company && company.company_name) || 'Sewa Lahan BSS';
+  doc.pipe(res);
+  buildSpplBody(doc, {}, '', null, company);
+  doc.end();
+}
+
+module.exports = { generateSpplPdf, streamBlankSpplPdf, fmtDateLong };

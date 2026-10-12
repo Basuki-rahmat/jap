@@ -2,31 +2,31 @@ nilai fee dihintung pada lahan yang di aprove (disetujui)
 
 BSS
 wilayah DKI Jakarta 
-= 900.000 = kordinator wajib di bayarkan ke head marketing
-= 500.000 = head marketing  (wajib dibarkan ke marketing)
-= 300.000 = marketing sis = 
+kordinator = 900.000 = kordinator wajib di bayarkan ke head marketing 500.000
+head marketing  = 500.000 =  (wajib dibarkan ke marketing) 300.000
+= 300.000 = marketing 
 
 
 
 bogor 
-= 700.000 = di bayarkan ke head marketing 
-= 450.000 = (wajib dibarkan ke marketing)
+kordinator = 700.000 = kordinator wajib di bayarkan ke head marketing 450.000
+head marketing = 450.000 =   (wajib dibarkan ke marketing) 300.000
 = 300.000 = marketing
 
 depok
-= 700.000 = di bayarkan ke head marketing 
-= 450.000 = Head Marketing (wajib dibarkan ke marketing)
+kordinator = 700.000 = kordinator wajib di bayarkan ke head marketing 450.000
+head marketing = 450.000 =   (wajib dibarkan ke marketing) 300.000
 = 300.000 = marketing
 
 tangerang
-= 700.000 = di bayarkan ke head marketing 
-= 450.000 = Head Marketing (wajib dibarkan ke marketing)
+kordinator = 700.000 = kordinator wajib di bayarkan ke head marketing 450.000
+head marketing = 450.000 =  (wajib dibarkan ke marketing) 300.000
 = 300.000 = marketing
 
 
 bekasi 
-= 700.000 = di bayarkan ke head marketing 
-= 450.000 = Head Marketing (wajib dibarkan ke marketing)
+kordinator = 700.000 = kordinator wajib di bayarkan ke head marketing 450.000 
+head marketing = 450.000 =   (wajib dibarkan ke marketing) 300.000
 = 300.000 = marketing
 
 =================================
@@ -34,28 +34,28 @@ EVCS
 =================================
 
 wilayah DKI Jakarta  
-= 1.500.000 = kordinator di bayarkan ke head marketing
-= 800.000 = head marketing  (wajib dibarkan ke marketing)
+kordinator = 1.500.000 =  di bayarkan ke head marketing 800.000
+head marketing = 800.000 =  (wajib dibarkan ke marketing) 500.000
 = 500.000 = marketing 
 
 bogor 
-= 1.200.000 = di bayarkan ke head marketing 
-= 750.000 = head marketing (wajib dibarkan ke marketing)
+kordinator = 1.200.000 =  di bayarkan ke head marketing 750.000
+head marketing = 750.000 = (wajib dibarkan ke marketing) 500.000
 = 500.000 = marketing
 
 depok 
-= 1.200.000 = di bayarkan ke head marketing 
-= 750.000 = head marketing (wajib dibarkan ke marketing)
+kordinator = 1.200.000 = di bayarkan ke head marketing 750.000
+head marketing = 750.000 =  (wajib dibarkan ke marketing) 500.000
 = 500.000 = marketing
 
 tangerang
-= 1.200.000 = di bayarkan ke head marketing 
-= 750.000 = head marketing (wajib dibarkan ke marketing)
+kordinator = 1.200.000 = di bayarkan ke head marketing 750.000
+head marketing = 750.000 =  (wajib dibarkan ke marketing) 500.000
 = 500.000 = marketing
 
 bekasi
-= 1.200.000 = di bayarkan ke head marketing 
-= 750.000 = head marketing (wajib dibarkan ke marketing)
+kordinator = 1.200.000 = di bayarkan ke head marketing 750.000
+head marketing = 750.000 =  (wajib dibarkan ke marketing) 500.000
 = 500.000 = marketing
 
 

@@ -67,8 +67,8 @@ router.get('/:name', async (req, res) => {
 
     const legacy = '/uploads/' + name;
 
-    // Superadmin: boleh semua.
-    if (user.role !== 'superadmin') {
+    // Superadmin & admin: boleh semua.
+    if (user.role !== 'superadmin' && user.role !== 'admin') {
       let allowed = false;
 
       // 1) Berkas lahan milik sendiri.
@@ -117,7 +117,19 @@ router.get('/:name', async (req, res) => {
         } catch (e) {}
       }
 
-      // 3) Foto diri sendiri (avatar). KTP orang lain tetap dilarang —
+      // 3) Bukti transfer penarikan milik sendiri (dibagikan admin lewat
+      //    /marketing/penarikan). Admin (superadmin) sudah diizinkan di atas.
+      if (!allowed) {
+        try {
+          const own = await dbQuery(
+            'SELECT id FROM withdrawals WHERE user_id = ? AND proof_file = ? LIMIT 1',
+            [user.id, legacy]
+          );
+          if (own.length) allowed = true;
+        } catch (e) {}
+      }
+
+      // 4) Foto diri sendiri (avatar). KTP orang lain tetap dilarang —
       //    avatar milik sendiri + avatar marketing lain boleh dilihat user
       //    login mana pun (daftar member, ID card) tapi TIDAK publik.
       if (!allowed) {

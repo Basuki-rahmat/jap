@@ -17,7 +17,7 @@ router.get('/notifikasi', async (req, res) => {
        WHERE target_user_id = ? ORDER BY id DESC LIMIT 100`,
       [myId(req)]
     );
-    const back = req.session.user && req.session.user.role === 'superadmin' ? '/admin' : '/marketing';
+    const back = req.session.user && (req.session.user.role === 'superadmin' || req.session.user.role === 'admin') ? '/admin' : '/marketing';
     res.render('notifications/list', { title: 'Notifikasi', items, back });
   } catch (err) {
     console.error('Notif list error:', err);

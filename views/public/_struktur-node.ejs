@@ -5,7 +5,7 @@
   <div class="org-node <%= lvl %><%= _isMe ? ' is-me' : '' %>">
     <span class="org-avatar">
       <% var _ph = (typeof fileUrl !== 'undefined' ? fileUrl(node.photo) : node.photo); %>
-      <% if (_ph) { %><img src="<%= _ph %>" alt="<%= node.name %>" loading="lazy" onerror="this.remove()" /><% } %>
+      <% if (_ph) { %><img src="<%= _ph %>" alt="<%= node.name %>" width="52" height="52" loading="lazy" onerror="this.remove()" /><% } %>
       <b><%= node.initials %></b>
     </span>
     <strong class="org-name"><%= node.name %><% if (node.locked) { %> 🔒<% } %></strong>

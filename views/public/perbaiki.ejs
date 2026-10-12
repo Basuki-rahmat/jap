@@ -1,6 +1,6 @@
 <%- include('../partials/head', { title: 'Perbaiki Pengajuan - BSS', withMap: true }) %>
 <%- include('../partials/navbar') %>
-<link rel="stylesheet" href="/css/photo-picker.css" />
+<link rel="stylesheet" href="/css/photo-picker.min.css" />
 
 <style>
   .fix-card { max-width: 560px; margin: 0 auto 18px; }
@@ -514,10 +514,10 @@
 </main>
 
 <% if (typeof withMap !== 'undefined' && withMap) { %>
-<script src="/vendor/leaflet/leaflet.js"></script>
-<script src="/vendor/leaflet/Control.FullScreen.js"></script>
-<script src="/js/location-map.js"></script>
-<script src="/js/photo-picker.js"></script>
+<script src="/vendor/leaflet/leaflet.js" defer></script>
+<script src="/vendor/leaflet/Control.FullScreen.js" defer></script>
+<script src="/js/location-map.js" defer></script>
+<script src="/js/photo-picker.js" defer></script>
 <% } %>
 
 <%- include('../partials/foot') %>

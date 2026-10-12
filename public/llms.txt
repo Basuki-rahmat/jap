@@ -1,0 +1,26 @@
+# KNAB — Sewa Lahan BSS × V-Green
+
+> Platform sewa lahan kecil untuk Battery Swap Station (BSS) motor dan EVCS mobil
+> bersama V-Green. Pemilik lahan mengajukan lahan, memantau status verifikasi, dan
+> menerima sewa tahunan. Marketing memiliki kode referral dan struktur jaringan.
+
+## Panduan
+
+- [Beranda](https://knab.co.id/)
+- [Panduan kerja sama](https://knab.co.id/panduan)
+- [Lacak pengajuan](https://knab.co.id/lacak)
+- [Formulir pengajuan lahan](https://knab.co.id/ajukan)
+- [Pendaftaran marketing](https://knab.co.id/daftar-marketing)
+- [Verifikasi anggota](https://knab.co.id/verifikasi)
+
+## API
+
+- [Katalog sumber daya agen (ai-catalog)](https://knab.co.id/.well-known/ai-catalog.json)
+- API publik JSON v1 di `https://knab.co.id/api/v1` (autentikasi header `Authorization: Bearer`,
+  dipakai aplikasi mobile untuk login, pengajuan lahan, dan pelacakan status).
+
+## Kebijakan crawler
+
+- Data pengajuan, berkas `/uploads/*`, `/berkas/*`, dan area login/admin dilarang
+  untuk crawl (lihat `robots.txt`). Ringkasan halaman publik boleh dikutip dengan
+  atribusi ke KNAB.

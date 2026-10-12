@@ -467,6 +467,20 @@ exports.deleteMarketing = async (req, res) => {  try {
       flash(req, 'error', 'Marketing punya data lahan, hapus lebih dulu data lahannya.');
       return res.redirect('/admin/marketing');
     }
+    // Fee/saldo yang masih menempel (mis. head/koor dari lahan downline) harus
+    // diselesaikan dulu supaya buku mutasi tidak kehilangan pemiliknya.
+    try {
+      const hasFee = await get('SELECT id FROM fee_logs WHERE marketing_id = ? LIMIT 1', [id]);
+      const walletRow = await get('SELECT balance FROM user_wallets WHERE user_id = ?', [id]);
+      const hasWd = await get('SELECT id FROM withdrawals WHERE user_id = ? LIMIT 1', [id]);
+      if (hasFee || hasWd || (walletRow && Number(walletRow.balance) !== 0)) {
+        flash(req, 'error', 'Akun ini masih punya catatan fee/penarikan — selesaikan pembayarannya dulu.');
+        return res.redirect('/admin/marketing');
+      }
+    } catch (e) {
+      // Tabel dompet belum ada (belum migrasi) -> lanjut seperti perilaku lama.
+      console.error('Cek dompet saat hapus marketing dilewati:', e.message);
+    }
     await query('UPDATE users SET parent_id = NULL WHERE parent_id = ?', [id]);
     await query('DELETE FROM users WHERE id = ?', [id]);
     flash(req, 'success', `Marketing "${marketing.name}" dihapus.`);
@@ -801,6 +815,8 @@ exports.saveSettings = async (req, res) => {
       const chosen = picked.map((s) => String(s)).filter((s) => allowed.has(s));
       await setSetting('proposal_attachments', (chosen.length ? chosen : PROPOSAL_ATTACHMENTS.map((a) => a[0])).join(','));
       await setSetting('proposal_notes', String(req.body.proposal_notes || '').trim().slice(0, 2000));
+      await setSetting('proposal_vendor_a', String(req.body.proposal_vendor_a || '').trim().slice(0, 60));
+      await setSetting('proposal_vendor_b', String(req.body.proposal_vendor_b || '').trim().slice(0, 60));
       // Matriks fee berjenjang (kotor): fee_bss_<wil>_<role>, fee_evcs_<wil>_<role>.
       // Validasi Koor ≥ Head ≥ Marketing ada di saveFeeMatrix; gagal simpan fee
       // tidak menggagalkan simpan profil (pesan error khusus).
@@ -869,12 +885,13 @@ exports.saveSettings = async (req, res) => {
       eraseImg(oldLogo, '/img/company-logo-');
     }
     // Kompresi server-side untuk logo/TTD baru (best-effort, tak menggagalkan simpan).
+    // Logo cuma tampil 38px di navbar: batasi 512px agar tidak jadi 861KB seperti sebelumnya.
     try {
       const { compressUploads } = require('../utils/imageCompress');
       const fresh = [];
       if (upLogo) fresh.push(upLogo);
       if (upSign) fresh.push(upSign);
-      if (fresh.length) await compressUploads(fresh, { maxDim: 1600 });
+      if (fresh.length) await compressUploads(fresh, { maxDim: 512 });
     } catch (e) {}
     // Segarkan favicon ber-box mengikuti logo terbaru (best-effort).
     try {
@@ -891,6 +908,7 @@ exports.saveSettings = async (req, res) => {
       eraseImg(oldSign, '/img/signature-');
     }
     flash(req, 'success', 'Pengaturan perusahaan disimpan.');
+    try { require('../utils/companyProfile').clearBrandCache(); } catch (e) {}
     res.redirect('/admin/settings?tab=' + (String(req.body.active_tab || '') === 'fee' ? 'fee' : 'profil'));
   } catch (err) {
     console.error('Save settings error:', err);
@@ -906,23 +924,47 @@ exports.saveSettings = async (req, res) => {
 };
 
 // Helper: terbitkan SPPL bila belum ada (dipakai saat verifikasi lolos & fallback approve).
-// Mengembalikan { path, created } — created=false bila SPPL sudah ada sebelumnya.
+// SATU file per penyedia (kunci phone_number): semua unit pemilik yang sama
+// menunjuk sppl_file yang sama. Mengembalikan { path, created, units }.
 async function ensureSppl(landId) {
-  const existing = await get('SELECT sppl_file FROM lands WHERE id = ?', [landId]);
-  if (existing && existing.sppl_file) return { path: existing.sppl_file, created: false };
+  const row = await get('SELECT id, phone_number, marketing_id, sppl_file FROM lands WHERE id = ?', [landId]);
+  if (!row) throw new Error('Lahan tidak ditemukan.');
+  const sibs = row.phone_number
+    ? await query('SELECT id, sppl_file FROM lands WHERE phone_number = ? ORDER BY id ASC', [row.phone_number])
+    : [{ id: row.id, sppl_file: row.sppl_file }];
+  const have = sibs.find((s) => s.sppl_file);
+  if (have) {
+    // Konsolidasi: unit yang belum punya ikut memakai file yang sudah ada;
+    // file duplikat yatim dihapus dari disk (best-effort).
+    const missing = sibs.filter((s) => !s.sppl_file).map((s) => s.id);
+    if (missing.length) {
+      await query(`UPDATE lands SET sppl_file = ? WHERE id IN (${missing.map(() => '?').join(',')})`, [have.sppl_file, ...missing]);
+    }
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const orphans = [...new Set(sibs.map((s) => s.sppl_file).filter((p) => p && p !== have.sppl_file))];
+      orphans.forEach((p) => {
+        fs.unlink(path.join(__dirname, '..', 'public', String(p).replace(/^\//, '')), () => {});
+      });
+    } catch (e) {}
+    return { path: have.sppl_file, created: false, units: sibs.length };
+  }
   const { generateSpplPdf } = require('../utils/spplPdf');
-  const full = await get('SELECT * FROM lands WHERE id = ?', [landId]);
+  const full = await get('SELECT * FROM lands WHERE id = ?', [sibs[0].id]);
   if (!full) throw new Error('Lahan tidak ditemukan.');
-  const mkt = full.marketing_id
-    ? await get('SELECT name FROM users WHERE id = ?', [full.marketing_id])
+  const mktSrc = full.marketing_id ? full : row;
+  const mkt = mktSrc.marketing_id
+    ? await get('SELECT name FROM users WHERE id = ?', [mktSrc.marketing_id])
     : null;
   let company = {};
   try {
     company = await require('../utils/companyProfile').getCompanyProfile();
   } catch (e) { company = {}; }
   const spplPath = await generateSpplPdf(full, mkt ? mkt.name : '', new Date(), company);
-  await query('UPDATE lands SET sppl_file = ? WHERE id = ?', [spplPath, landId]);
-  return { path: spplPath, created: true };
+  const ids = sibs.map((s) => s.id);
+  await query(`UPDATE lands SET sppl_file = ? WHERE id IN (${ids.map(() => '?').join(',')})`, [spplPath, ...ids]);
+  return { path: spplPath, created: true, units: ids.length };
 }
 
 exports.approveLand = async (req, res) => {
@@ -932,35 +974,39 @@ exports.approveLand = async (req, res) => {
 
     await conn.beginTransaction();
 
-    const [landRows] = await conn.execute('SELECT id, marketing_id, harga_sewa, harga_sewa_bss, harga_sewa_evcs, unit_type, city, phone_number, status FROM lands WHERE id = ? FOR UPDATE', [landId]);
+    const [landRows] = await conn.execute('SELECT id, marketing_id, harga_sewa, harga_sewa_bss, harga_sewa_evcs, unit_type, slot_no, city, phone_number, status, survey_status FROM lands WHERE id = ? FOR UPDATE', [landId]);
     const land = landRows[0];
     if (!land) throw new Error('Lahan tidak ditemukan.');
     if (land.status === 'approved') throw new Error('Lahan sudah disetujui sebelumnya (fee tidak digandakan).');
+    if ((land.survey_status || 'belum') !== 'lolos') throw new Error('Tandai survei lolos dulu sebelum menyetujui.');
 
     // Otomatis: nominal sewa kontrak = Harga Sewa /tahun yang sudah diisi
     // (pengaju atau admin). Tanpa harga, persetujuan ditahan.
     // Fallback ke kolom per-tipe bila cermin lama (harga_sewa) masih kosong.
     const typedHarga = land.unit_type === 'evcs_mobil' ? land.harga_sewa_evcs : land.harga_sewa_bss;
-    const nominal = Number(land.harga_sewa) || Number(typedHarga) || 0;
-    if (!nominal) throw new Error('Harga Sewa /tahun belum diisi. Isi dulu, lalu setujui.');
+    const unitPrice = Number(land.harga_sewa) || Number(typedHarga) || 0;
+    if (!unitPrice) throw new Error('Harga Sewa /tahun belum diisi. Isi dulu, lalu setujui.');
+    // Qty unit = slot_no (grid slot form = jumlah unit). Total kontrak = harga × qty.
+    const qty = Math.min(10, Math.max(1, Number(land.slot_no) || 1));
+    const nominal = unitPrice * qty;
 
     // Validasi max unit per titik (1 HP = 1 pemilik): BSS max 3, EVCS max 10.
-    // Nilai kontrak acuan: BSS 3jt/unit, EVCS 6jt/unit (info, tidak diblokir).
+    // Hitung hanya unit yang sudah disetujui (approved), pending masih boleh.
     try {
       if (land.phone_number) {
         const [cntRows] = await conn.execute(
-          `SELECT unit_type, COUNT(*) c FROM lands WHERE phone_number = ? AND status != 'rejected' GROUP BY unit_type`,
+          `SELECT unit_type, COALESCE(SUM(COALESCE(slot_no, 1)), 0) c FROM lands WHERE phone_number = ? AND status = 'approved' GROUP BY unit_type`,
           [land.phone_number]
         );
         const counts = {};
         cntRows.forEach((r) => { counts[r.unit_type] = Number(r.c); });
         const bssCount = counts.bss_motor || 0;
         const evcsCount = counts.evcs_mobil || 0;
-        if (land.unit_type === 'bss_motor' && bssCount > 3) {
-          throw new Error(`Melebihi max 3 unit BSS per titik untuk HP ini (${bssCount} unit).`);
+        if (land.unit_type === 'bss_motor' && bssCount + qty > 3) {
+          throw new Error(`Melebihi max 3 unit BSS per titik untuk HP ini (${bssCount} approved + ${qty} diajukan).`);
         }
-        if (land.unit_type === 'evcs_mobil' && evcsCount > 10) {
-          throw new Error(`Melebihi max 10 unit EVCS per titik untuk HP ini (${evcsCount} unit).`);
+        if (land.unit_type === 'evcs_mobil' && evcsCount + qty > 10) {
+          throw new Error(`Melebihi max 10 unit EVCS per titik untuk HP ini (${evcsCount} approved + ${qty} diajukan).`);
         }
       }
     } catch (e) {
@@ -974,6 +1020,7 @@ exports.approveLand = async (req, res) => {
     if (dup.length) throw new Error('Fee lahan ini sudah tercatat (tolak dulu bila ingin koreksi).');
 
     const feeMod = require('../utils/feeRules');
+    const walletMod = require('../utils/wallet');
     const matrix = await feeMod.getFeeMatrix();
     const info = feeMod.getGrossFor(matrix, land.city, land.unit_type);
     const net = feeMod.splitNet(info.gross);
@@ -981,22 +1028,45 @@ exports.approveLand = async (req, res) => {
     let quotaAdded = false;
     let payouts = { rows: [], net, total: 0, topGross: 0 };
     let feeNote = '';
+    // Peringatan bila saldo dompet mitra gagal dicatat (tabel belum dimigrasi).
+    let walletWarn = '';
+    // Diisi dari resolveChain untuk teks konfirmasi (peran yang merangkap).
+    let chainHeadId = null;
+    let chainKoorId = null;
     if (land.marketing_id) {
       const getUserTx = async (id) => {
         const [rr] = await conn.execute('SELECT id, parent_id, is_head, is_coordinator FROM users WHERE id = ? LIMIT 1', [id]);
         return rr[0] || null;
       };
       const { headId, koorId } = await feeMod.resolveChain(land.marketing_id, getUserTx);
+      chainHeadId = headId;
+      chainKoorId = koorId;
       payouts = feeMod.buildPayouts({ marketingId: land.marketing_id, headId, koorId, gross: info.gross });
       // amount = BERSIH (yang diterima), gross_amount = kotor rantai (audit).
+      // Setiap baris fee langsung dikreditkan ke saldo dompet mitra dalam
+      // transaksi yang sama, supaya hak fee bisa ditarik di /marketing/penarikan.
       for (const p of payouts.rows) {
-        await conn.execute(
+        const [feeIns] = await conn.execute(
           'INSERT INTO fee_logs (marketing_id, fee_role, wilayah, unit_type, land_id, amount, gross_amount) VALUES (?,?,?,?,?,?,?)',
-          [p.userId, p.role, info.wilayah, land.unit_type, landId, p.net, p.gross]
+          [p.userId, p.role, info.wilayah, land.unit_type, landId, p.net * qty, p.gross * qty]
         );
+        try {
+          await walletMod.creditFee(conn, {
+            userId: p.userId,
+            amount: p.net * qty,
+            feeLogId: feeIns.insertId,
+            landId,
+            role: p.role,
+            actorId: req.session.user && req.session.user.id,
+          });
+        } catch (walletErr) {
+          console.error('Credit fee ke dompet gagal:', walletErr.message);
+          walletWarn = ' ⚠️ Saldo dompet mitra belum tercatat — jalankan "npm run upgrade-db" di server.';
+        }
       }
       if (!koorId) feeNote += ' Koordinator tidak ditemukan (rantai belum lengkap).';
-      if (!headId) feeNote += ' Head tidak ditemukan (rantai belum lengkap).';
+      // Pengaju koordinator = fee memang tidak dibagikan ke bawah (bukan rantai kurang).
+      if (!headId && koorId !== land.marketing_id) feeNote += ' Head tidak ditemukan (rantai belum lengkap).';
       if (info.isFallback) feeNote += ` Kota "${land.city || '-'}" tak dikenal → pakai tarif non-DKI.`;
 
       const [cnt] = await conn.execute(
@@ -1014,8 +1084,11 @@ exports.approveLand = async (req, res) => {
       }
     }
 
-    // lands.fee_amount = kotor tertinggi yang hadir (= keluar perusahaan bila rantai penuh).
-    await conn.execute('UPDATE lands SET status = ?, fee_amount = ?, harga_sewa = ? WHERE id = ?', ['approved', payouts.topGross || 0, nominal, landId]);
+    // Lahan tanpa referral: tidak ada rantai penerima -> fee Rp 0 (hanya ditandai).
+    if (!land.marketing_id) feeNote += ' Lahan TANPA referral → fee Rp 0 (tidak ada penerima).';
+
+    // lands.fee_amount = kotor tertinggi yang hadir × qty (= keluar perusahaan bila rantai penuh).
+    await conn.execute('UPDATE lands SET status = ?, fee_amount = ?, harga_sewa = ? WHERE id = ?', ['approved', (payouts.topGross || 0) * qty, nominal, landId]);
 
     await conn.commit();
 
@@ -1032,10 +1105,24 @@ exports.approveLand = async (req, res) => {
     }
 
     const fmt = (n) => Number(n || 0).toLocaleString('id-ID');
+    // Fee bersih yang tampil harus mengikuti aturan distribusi yang benar-benar
+    // dipakai (marketing/head/koor yang merangkap) — hitung dari baris payout.
+    const roleTotals = { marketing: 0, head: 0, koordinator: 0 };
+    (payouts.rows || []).forEach((r) => { roleTotals[r.role] += r.net * qty; });
+    const totalKeluar = Object.values(roleTotals).reduce((a, b) => a + b, 0);
+    // Jelas siapa yang merangkap porsi berbeda (head yang mengajukan sendiri
+    // memegang porsi marketing juga; koor yang mengajukan memegang semua).
+    let merangkapNote = '';
+    if (chainKoorId && chainKoorId === land.marketing_id) {
+      merangkapNote = ' Pengaju koordinator → fee tidak dibagikan ke bawah.';
+    } else if (chainHeadId && chainHeadId === land.marketing_id) {
+      const headTotal = roleTotals.head + roleTotals.marketing;
+      merangkapNote = ` Pengaju head → porsi marketing ikut dipegangnya (total head Rp ${Number(headTotal).toLocaleString('id-ID')}).`;
+    }
     flash(
       req,
       'success',
-      `Lahan #${landId} disetujui. Sewa Rp ${nominal.toLocaleString('id-ID')}/thn → kotor Rp ${fmt(payouts.topGross)} (bersih: koor Rp ${fmt(payouts.net.koordinator)}, head Rp ${fmt(payouts.net.head)}, marketing Rp ${fmt(payouts.net.marketing)}).${quotaAdded ? ' Marketing mendapat +1 kuota downline.' : ''}${feeNote}${spplNote}`
+      `Lahan #${landId} disetujui (${qty} unit). Sewa Rp ${nominal.toLocaleString('id-ID')}/thn → kotor Rp ${fmt(payouts.topGross * qty)} (bersih: koor Rp ${fmt(roleTotals.koordinator)}, head Rp ${fmt(roleTotals.head)}, marketing Rp ${fmt(roleTotals.marketing)}${roleTotals.koordinator + roleTotals.head + roleTotals.marketing !== payouts.topGross * qty ? ', total keluar Rp ' + fmt(totalKeluar) : ''}).${merangkapNote}${quotaAdded ? ' Marketing mendapat +1 kuota downline.' : ''}${feeNote}${walletWarn}${spplNote}`
     );
     const recipientIds = [...new Set(payouts.rows.map((r) => r.userId))];
     if (recipientIds.length) {
@@ -1043,7 +1130,11 @@ exports.approveLand = async (req, res) => {
         const { notify } = require('../utils/notify');
         const bodyByUser = {};
         payouts.rows.forEach((p) => {
-          bodyByUser[p.userId] = `Sewa Rp ${nominal.toLocaleString('id-ID')}/thn → fee bersih Anda Rp ${fmt(p.net)} (kotor Rp ${fmt(p.gross)}, peran ${p.role}).`;
+          // Satu user bisa memegang 2 baris (head pengaju) — gabungkan agar tak menimpa.
+          const line = `• Peran ${p.role} × ${qty} unit: bersih Rp ${fmt(p.net * qty)} (kotor Rp ${fmt(p.gross * qty)})`;
+          bodyByUser[p.userId] = bodyByUser[p.userId]
+            ? bodyByUser[p.userId] + '\n' + line
+            : `Sewa Rp ${nominal.toLocaleString('id-ID')}/thn (${qty} unit).\n` + line;
         });
         for (const uid of recipientIds) {
           notify({
@@ -1216,21 +1307,23 @@ exports.stageFlag = async (req, res) => {
     await query(`UPDATE lands SET ${field} = ? WHERE id IN (${ids.map(() => '?').join(',')})`, [value, ...ids]);
     const lbl = field === 'verify_status' ? 'Verifikasi' : 'Survei';
     const vLbl = value === 'lolos' ? '✓ lolos' : value === 'gagal' ? '✕ gagal' : 'direset ke belum';
-    // SPPL terbit otomatis tepat setelah verifikasi dinyatakan lolos (per unit).
+    // SPPL terbit otomatis tepat setelah verifikasi dinyatakan lolos (1 file per penyedia).
     let spplNote = '';
     if (field === 'verify_status' && value === 'lolos') {
-      let created = 0, failed = 0;
+      let created = 0, failed = 0, units = 0;
+      const seen = new Set();
       for (const landId of ids) {
         try {
           const r = await ensureSppl(landId);
           if (r.created) created += 1;
+          if (r.path && !seen.has(r.path)) { seen.add(r.path); units += (r.units || 1); }
         } catch (spplErr) {
           console.error('Generate SPPL on verify error:', spplErr);
           failed += 1;
         }
       }
       spplNote = created
-        ? ` SPPL otomatis diterbitkan (${created} unit).`
+        ? ` SPPL otomatis diterbitkan (${created} file untuk ${units} unit).`
         : (failed ? ' (SPPL otomatis gagal dibuat, gunakan tombol Terbitkan SPPL manual.)' : ' SPPL sudah ada sebelumnya.');
     }
     flash(req, 'success', `${lbl} lahan #${ids.join(', #')}: ${vLbl}.${spplNote}`);
@@ -1251,27 +1344,31 @@ exports.regenerateSppl = async (req, res) => {
       flash(req, 'error', 'Pengajuan tidak valid.');
       return backToLands(req, res);
     }
-    const land = await get('SELECT id, verify_status, sppl_file FROM lands WHERE id = ?', [landId]);
+    const land = await get('SELECT id, phone_number, verify_status, sppl_file FROM lands WHERE id = ?', [landId]);
     if (!land) {
       flash(req, 'error', 'Lahan tidak ditemukan.');
-      return backToLands(req, res);
+      return res.redirect('/admin/lands');
     }
     if ((land.verify_status || 'belum') !== 'lolos') {
       flash(req, 'error', `SPPL hanya bisa diterbitkan setelah verifikasi lolos (status verifikasi: ${land.verify_status || 'belum'}).`);
-      return backToLands(req, res);
+      return res.redirect('/admin/lands');
     }
     const fs = require('fs');
     const path = require('path');
-    // Hapus file lama agar tidak yatim, lalu buat baru.
-    if (land.sppl_file) {
+    const sibs = land.phone_number
+      ? await query('SELECT id, sppl_file FROM lands WHERE phone_number = ? ORDER BY id ASC', [land.phone_number])
+      : [{ id: land.id, sppl_file: land.sppl_file }];
+    // Hapus SEMUA file lama milik penyedia ini sekali jalan agar tidak yatim, lalu buat 1 baru.
+    const olds = [...new Set(sibs.map((s) => s.sppl_file).filter(Boolean))];
+    olds.forEach((p) => {
       try {
-        const abs = path.join(__dirname, '..', 'public', String(land.sppl_file).replace(/^\//, ''));
-        fs.unlink(abs, () => {});
+        fs.unlink(path.join(__dirname, '..', 'public', String(p).replace(/^\//, '')), () => {});
       } catch (e) {}
-      await query('UPDATE lands SET sppl_file = NULL WHERE id = ?', [landId]);
-    }
+    });
+    const sibIds = sibs.map((s) => s.id);
+    await query(`UPDATE lands SET sppl_file = NULL WHERE id IN (${sibIds.map(() => '?').join(',')})`, sibIds);
     const r = await ensureSppl(landId);
-    flash(req, 'success', `SPPL lahan #${landId} diterbitkan: ${r.path}`);
+    flash(req, 'success', `SPPL penyedia diterbitkan 1 file untuk ${sibIds.length} unit: ${r.path}`);
     backToLands(req, res);
   } catch (err) {
     console.error('Regenerate SPPL error:', err);
@@ -1285,7 +1382,21 @@ exports.rejectLand = async (req, res) => {
     const landId = Number(req.body.land_id);
     const land = await get('SELECT id, marketing_id, owner_name FROM lands WHERE id = ?', [landId]);
     await query('UPDATE lands SET status = ?, fee_amount = 0 WHERE id = ?', ['rejected', landId]);
-    // Persetujuan gugur -> fee yang pernah tercatat ikut batal (anti fee yatim)
+    // Persetujuan gugur -> fee yang pernah tercatat ikut batal (anti fee yatim).
+    // Saldo dompet mitra dikoreksi DULU (mutasi reversal tercatat), baru baris fee dihapus.
+    let revNote = '';
+    try {
+      const walletMod = require('../utils/wallet');
+      const rev = await walletMod.reverseFeesForLand(null, {
+        landId,
+        note: `Pembatalan fee lahan #${landId} (lahan ditolak)`,
+        actorId: req.session.user && req.session.user.id,
+      });
+      if (rev.count) revNote = ` Saldo mitra dikoreksi Rp ${Number(rev.total).toLocaleString('id-ID')}.`;
+    } catch (e) {
+      console.error('Reversal saldo saat tolak lahan gagal:', e.message);
+      revNote = ' ⚠️ Koreksi saldo mitra dilewati (tabel dompet belum siap).';
+    }
     await query('DELETE FROM fee_logs WHERE land_id = ?', [landId]);
     if (land && land.marketing_id) {
       try {
@@ -1298,7 +1409,7 @@ exports.rejectLand = async (req, res) => {
         }).catch(() => {});
       } catch (e) {}
     }
-    flash(req, 'success', `Lahan #${landId} ditolak. Fee terkait (bila ada) dibatalkan.`);
+    flash(req, 'success', `Lahan #${landId} ditolak. Fee terkait (bila ada) dibatalkan.${revNote}`);
     backToLands(req, res);
   } catch (err) {
     console.error('Reject land error:', err);
@@ -1397,5 +1508,240 @@ exports.sendNotif = async (req, res) => {
     console.error('Send notif error:', err);
     flash(req, 'error', 'Gagal mengirim notifikasi.');
     res.redirect('/admin/notifikasi');
+  }
+};
+
+// ---- Manajemen User (akun admin): daftar + tambah + kunci + hapus ----
+// Role 'admin' setara superadmin untuk seluruh halaman /admin.
+// Akun superadmin dilindungi: tak bisa dikunci/dihapus lewat sini,
+// dan tak bisa mengunci/menghapus akun sendiri.
+exports.usersPage = async (req, res) => {
+  try {
+    const users = await query(
+      `SELECT id, name, email, whatsapp, role, is_locked, created_at
+       FROM users WHERE role IN ('superadmin','admin') ORDER BY id ASC`
+    );
+    res.render('admin/users', {
+      title: 'Manajemen User - JAP',
+      users,
+      meId: Number(req.session.user.id),
+      DEFAULT_PASSWORD,
+    });
+  } catch (err) {
+    console.error('Admin users page error:', err);
+    res.status(500).send('Terjadi kesalahan server.');
+  }
+};
+
+exports.createUser = async (req, res) => {
+  try {
+    const name = String(req.body.name || '').trim();
+    const email = String(req.body.email || '').trim().toLowerCase();
+    let whatsapp = String(req.body.whatsapp || '').replace(/\D/g, '');
+    if (whatsapp.startsWith('0')) whatsapp = '62' + whatsapp.slice(1);
+    else if (whatsapp && !whatsapp.startsWith('62')) whatsapp = '62' + whatsapp;
+
+    if (!name || !email) {
+      flash(req, 'error', 'Nama dan email wajib diisi.');
+      return res.redirect('/admin/users');
+    }
+    const exist = await get('SELECT id FROM users WHERE email = ?', [email]);
+    if (exist) {
+      flash(req, 'error', `Email ${email} sudah terdaftar.`);
+      return res.redirect('/admin/users');
+    }
+    if (whatsapp) {
+      const dupWa = await get('SELECT id FROM users WHERE whatsapp = ?', [whatsapp]);
+      if (dupWa) {
+        flash(req, 'error', 'No. WhatsApp sudah dipakai akun lain (tidak bisa double).');
+        return res.redirect('/admin/users');
+      }
+    }
+    const customPass = String(req.body.password || '');
+    if (customPass && customPass.length < 6) {
+      flash(req, 'error', 'Password minimal 6 karakter.');
+      return res.redirect('/admin/users');
+    }
+    const plainPass = customPass || DEFAULT_PASSWORD;
+    const hash = await bcrypt.hash(plainPass, 10);
+
+    await query(
+      'INSERT INTO users (name, email, whatsapp, password, role) VALUES (?,?,?,?,?)',
+      [name, email, whatsapp || null, hash, 'admin']
+    );
+    flash(req, 'success', `User admin "${name}" berhasil dibuat. Password: ${plainPass}`);
+    res.redirect('/admin/users');
+  } catch (err) {
+    console.error('Create user error:', err);
+    flash(req, 'error', err.code === 'ER_DUP_ENTRY'
+      ? 'Gagal: Email / No. WA sudah dipakai akun lain.'
+      : 'Gagal membuat user admin.');
+    res.redirect('/admin/users');
+  }
+};
+
+exports.toggleUserLock = async (req, res) => {
+  try {
+    const id = Number(req.body.id);
+    const locked = String(req.body.locked) === '1' ? 1 : 0;
+    if (!id) {
+      flash(req, 'error', 'Akun tidak valid.');
+      return res.redirect('/admin/users');
+    }
+    if (req.session.user && Number(req.session.user.id) === id) {
+      flash(req, 'error', 'Tidak bisa mengunci akun sendiri.');
+      return res.redirect('/admin/users');
+    }
+    const target = await get('SELECT id, name, role FROM users WHERE id = ?', [id]);
+    if (!target || (target.role !== 'admin' && target.role !== 'superadmin')) {
+      flash(req, 'error', 'Akun tidak ditemukan.');
+      return res.redirect('/admin/users');
+    }
+    if (target.role === 'superadmin') {
+      flash(req, 'error', 'Akun superadmin dilindungi dan tidak bisa dikunci.');
+      return res.redirect('/admin/users');
+    }
+    await query('UPDATE users SET is_locked = ? WHERE id = ?', [locked, id]);
+    flash(req, 'success', locked
+      ? `Akun "${target.name}" dikunci. Ia tak bisa login dan sesi aktifnya ditendang.`
+      : `Akun "${target.name}" dibuka kembali. Ia bisa login seperti biasa.`);
+    res.redirect('/admin/users');
+  } catch (err) {
+    console.error('Toggle user lock error:', err);
+    flash(req, 'error', 'Gagal mengubah status kunci akun.');
+    res.redirect('/admin/users');
+  }
+};
+
+exports.deleteUser = async (req, res) => {
+  try {
+    const id = Number(req.body.id);
+    const target = await get('SELECT id, name, role FROM users WHERE id = ?', [id]);
+    if (!target || (target.role !== 'admin' && target.role !== 'superadmin')) {
+      flash(req, 'error', 'Akun tidak ditemukan.');
+      return res.redirect('/admin/users');
+    }
+    if (target.role === 'superadmin') {
+      flash(req, 'error', 'Akun superadmin dilindungi dan tidak bisa dihapus.');
+      return res.redirect('/admin/users');
+    }
+    if (req.session.user && Number(req.session.user.id) === id) {
+      flash(req, 'error', 'Tidak bisa menghapus akun sendiri.');
+      return res.redirect('/admin/users');
+    }
+    // Jejak audit (pemroses pembayaran / pembuat mutasi) harus utuh:
+    // akun yang tercatat di sana tidak boleh dihapus.
+    try {
+      const ref = await get(
+        'SELECT ((SELECT COUNT(*) FROM withdrawals WHERE processed_by = ?) + (SELECT COUNT(*) FROM wallet_ledger WHERE actor_id = ?)) AS n',
+        [id, id]
+      );
+      if (ref && Number(ref.n) > 0) {
+        flash(req, 'error', 'Akun ini tercatat sebagai pemroses pembayaran — tidak bisa dihapus (kunci saja bila perlu).');
+        return res.redirect('/admin/users');
+      }
+    } catch (e) {
+      console.error('Cek audit saat hapus user dilewati:', e.message);
+    }
+    await query('DELETE FROM users WHERE id = ?', [id]);
+    flash(req, 'success', `User admin "${target.name}" dihapus.`);
+    res.redirect('/admin/users');
+  } catch (err) {
+    console.error('Delete user error:', err);
+    flash(req, 'error', 'Gagal menghapus user admin.');
+    res.redirect('/admin/users');
+  }
+};
+
+// ---- Profil & password akun admin yang login ----
+exports.showProfile = async (req, res) => {
+  try {
+    const me = await get(
+      'SELECT id, name, email, whatsapp, role, created_at FROM users WHERE id = ?',
+      [req.session.user.id]
+    );
+    if (!me) return res.redirect('/login');
+    res.render('admin/profil', { title: 'Profil Saya - JAP', me });
+  } catch (err) {
+    console.error('Admin profile page error:', err);
+    res.status(500).send('Terjadi kesalahan server.');
+  }
+};
+
+exports.updateProfile = async (req, res) => {
+  try {
+    const userId = Number(req.session.user.id);
+    const name = String(req.body.name || '').trim();
+    let whatsapp = String(req.body.whatsapp || '').replace(/\D/g, '');
+    if (whatsapp.startsWith('0')) whatsapp = '62' + whatsapp.slice(1);
+    else if (whatsapp && !whatsapp.startsWith('62')) whatsapp = '62' + whatsapp;
+    if (!name) {
+      flash(req, 'error', 'Nama wajib diisi.');
+      return res.redirect('/admin/profil');
+    }
+    if (whatsapp) {
+      const dupWa = await get('SELECT id FROM users WHERE whatsapp = ? AND id != ?', [whatsapp, userId]);
+      if (dupWa) {
+        flash(req, 'error', 'No. WhatsApp sudah dipakai akun lain (tidak bisa double).');
+        return res.redirect('/admin/profil');
+      }
+    }
+    await query('UPDATE users SET name = ?, whatsapp = ? WHERE id = ?', [name, whatsapp || null, userId]);
+    req.session.user.name = name;
+    flash(req, 'success', 'Profil berhasil disimpan.');
+    res.redirect('/admin/profil');
+  } catch (err) {
+    console.error('Admin profile update error:', err);
+    flash(req, 'error', err.code === 'ER_DUP_ENTRY'
+      ? 'Gagal: No. WA sudah dipakai akun lain.'
+      : 'Gagal menyimpan profil.');
+    res.redirect('/admin/profil');
+  }
+};
+
+exports.showPassword = async (req, res) => {
+  try {
+    const me = await get('SELECT id, name FROM users WHERE id = ?', [req.session.user.id]);
+    if (!me) return res.redirect('/login');
+    res.render('admin/password', { title: 'Ganti Password - JAP', me });
+  } catch (err) {
+    console.error('Admin password page error:', err);
+    res.status(500).send('Terjadi kesalahan server.');
+  }
+};
+
+exports.updatePassword = async (req, res) => {
+  try {
+    const userId = Number(req.session.user.id);
+    const oldPass = String(req.body.old_password || '');
+    const newPass = String(req.body.new_password || '');
+    const confirmPass = String(req.body.confirm_password || '');
+
+    if (!oldPass || !newPass || !confirmPass) {
+      flash(req, 'error', 'Semua kolom wajib diisi.');
+      return res.redirect('/admin/password');
+    }
+    if (newPass.length < 6) {
+      flash(req, 'error', 'Password baru minimal 6 karakter.');
+      return res.redirect('/admin/password');
+    }
+    if (newPass !== confirmPass) {
+      flash(req, 'error', 'Konfirmasi password tidak sama.');
+      return res.redirect('/admin/password');
+    }
+
+    const user = await get('SELECT password FROM users WHERE id = ?', [userId]);
+    if (!user || !(await bcrypt.compare(oldPass, user.password))) {
+      flash(req, 'error', 'Password lama salah.');
+      return res.redirect('/admin/password');
+    }
+
+    await query('UPDATE users SET password = ? WHERE id = ?', [await bcrypt.hash(newPass, 10), userId]);
+    flash(req, 'success', 'Password berhasil diganti.');
+    res.redirect('/admin/password');
+  } catch (err) {
+    console.error('Admin password update error:', err);
+    flash(req, 'error', 'Gagal mengganti password.');
+    res.redirect('/admin/password');
   }
 };

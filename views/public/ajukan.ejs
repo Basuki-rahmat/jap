@@ -1,6 +1,6 @@
 <%- include('../partials/head', { title: 'Ajukan Lahan - BSS', withMap: true }) %>
 <%- include('../partials/navbar') %>
-<link rel="stylesheet" href="/css/photo-picker.css" />
+<link rel="stylesheet" href="/css/photo-picker.min.css" />
 
 <style>
   .wizard { max-width: 560px; margin: 0 auto 18px; }
@@ -57,6 +57,7 @@
   .link-tutor { display: inline-flex; align-items: center; gap: 6px; background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 5px 10px; border-radius: 8px; text-decoration: none; }
   /* Pilihan kartu radio: jenis unit BSS | EVCS + slot (BSS 1-3, EVCS 1-4 + manual 1-10) */
   .unit-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .slot-contract-hint { font-size: .72rem; color: var(--muted, #888); margin-top: 4px; }
   .unit-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px 8px; border: 2px solid var(--card-border); border-radius: 14px; cursor: pointer; text-align: center; transition: border-color .15s ease, background .15s ease, transform .1s ease; }
   .unit-card:active { transform: scale(.98); }
   .unit-card input { position: absolute; opacity: 0; pointer-events: none; }
@@ -112,7 +113,7 @@
       <div class="outbox" id="outboxBar" hidden></div>
 
       <div class="ajukan-banner">
-        <img src="/img/jabodetabek-map.jpg" alt="Sewa Lahan BSS x V-Green Jabodetabek" loading="lazy" decoding="async" />
+        <img src="/img/jabodetabek-map.jpg" alt="Sewa Lahan BSS x V-Green Jabodetabek" width="630" height="958" loading="lazy" decoding="async" />
       </div>
 
       <form class="form-card" id="ajukanForm" action="/submit-lahan" method="POST" enctype="multipart/form-data" novalidate>
@@ -221,17 +222,19 @@
                 <span class="unit-desc">Mobil • est. 3m × 6m</span>
               </label>
             </div>
-            <p class="form-hint">Boleh pilih <strong>salah satu atau keduanya</strong> sekaligus — tiap jenis unit dibuatkan pengajuan + slot sendiri. Punya 2+ titik? Kirim satu per satu — pilih slot di bawah, lalu klik <strong>＋ Ajukan Unit Lain</strong> di halaman sukses — data pemilik terisi otomatis.</p>
+            <p class="form-hint">Boleh pilih <strong>salah satu atau keduanya</strong> sekaligus — angka slot = <strong>jumlah unit</strong> (maks 1 baris BSS + 1 baris EVCS per No HP). Pengajuan ulang No HP yang sama akan <strong>memperbarui</strong> data. Punya 2+ titik? Kirim satu per satu — pilih slot di bawah, lalu klik <strong>＋ Ajukan Unit Lain</strong> di halaman sukses — data pemilik terisi otomatis.</p>
           </div>
           <div class="form-group">
             <label>Slot Unit</label>
             <div class="slot-cols">
               <div class="slot-col" id="slotColBss">
                 <div class="slot-col-head">BSS 1–3</div>
+                <div class="slot-contract-hint">Nilai kontrak: 3.000.000/unit (maks 3 unit)</div>
                 <div class="slot-grid" id="slotGridBss"></div>
               </div>
               <div class="slot-col" id="slotColEvcs">
                 <div class="slot-col-head">EVCS 1–4</div>
+                <div class="slot-contract-hint">Nilai kontrak: 6.000.000/unit (maks 10 unit)</div>
                 <div class="slot-grid" id="slotGridEvcs"></div>
                 <input class="form-control" type="text" id="slot_evcs_manual" name="slot_evcs_manual" maxlength="2" inputmode="numeric" placeholder="Atau isi manual 5–10" style="margin-top:6px;" />
               </div>
@@ -1353,13 +1356,13 @@
   })();
 
 </script>
-<script src="/js/photo-picker.js"></script>
-<script src="/js/offline-queue.js"></script>
+<script src="/js/photo-picker.js" defer></script>
+<script src="/js/offline-queue.js" defer></script>
 
 <% if (typeof withMap !== 'undefined' && withMap) { %>
-<script src="/vendor/leaflet/leaflet.js"></script>
-<script src="/vendor/leaflet/Control.FullScreen.js"></script>
-<script src="/js/location-map.js"></script>
+<script src="/vendor/leaflet/leaflet.js" defer></script>
+<script src="/vendor/leaflet/Control.FullScreen.js" defer></script>
+<script src="/js/location-map.js" defer></script>
 <% } %>
 
 <%- include('../partials/foot') %>

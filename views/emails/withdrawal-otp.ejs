@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kode OTP Penarikan Dana — <%= brandName %></title>
+</head>
+<body style="margin:0;padding:0;background-color:#eef3f7;font-family:'Segoe UI',Arial,Helvetica,sans-serif;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Kode OTP penarikan dana <%= brandName %>: <%= otpCode %></div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#eef3f7;padding:24px 12px;">
+<tr><td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 6px 24px rgba(11,95,165,.14);">
+<tr><td style="background:linear-gradient(135deg,#0b5fa5 0%,#0e7a5f 55%,#16a34a 100%);padding:26px 32px;text-align:center;">
+<% if (logoUrl) { %><img src="<%= logoUrl %>" alt="<%= brandName %>" style="max-height:56px;max-width:220px;margin-bottom:10px;" /><br /><% } %>
+<div style="font-size:34px;line-height:1;">🔐</div>
+<div style="color:#ffffff;font-size:19px;font-weight:800;letter-spacing:.3px;margin-top:6px;">Kode OTP Penarikan Dana</div>
+<div style="color:rgba(255,255,255,.85);font-size:13px;margin-top:4px;"><%= brandName %> — Verifikasi Penarikan</div>
+</td></tr>
+<tr><td style="padding:30px 32px 8px;">
+<p style="margin:0 0 16px;font-size:14px;line-height:1.7;color:#3d5469;">Halo <strong><%= userName %></strong>, masukkan kode berikut untuk melanjutkan penarikan <strong><%= otpAmount %></strong>. Kode berlaku <strong><%= ttlMinutes %> menit</strong> dan hanya untuk pengajuan ini.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;background:#f4f8fd;border:1px dashed #0b5fa5;border-radius:12px;">
+<tr><td align="center" style="padding:20px;font-size:38px;font-weight:800;letter-spacing:12px;color:#0b4385;"><%= otpCode %></td></tr>
+</table>
+<p style="margin:0 0 16px;font-size:13px;line-height:1.7;color:#b57f14;"><strong>Jangan berikan kode ini ke siapa pun</strong>, termasuk pihak yang mengaku admin. Admin tidak pernah meminta kode OTP.</p>
+</td></tr>
+<tr><td style="padding:18px 32px 26px;border-top:1px solid #e6edf3;text-align:center;">
+<p style="margin:0;font-size:12px;line-height:1.8;color:#8aa0b4;"><strong><%= brandFull %></strong><br />Email otomatis — mohon tidak membalas langsung.<br /><a href="<%= appUrl %>" style="color:#0b5fa5;"><%= appUrl %></a></p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>

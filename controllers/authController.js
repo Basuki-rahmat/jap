@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const { get } = require('../models/db');
 
 function redirectDashboard(res, role) {
-  return res.redirect(role === 'superadmin' ? '/admin' : '/marketing');
+  return res.redirect(role === 'superadmin' || role === 'admin' ? '/admin' : '/marketing');
 }
 
 // Judul tab login mengikuti Pengaturan (nama usaha singkat -> perusahaan).
@@ -77,6 +77,11 @@ exports.login = async (req, res) => {
       is_head: Number(user.is_head || 0),
       is_coordinator: Number(user.is_coordinator || 0),
     };
+
+    // Peringatan email bila login dari perangkat baru (fire-and-forget, tak menahan login).
+    try {
+      require('../utils/loginAlert').checkNewDeviceAndAlert(req, user).catch(() => {});
+    } catch (e) {}
 
     redirectDashboard(res, user.role);
   } catch (err) {

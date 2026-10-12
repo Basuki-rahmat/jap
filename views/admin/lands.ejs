@@ -21,7 +21,11 @@
   .land-search input { width: 100%; padding: 9px 14px; border-radius: 999px; border: 1px solid var(--card-border); background: var(--card); color: var(--text); font-size: .85rem; }
   .land-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
   .land-card { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 10px; }
-  .land-top { display: flex; align-items: flex-start; gap: 10px; }
+  .land-top { display: flex; flex-direction: column; gap: 8px; }
+  .land-title-row { display: flex; align-items: flex-start; gap: 10px; }
+  .land-title-main { min-width: 0; flex: 1; }
+  .land-unit-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 5px; }
+  .land-unit-row { display: flex; align-items: center; gap: 7px; background: var(--bg-soft); border: 1px solid var(--card-border); border-radius: 10px; padding: 5px 9px; min-width: 0; }
   .land-id { font-size: .75rem; font-weight: 800; color: var(--primary); background: var(--primary-soft, rgba(0,0,0,.05)); border-radius: 8px; padding: 3px 9px; white-space: nowrap; }
   .land-name { font-size: 1rem; font-weight: 800; margin: 0; }
   .land-meta { font-size: .76rem; color: var(--muted, #888); margin-top: 2px; }
@@ -486,25 +490,28 @@
         <% } else { %>
           <% groups.forEach(function (g) { %>
             <% var l = g.units[0]; %>
+            <% var qtyOf = function (u) { return Math.min(10, Math.max(1, Number(u.slot_no) || 1)); }; %>
             <% var gSearch = g.units.map(function (u) { return ((u.owner_name || '') + ' ' + (u.address || '') + ' ' + (u.location_address || '') + ' ' + (u.phone_number || '') + ' ' + (u.nik || '') + ' ' + (u.ttl || '') + ' ' + (u.surat || '') + ' ' + (u.shop_name || '') + ' ' + (u.city || '') + ' ' + (u.district || '') + ' ' + (u.bank_name || '') + ' ' + (u.account_number || '') + ' ' + (u.marketing_name || '') + ' ' + (u.referral_code || '')); }).join(' ').toLowerCase().replace(/"/g, ''); %>
             <article class="land-card" data-search="<%= gSearch %>">
               <div class="land-top">
-                <% g.units.forEach(function (u) { %><span class="land-id">#<%= u.id %></span><% }) %>
-                <div>
-                  <h3 class="land-name"><%= l.owner_name %></h3>
-                  <div class="land-meta">
-                    <%= l.created_at ? new Date(l.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '' %>
-                    · Marketing: <strong><%= l.marketing_name || '-' %></strong><%= l.referral_code ? ' (' + l.referral_code + ')' : '' %>
+                <div class="land-title-row">
+                  <div class="land-title-main">
+                    <h3 class="land-name"><%= l.owner_name %></h3>
+                    <div class="land-meta">
+                      <%= l.created_at ? new Date(l.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '' %>
+                      · Marketing: <strong><%= l.marketing_name || '-' %></strong><%= l.referral_code ? ' (' + l.referral_code + ')' : '' %>
+                    </div>
                   </div>
-                  <div class="head-badges">
-                    <% g.units.forEach(function (u) { %>
-                      <% var osu = (typeof ownerSeq !== 'undefined' && ownerSeq[u.id]) || null; %>
-                      <span class="badge <%= u.unit_type === 'evcs_mobil' ? 'badge-evcs' : 'badge-bss' %>"><%= u.unit_type === 'evcs_mobil' ? '🔌 EVCS' : '🔋 BSS' %><%= osu ? ' ' + osu.typeCode + '-' + osu.typeSeq + '/' + osu.typeTotal : '' %></span>
-                    <% }) %>
-                  </div>
+                  <% var gQtyTot = 0; g.units.forEach(function (u) { gQtyTot += Math.min(10, Math.max(1, Number(u.slot_no) || 1)); }); %><% if (gQtyTot > 1) { %><span class="mini" title="1 pengajuan: sama No HP, tanggal & titik lokasi"><%= gQtyTot %> unit</span><% } %>
                 </div>
-                <span class="spacer"></span>
-                <% if (g.units.length > 1) { %><span class="mini" title="1 pengajuan: sama No HP, tanggal & titik lokasi"><%= g.units.length %> unit</span><% } %>
+                <div class="land-unit-rows">
+                  <% g.units.forEach(function (u) { %>
+                    <div class="land-unit-row">
+                      <span class="land-id">#<%= u.id %></span>
+                      <span class="badge <%= u.unit_type === 'evcs_mobil' ? 'badge-evcs' : 'badge-bss' %>"><%= u.unit_type === 'evcs_mobil' ? '🔌 EVCS' : '🔋 BSS' %> ×<%= qtyOf(u) %></span>
+                    </div>
+                  <% }) %>
+                </div>
               </div>
 
               <div class="land-info">
@@ -566,17 +573,22 @@
                   <div class="info-tx">
                     <span class="k">Harga Sewa /tahun</span>
                     <%
-                      var bssU = null, evcsU = null;
+                      // Akumulasi SEMUA unit × qty (slot_no = jumlah unit).
+                      var bssVal = 0, evcsVal = 0, bssN = 0, evcsN = 0;
                       g.units.forEach(function (u) {
-                        if (u.unit_type === 'evcs_mobil') { if (!evcsU) evcsU = u; }
-                        else if (!bssU) bssU = u;
+                        var _q = qtyOf(u);
+                        var _v = u.unit_type === 'evcs_mobil'
+                          ? (u.harga_sewa_evcs != null ? u.harga_sewa_evcs : u.harga_sewa)
+                          : (u.harga_sewa_bss != null ? u.harga_sewa_bss : u.harga_sewa);
+                        if (u.unit_type === 'evcs_mobil') { evcsVal += (Number(_v) || 0) * _q; evcsN += _q; }
+                        else { bssVal += (Number(_v) || 0) * _q; bssN += _q; }
                       });
-                      var bssVal = bssU ? (bssU.harga_sewa_bss != null ? bssU.harga_sewa_bss : bssU.harga_sewa) : (l.harga_sewa_bss != null ? l.harga_sewa_bss : null);
-                      var evcsVal = evcsU ? (evcsU.harga_sewa_evcs != null ? evcsU.harga_sewa_evcs : evcsU.harga_sewa) : (l.harga_sewa_evcs != null ? l.harga_sewa_evcs : null);
-                      var totalVal = (Number(bssVal) || 0) + (Number(evcsVal) || 0);
+                      if (!bssN && l.harga_sewa_bss != null) bssVal = Number(l.harga_sewa_bss) || 0;
+                      if (!evcsN && l.harga_sewa_evcs != null) evcsVal = Number(l.harga_sewa_evcs) || 0;
+                      var totalVal = bssVal + evcsVal;
                     %>
-                    <span class="v">🔋 BSS: <%= bssVal ? 'Rp ' + Number(bssVal).toLocaleString('id-ID') + ' /thn' : '-' %></span>
-                    <span class="v">🔌 EVCS: <%= evcsVal ? 'Rp ' + Number(evcsVal).toLocaleString('id-ID') + ' /thn' : '-' %></span>
+                    <span class="v">🔋 BSS<%= bssN > 1 ? ' (' + bssN + ' unit)' : '' %>: <%= bssVal ? 'Rp ' + Number(bssVal).toLocaleString('id-ID') + ' /thn' : '-' %></span>
+                    <span class="v">🔌 EVCS<%= evcsN > 1 ? ' (' + evcsN + ' unit)' : '' %>: <%= evcsVal ? 'Rp ' + Number(evcsVal).toLocaleString('id-ID') + ' /thn' : '-' %></span>
                     <span class="v harga-val">Total: <%= totalVal ? 'Rp ' + totalVal.toLocaleString('id-ID') + ' /thn' : '(belum diisi)' %></span>
                   </div>
                 </div>
@@ -677,15 +689,22 @@
                 var waDigitsG = String(l.phone_number).replace(/\D/g, '');
                 function stageGroupMulti(fld, flbl, units, idsCsv) {
                   var h = '<span class="stage-flags"><span class="stage-top"><span class="stage-lbl">' + flbl + ':</span>';
-                  units.forEach(function (u) {
-                    var fv = u[fld] === 'sudah' ? 'lolos' : (u[fld] || 'belum');
-                    h += fv === 'lolos' ? '<span class="mini ok">✓ Lolos</span>' : (fv === 'gagal' ? '<span class="mini no">✕ Gagal</span>' : '<span class="mini">○ Belum</span>');
+                  var vals = units.map(function (u) { return u[fld] === 'sudah' ? 'lolos' : (u[fld] || 'belum'); });
+                  var cL = 0, cG = 0, cB = 0, qTot = 0;
+                  units.forEach(function (u, ix) {
+                    var q = Math.min(10, Math.max(1, Number(u.slot_no) || 1));
+                    qTot += q;
+                    var fv = vals[ix];
+                    if (fv === 'lolos') cL += q; else if (fv === 'gagal') cG += q; else cB += q;
                   });
+                  if (cL) h += '<span class="mini ok">✓ Lolos' + (cL > 1 ? ' (' + cL + ')' : '') + '</span>';
+                  if (cG) h += '<span class="mini no">✕ Gagal' + (cG > 1 ? ' (' + cG + ')' : '') + '</span>';
+                  if (cB) h += '<span class="mini">○ Belum' + (cB > 1 ? ' (' + cB + ')' : '') + '</span>';
                   h += '</span>';
                   if (idsCsv) {
-                    var allL = units.length && units.every(function (u) { return (u[fld] || 'belum') === 'lolos'; });
-                    var allG = units.length && units.every(function (u) { return (u[fld] || 'belum') === 'gagal'; });
-                    var anyB = units.some(function (u) { return (u[fld] || 'belum') !== 'belum'; });
+                    var allL = units.length && vals.every(function (fv) { return fv === 'lolos'; });
+                    var allG = units.length && vals.every(function (fv) { return fv === 'gagal'; });
+                    var anyB = vals.some(function (fv) { return fv !== 'belum'; });
                     h += '<span class="stage-actions">';
                     var btn = function (val, icon, title, conf) {
                       var cf = conf ? ' data-confirm="' + conf + '"' : '';
@@ -696,7 +715,7 @@
                         + '<button type="submit" class="btn btn-outline stage-btn" title="' + title + '">' + icon + '</button></form>';
                     };
                     if (!allL) btn('lolos', '✓', flbl + ' lolos (semua unit pending)');
-                    if (!allG) btn('gagal', '✕', flbl + ' gagal (semua unit pending)', 'Tandai ' + flbl + ' ' + units.length + ' unit (#' + idsCsv.split(',').join(', #') + ') GAGAL?');
+                    if (!allG) btn('gagal', '✕', flbl + ' gagal (semua unit pending)', 'Tandai ' + flbl + ' ' + qTot + ' unit (#' + idsCsv.split(',').join(', #') + ') GAGAL?');
                     if (anyB) btn('belum', '↺', 'Reset ke belum');
                     h += '</span>';
                   }
@@ -705,16 +724,19 @@
               %>
               <div class="land-foot">
                   <span class="wf-step"><span class="wf-num">1</span>
+                    <% var _waUnits = []; %>
                     <% g.units.forEach(function (u) { %>
                       <% var fValidU = !!(u.edit_token && u.edit_expires && new Date(u.edit_expires) > new Date()); %>
                       <% if (fValidU) { %>
                         <% var fUrlU = (typeof APP_URL !== 'undefined' ? APP_URL : '') + '/perbaiki/' + (u.edit_token || ''); %>
                         <% var fExpU = u.edit_expires ? new Date(u.edit_expires).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : ''; %>
                         <% var fMsgU = 'Yth. Bpk/Ibu ' + u.owner_name + ',\nPengajuan lahan BSS (ID #' + u.id + ') perlu perbaikan data.\nSilakan perbaiki & upload ulang via link ini (berlaku s/d ' + fExpU + '):\n' + fUrlU + '\n- Admin BSS'; %>
-                        <button type="button" class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;" data-copylink="<%= fUrlU %>" title="Salin link perbaikan #<%= u.id %>">📋 #<%= u.id %></button>
-                        <a class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;text-decoration:none;" href="https://wa.me/<%= waDigitsG %>?text=<%= encodeURIComponent(fMsgU) %>" target="_blank" rel="noopener" title="Kirim via WhatsApp">💬 #<%= u.id %></a>
+                        <% _waUnits.push(fMsgU); %>
                       <% } %>
                     <% }) %>
+                    <% if (_waUnits.length) { %>
+                      <a class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;text-decoration:none;" href="https://wa.me/<%= waDigitsG %>?text=<%= encodeURIComponent(_waUnits.join('\n\n')) %>" target="_blank" rel="noopener" title="Kirim semua link perbaikan via WhatsApp">💬 WA Perbaikan (<%= _waUnits.length %>)</a>
+                    <% } %>
                     <% if (missingFixIds) { %>
                       <form action="/admin/lands/request-fix" method="POST" class="inline-form" data-confirm="Buat link perbaikan untuk <%= missingFix.length %> unit (#<%= missingFixIds.split(',').join(', #') %>)? Berlaku 7 hari.">
                         <input type="hidden" name="land_ids" value="<%= missingFixIds %>" />
@@ -723,23 +745,24 @@
                     <% } %>
                   </span>
                   <span class="wf-step"><span class="wf-num">2</span><%- stageGroupMulti('verify_status', 'Verifikasi', pendingUnits.length ? pendingUnits : g.units, pendingUnits.length ? pendingIds : '') %>
-                    <% g.units.forEach(function (u) { %>
-                      <% if ((u.verify_status || 'belum') === 'lolos') { %><form action="/admin/lands/sppl" method="POST" class="inline-form sppl-form" data-confirm="Terbitkan ulang SPPL lahan #<%= u.id %>?"><input type="hidden" name="land_id" value="<%= u.id %>" /><button type="submit" class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;" title="Terbitkan ulang SPPL (setelah verifikasi lolos)">📄 SPPL #<%= u.id %></button></form><% } %>
-                    <% }) %>
+                    <% var _lolosU = g.units.filter(function (u) { return (u.verify_status || 'belum') === 'lolos'; }); %>
+                    <% if (_lolosU.length) { %><form action="/admin/lands/sppl" method="POST" class="inline-form sppl-form" data-confirm="Terbitkan ulang 1 SPPL penyedia ini (mencakup BSS dan EVCS)?"><input type="hidden" name="land_id" value="<%= _lolosU[0].id %>" /><button type="submit" class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;" title="Terbitkan ulang 1 SPPL mencakup BSS dan EVCS">📄 SPPL</button></form><% } %>
                   </span>
                   <span class="wf-step"><span class="wf-num">3</span><%- stageGroupMulti('survey_status', 'Survei', pendingUnits.length ? pendingUnits : g.units, pendingUnits.length ? pendingIds : '') %></span>
                   <span class="wf-step"><span class="wf-num">4</span>
-                    <% g.units.forEach(function (u) { %><a class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;text-decoration:none;" href="/admin/lands/<%= u.id %>/proposal" title="Unduh proposal PDF untuk vendor">🖨️ <%= u.unit_type === 'evcs_mobil' ? 'EVCS' : 'BSS' %></a><% }) %><a class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;text-decoration:none;" href="/admin/lands-owner-proposal?phone=<%= l.phone_number %>" title="Unduh 1 proposal gabungan semua unit penyedia ini (BSS 1-4 + EVCS 1-4)">Penyedia (<%= l.owner_units || g.units.length %>)</a>
-                    <% g.units.forEach(function (u) { %>
-                      <% if ((u.verify_status || 'belum') === 'lolos' && !u.sppl_file) { %><form action="/admin/lands/sppl" method="POST" class="inline-form"><input type="hidden" name="land_id" value="<%= u.id %>" /><button type="submit" class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;" title="SPPL belum ada — klik untuk terbitkan">📄 SPPL #<%= u.id %></button></form><% } %>
-                    <% }) %>
+                    <% var _spplHave = g.units.filter(function (u) { return !!u.sppl_file; }); %>
+                    <% if (_spplHave.length) { %><button type="button" class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;" data-pdf="<%= fileUrl(_spplHave[0].sppl_file) %>" data-title="SPPL - <%= l.owner_name %>" title="Lihat SPPL penyedia ini">📄 SPPL</button><% } %>
+                    <a class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;text-decoration:none;" href="/admin/lands-owner-proposal?phone=<%= l.phone_number %>" title="Unduh 1 proposal gabungan semua unit penyedia ini">🖨️ Proposal</a>
+                    <% var _spplMiss = g.units.filter(function (u) { return (u.verify_status || 'belum') === 'lolos' && !u.sppl_file; }); %>
+                    <% if (_spplMiss.length) { %><form action="/admin/lands/sppl" method="POST" class="inline-form"><input type="hidden" name="land_id" value="<%= _spplMiss[0].id %>" /><button type="submit" class="btn btn-outline" style="padding:7px 12px;font-size:.72rem;" title="SPPL belum ada — klik untuk terbitkan 1 file penyedia">📄 SPPL</button></form><% } %>
                   </span>
                   <span class="wf-step wf-step-decision"><span class="wf-num">5</span>
                   <div class="fee-wrap">
                     <% g.units.forEach(function (l) { %>
                     <%
                       var hargaShowU = (l.unit_type === 'evcs_mobil' ? (l.harga_sewa_evcs != null ? l.harga_sewa_evcs : l.harga_sewa) : (l.harga_sewa_bss != null ? l.harga_sewa_bss : l.harga_sewa));
-                      var sewaAuto = Number(hargaShowU) || 0;
+                      var qtyU = qtyOf(l);
+                      var sewaAuto = (Number(hargaShowU) || 0) * qtyU;
                       // Fee selalu dari matriks fee_rules (tipe x wilayah) — dihitung di bawah.
                       var ruleText = '';
                       var sewaTxt = sewaAuto ? sewaAuto.toLocaleString('id-ID') : '0';
@@ -747,10 +770,11 @@
                       var previewFee = '→ sewa Rp ' + sewaAuto.toLocaleString('id-ID') + '/thn';
                     %>
                     <div class="unit-decision">
-                      <span class="mini">#<%= l.id %> <%= l.unit_type === 'evcs_mobil' ? '🔌 EVCS' : '🔋 BSS' %><%= sewaAuto ? ' · Rp ' + sewaAuto.toLocaleString('id-ID') + '/thn' : '' %> · <%= l.status === 'approved' ? 'Disetujui' : l.status === 'rejected' ? 'Ditolak' : 'Pending' %></span>
+                      <span class="mini">#<%= l.id %> <%= l.unit_type === 'evcs_mobil' ? '🔌 EVCS' : '🔋 BSS' %> ×<%= qtyOf(l) %><%= sewaAuto ? ' · Rp ' + sewaAuto.toLocaleString('id-ID') + '/thn' : '' %> · <%= l.status === 'approved' ? 'Disetujui' : l.status === 'rejected' ? 'Ditolak' : 'Pending' %></span>
                       <% if (l.status === 'pending') { %>
                       <%
                         var feeInfo = null, feeNet = null, feeTop = 0, feeWilLbl = '', feeFallback = false;
+                        var noReferral = !l.marketing_id;
                         try {
                           var fm = typeof feeMatrix !== 'undefined' ? feeMatrix : null;
                           if (fm) {
@@ -760,25 +784,35 @@
                             var tkey = l.unit_type === 'evcs_mobil' ? 'evcs' : 'bss';
                             feeInfo = (fm[tkey] && fm[tkey][wkey]) || null;
                             if (feeInfo) {
-                              feeNet = { koor: Math.max(0, feeInfo.koordinator - feeInfo.head), head: Math.max(0, feeInfo.head - feeInfo.marketing), mkt: feeInfo.marketing };
-                              feeTop = feeInfo.koordinator;
-                              feeWilLbl = (tkey === 'evcs' ? 'EVCS ' : 'BSS ') + wkey.replace('dki_jakarta','DKI').replace(/^\w/, function(m){return m.toUpperCase()});
+                              feeNet = { koor: Math.max(0, feeInfo.koordinator - feeInfo.head) * qtyU, head: Math.max(0, feeInfo.head - feeInfo.marketing) * qtyU, mkt: feeInfo.marketing * qtyU };
+                              feeTop = feeInfo.koordinator * qtyU;
+                              feeWilLbl = (tkey === 'evcs' ? 'EVCS ' : 'BSS ') + wkey.replace('dki_jakarta','DKI').replace(/^\w/, function(m){return m.toUpperCase()}) + ' ×' + qtyU;
                             }
                           }
                         } catch (e) {}
-                        var chainTxt = feeInfo ? ('Koor ' + Number(feeInfo.koordinator).toLocaleString('id-ID') + ' → Head ' + Number(feeInfo.head).toLocaleString('id-ID') + ' → Mkt ' + Number(feeInfo.marketing).toLocaleString('id-ID')) : '';
+                        var chainTxt = feeInfo ? ('Koor ' + Number(feeInfo.koordinator * qtyU).toLocaleString('id-ID') + ' → Head ' + Number(feeInfo.head * qtyU).toLocaleString('id-ID') + ' → Mkt ' + Number(feeInfo.marketing * qtyU).toLocaleString('id-ID')) : '';
                         var netTxt = feeNet ? ('Bersih: ' + Number(feeNet.koor).toLocaleString('id-ID') + '/' + Number(feeNet.head).toLocaleString('id-ID') + '/' + Number(feeNet.mkt).toLocaleString('id-ID')) : '';
-                        confirmApprove = 'Setujui lahan #' + l.id + '? Sewa Rp ' + sewaTxt + '/thn, ' + (feeInfo ? (feeWilLbl + ' kotor Rp ' + Number(feeTop).toLocaleString('id-ID') + ' (' + netTxt + ')') : 'matriks fee belum termuat') + '.';
-                        previewFee = feeInfo ? ('→ ' + feeWilLbl + ': ' + chainTxt + ' (' + netTxt + ')') : ('→ sewa Rp ' + sewaAuto.toLocaleString('id-ID') + '/thn (matriks fee belum termuat)');
-                        ruleText = feeInfo ? (feeWilLbl + ' · ' + chainTxt + ' · ' + netTxt + (feeFallback ? ' · ⚠️ kota tak dikenal, pakai tarif non-DKI' : '')) : '⚠️ Matriks fee belum termuat — cek Pengaturan → tab Fee.';
+                        if (noReferral) {
+                          // Tanpa referral = tanpa rantai penerima -> fee Rp 0.
+                          confirmApprove = 'Setujui lahan #' + l.id + '? Sewa Rp ' + sewaTxt + '/thn, lahan TANPA referral → fee Rp 0.';
+                          previewFee = '→ sewa Rp ' + sewaAuto.toLocaleString('id-ID') + '/thn · fee Rp 0';
+                          ruleText = '⚠️ Lahan tanpa kode referral — tidak ada penerima fee (Rp 0).';
+                        } else {
+                          confirmApprove = 'Setujui lahan #' + l.id + '? Sewa Rp ' + sewaTxt + '/thn, ' + (feeInfo ? (feeWilLbl + ' kotor Rp ' + Number(feeTop).toLocaleString('id-ID') + ' (' + netTxt + ')') : 'matriks fee belum termuat') + '.';
+                          previewFee = feeInfo ? ('→ ' + feeWilLbl + ': ' + chainTxt + ' (' + netTxt + ')') : ('→ sewa Rp ' + sewaAuto.toLocaleString('id-ID') + '/thn (matriks fee belum termuat)');
+                          ruleText = feeInfo ? (feeWilLbl + ' · ' + chainTxt + ' · ' + netTxt + (feeFallback ? ' · ⚠️ kota tak dikenal, pakai tarif non-DKI' : '')) : '⚠️ Matriks fee belum termuat — cek Pengaturan → tab Fee.';
+                        }
                       %>
                       <div class="decision-btns">
                         <form action="/admin/lands/approve" method="POST" class="inline-form fee-form" data-confirm="<%= confirmApprove %>">
                           <input type="hidden" name="land_id" value="<%= l.id %>" />
-                          <% if (sewaAuto) { %>
+                          <% var surveyOk = (l.survey_status || 'belum') === 'lolos'; %>
+                          <% if (sewaAuto && surveyOk) { %>
                             <button type="submit" class="btn btn-primary approve-btn">Setujui</button>
-                          <% } else { %>
+                          <% } else if (!sewaAuto) { %>
                             <button type="button" class="btn btn-outline approve-btn" disabled title="Isi Harga Sewa /tahun dulu pada info lahan di atas">Isi harga dulu</button>
+                          <% } else { %>
+                            <button type="button" class="btn btn-outline approve-btn" disabled title="Tandai survei lolos dulu pada langkah 3">Ceklis survei dulu</button>
                           <% } %>
                         </form>
                         <form action="/admin/lands/reject" method="POST" class="inline-form" data-confirm="Tolak pengajuan #<%= l.id %>?">

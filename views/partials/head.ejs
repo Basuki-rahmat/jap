@@ -28,17 +28,24 @@
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:image" content="<%= ogUrl %>/img/og-cover.jpg" />
   <link rel="icon" type="image/png" href="/favicon.ico" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap"
-    rel="stylesheet"
-  />
-  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="ai-catalog" href="/.well-known/ai-catalog.json" />
+  <link rel="preload" as="font" type="font/woff2" href="/fonts/open-sans-latin.woff2" crossorigin />
+  <% if (typeof preloadImage !== 'undefined' && preloadImage) { %>
+  <link rel="preload" as="image" href="<%= preloadImage %>" fetchpriority="high" />
+  <% } %>
+  <%- include('critical') %>
+  <% if (typeof user === 'undefined' || !user) { %>
+  <link rel="preload" as="style" href="/css/style.min.css" />
+  <link rel="stylesheet" href="/css/style.min.css" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="/css/style.min.css" /></noscript>
+  <% } else { %>
+  <link rel="stylesheet" href="/css/style.min.css" />
+  <% } %>
   <% if (typeof withMap !== 'undefined' && withMap) { %>
     <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
     <link rel="stylesheet" href="/vendor/leaflet/Control.FullScreen.css" />
   <% } %>
-  <script src="/js/theme.js"></script>
+  <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('BSS-theme')||'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}</script>
+  <script src="/js/theme.js" defer></script>
 </head>
 <body>
